@@ -111,6 +111,7 @@ footer { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <div class="wrap">
   <header>
@@ -669,6 +670,216 @@ const PAINT = {
   },
 };
 
+/* ================= 3D animals (three.js) ================= */
+// Each species is a small toy-like model built from spheres, sticks and cones with two-tone toon shading.
+// One WebGL renderer draws the posed model of each agent into an offscreen canvas, which is then stamped
+// into the 2D island at the agent's spot, so trees and tiles still overlap animals in the right order.
+// The camera matches the island's 2:1 view: grid x → world +X, grid y → world +Z, 30° elevation.
+// Without WebGL or three.js the 2D PAINT drawings above are used instead.
+const A3 = (() => {
+  if (typeof THREE === 'undefined') return null;
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), alpha: true, antialias: true, preserveDrawingBuffer: true });
+  } catch (e) { return null; }
+  renderer.setPixelRatio(1); renderer.setClearColor(0x000000, 0);
+  const FW = 64, TOP = 46, BOT = -18, UNIT = 1.3; // frustum in island px; model units → px
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-FW / 2, FW / 2, TOP, BOT, 1, 2000);
+  camera.position.set(400, 400 * Math.SQRT2 * Math.tan(Math.PI / 6), 400); camera.lookAt(0, 0, 0);
+  scene.add(new THREE.HemisphereLight(0xf6f2ff, 0x5e6e64, .8));
+  const sun = new THREE.DirectionalLight(0xfff0d8, .7); sun.position.set(-60, 120, 90); scene.add(sun);
+  const WATER = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)];
+
+  const mats = {};
+  const M = (c, op) => mats[c + (op || '')] || (mats[c + (op || '')] = new THREE.MeshToonMaterial(op ? { color: c, transparent: true, opacity: op } : { color: c }));
+  const SPH = new THREE.SphereGeometry(1, 16, 12), CYL = new THREE.CylinderGeometry(1, 1, 1, 10), CONE = new THREE.ConeGeometry(1, 1, 10);
+  const UP = new THREE.Vector3(0, 1, 0);
+  const grp = (p, x, y, z) => { const g = new THREE.Group(); g.position.set(x || 0, y || 0, z || 0); if (p) p.add(g); return g; };
+  function blob(p, c, x, y, z, rx, ry, rz, op) { const m = new THREE.Mesh(SPH, M(c, op)); m.position.set(x, y, z); m.scale.set(rx, ry, rz); p.add(m); return m; }
+  function stick(p, c, x1, y1, z1, x2, y2, z2, r) {
+    const a = new THREE.Vector3(x1, y1, z1), b = new THREE.Vector3(x2, y2, z2), d = b.clone().sub(a), m = new THREE.Mesh(CYL, M(c));
+    m.position.copy(a).addScaledVector(d, .5); m.scale.set(r, d.length(), r); m.quaternion.setFromUnitVectors(UP, d.normalize()); p.add(m); return m;
+  }
+  function cone(p, c, x, y, z, r, h, rx, rz) { const m = new THREE.Mesh(CONE, M(c)); m.position.set(x, y, z); m.scale.set(r, h, r); m.rotation.set(rx || 0, 0, rz || 0); p.add(m); return m; }
+  const eyes = (p, x, y, z, r) => { blob(p, '#15110e', x, y, z, r, r, r); blob(p, '#15110e', x, y, -z, r, r, r); };
+  function legs4(p, c, fx, bx, y, z, len, r) { // pivots at the hip; rotation.z swings a leg forward/back
+    return [[fx, z], [fx, -z], [bx, z], [bx, -z]].map(([x, zz]) => { const g = grp(p, x, y, zz); stick(g, c, 0, 0, 0, 0, -len, 0, r); blob(g, c, .4, -len, 0, r * 1.3, r * .8, r * 1.1); return g; });
+  }
+  const swing = (L, s) => { L[0].rotation.z = s; L[3].rotation.z = s; L[1].rotation.z = -s; L[2].rotation.z = -s; };
+
+  const B = {};
+  B.rabbit = () => {
+    const g = grp(), body = grp(g);
+    blob(body, '#968676', -3.5, 5, 0, 5, 4.6, 4.8); blob(body, '#a8988a', 0, 6.2, 0, 7, 5, 4.4); blob(body, '#d8ccc0', 2, 4.6, 0, 4, 2.8, 3.4);
+    blob(body, '#f4f1ea', -8.4, 6.6, 0, 2.4, 2.4, 2.4);
+    const feet = [1, -1].map(s => blob(body, '#8a7a6c', -3, 1, s * 3.2, 3.4, 1.3, 1.6));
+    const head = grp(body, 6, 10.5, 0);
+    blob(head, '#b3a395', 0, 0, 0, 4, 3.6, 3.4); blob(head, '#efe6dc', 2.6, -1.3, 0, 1.8, 1.4, 2); blob(head, '#d08a90', 3.9, -.4, 0, .6, .5, .6); eyes(head, 2.2, .9, 2.2, .7);
+    const ears = [1, -1].map(s => { const e = grp(head, -.6, 2.8, s * 1.4); blob(e, '#b3a395', 0, 4.4, 0, 1.3, 4.6, .9); blob(e, '#e6b4b8', .5, 4.4, 0, .5, 3.4, .5); return e; });
+    return { g, pose(a) {
+      const air = a.z > .5, chew = a.mv ? 0 : Math.sin(a.t * 9) * .3;
+      body.rotation.z = air ? .3 : 0; head.position.y = 10.5 + chew * .4;
+      ears.forEach((e, i) => { e.rotation.z = air ? .55 : .15 + Math.sin(a.t * 1.3 + i) * .06; e.rotation.x = (i ? 1 : -1) * .12; });
+      feet.forEach(f => { f.position.x = air ? -6 : -3; });
+    } };
+  };
+  B.fox = () => {
+    const g = grp(), L = legs4(g, '#3e2414', 5, -5.5, 6.5, 2.2, 6.5, .9);
+    blob(g, '#d8742e', 0, 9, 0, 9.5, 4.8, 4.2); blob(g, '#f2e6d4', 4.5, 7.4, 0, 5, 2.8, 3);
+    const tail = grp(g, -8.5, 10, 0); blob(tail, '#d0682a', -6, 0, 0, 7, 3, 3); blob(tail, '#f6f0e6', -12.4, 0, 0, 2.6, 2.3, 2.3);
+    const head = grp(g, 10, 13, 0);
+    blob(head, '#e07e34', 0, 0, 0, 4.4, 3.9, 3.8); blob(head, '#f2e6d4', 3.6, -1.4, 0, 3, 1.7, 2); blob(head, '#1a1a1a', 6.4, -1, 0, .9, .8, .9); eyes(head, 2.4, 1, 2.1, .7);
+    [1, -1].forEach(s => cone(head, '#b85a24', .2, 4.6, s * 2, 1.7, 4, s * .25));
+    return { g, pose(a) {
+      const sw = Math.sin(a.ph) * .55 * a.mv; swing(L, sw);
+      tail.rotation.z = -(.3 + Math.sin(a.t * 1.6) * .12 - a.mv * .25); tail.rotation.y = Math.sin(a.t * 1.6) * .25;
+      head.position.y = 13 + Math.sin(a.ph * 2) * .6 * a.mv;
+    } };
+  };
+  B.roe = () => {
+    const g = grp(), L = legs4(g, '#4a2e1c', 6.5, -6.5, 11, 2.2, 11, .75);
+    blob(g, '#a8744a', 0, 13.5, 0, 10, 5.2, 4.2); blob(g, '#c49a72', 1, 11.4, 0, 7, 2.6, 3.2); blob(g, '#f4efe6', -9.6, 14, 0, 2.4, 3, 3);
+    const neck = grp(g, 7, 15.5, 0); stick(neck, '#a07048', 0, 0, 0, 4.5, 7.5, 0, 1.9);
+    const head = grp(neck, 5.2, 8.4, 0);
+    blob(head, '#b07c50', 1.4, 0, 0, 3.8, 2.6, 2.4); blob(head, '#1a1a1a', 5, -.4, 0, 1, .9, 1); eyes(head, 1.6, .9, 1.9, .65);
+    [1, -1].forEach(s => { blob(head, '#b07c50', -1.2, 2.2, s * 1.8, .9, 2, .6); stick(head, '#5a4028', .2, 2, s * .9, -.4, 7.5, s * 1.4, .45); stick(head, '#5a4028', -.2, 5, s * 1.1, 1.6, 6.5, s * 1.3, .35); });
+    return { g, pose(a) {
+      swing(L, Math.sin(a.ph) * .5 * a.mv);
+      const gz = a.mv ? 0 : clamp(Math.sin(a.idle * .9) * 1.6, 0, 1); neck.rotation.z = -gz * 1.35;
+    } };
+  };
+  B.goral = () => {
+    const g = grp(), L = legs4(g, '#2a2622', 5, -5, 7.5, 2.4, 7.5, 1.1);
+    blob(g, '#857a6e', 0, 10, 0, 9, 5.6, 4.6); blob(g, '#a69a8c', 1, 8, 0, 6.6, 2.8, 3.6); blob(g, '#2a2622', -1, 14.6, 0, 7, 1.1, 1.2);
+    const head = grp(g, 9.6, 14, 0);
+    blob(head, '#8f8478', 0, 0, 0, 4, 3.6, 3.2); blob(head, '#f0ece4', 3, -1.6, 0, 2, 1.4, 1.8); eyes(head, 2, .8, 2, .65);
+    [1, -1].forEach(s => { stick(head, '#2a2622', -.4, 2.8, s * 1.2, -2.6, 7, s * 1.4, .55); blob(head, '#8f8478', -1.6, 1.6, s * 3, .8, 1.6, .5); });
+    return { g, pose(a) { swing(L, Math.sin(a.ph) * .45 * a.mv); head.rotation.y = Math.sin(a.t * .4) * .5; } };
+  };
+  B.squirrel = () => {
+    const g = grp(), body = grp(g);
+    blob(body, '#b8703f', 0, 6, 0, 4.4, 5.6, 4); blob(body, '#ecd6b4', 2.2, 5, 0, 2.4, 3.6, 2.8);
+    const tail = grp(body, -3.6, 4, 0); blob(tail, '#a8643a', -2.6, 6, 0, 4, 8, 3.4); blob(tail, '#c48250', -3.2, 12.5, 0, 3, 3.4, 2.8);
+    const head = grp(body, 2.4, 12.4, 0);
+    blob(head, '#c47a45', 0, 0, 0, 3.6, 3.2, 3.2); blob(head, '#ecd6b4', 2.6, -.9, 0, 1.4, 1.2, 1.6); eyes(head, 1.9, .7, 2, .6);
+    [1, -1].forEach(s => cone(head, '#c47a45', -.6, 3.4, s * 1.6, .9, 2.4, s * .2));
+    const nut = blob(body, '#7a5a30', 4.6, 7.6, 0, 1.5, 1.7, 1.5);
+    return { g, pose(a) {
+      const bb = a.mv ? Math.abs(Math.sin(a.ph * 1.5)) * 2.5 : 0, up = a.mv ? 0 : clamp(Math.sin(a.idle * 1.2) * 2, 0, 1);
+      body.position.y = bb + up * 2; body.rotation.z = a.mv ? -.5 : up * .15; tail.rotation.z = -.2 + Math.sin(a.t * 3) * .1; nut.visible = !a.mv;
+    } };
+  };
+  B.bird = c => () => { // c: back, belly, head, cheek, stripe, ring, cap
+    const g = grp(), body = grp(g);
+    blob(body, tone(c.back, -.15), -6, 5.6, 0, 4.4, 1.1, 2); blob(body, c.back, 0, 5, 0, 5.6, 4.2, 4); blob(body, c.belly, 1.4, 3.9, 0, 4.2, 2.8, 3.4);
+    if (c.stripe) blob(body, c.stripe, 4.6, 4, 0, 1, 3, 1);
+    const head = grp(body, 5, 8.6, 0);
+    blob(head, c.head, 0, 0, 0, 3.3, 3.1, 3.1);
+    [1, -1].forEach(s => { blob(head, c.cheek, .7, -.6, s * 2.2, 1.7, 1.3, .9); if (c.ring) blob(head, '#ffffff', 1.5, .7, s * 2.3, 1.1, 1.1, .7); });
+    if (c.cap) blob(head, c.cap, -1.8, 1.4, 0, 1.6, 1.4, 1.6);
+    eyes(head, 1.7, .7, 2.5, .65); cone(head, '#2a2a2a', 3.8, -.2, 0, .9, 2.8, 0, -Math.PI / 2);
+    const wings = [1, -1].map(s => { const w = grp(body, .4, 6.4, s * 3.4); blob(w, tone(c.back, -.22), -1.6, 0, s * .6, 4.6, 1, 2.4); return w; });
+    const feet = [1, -1].map(s => stick(body, '#6a5a4a', .5, 1.4, s * 1.2, 1, 0, s * 1.2, .35));
+    return { g, pose(a, cling) {
+      const fly = a.st === 'fly', peck = a.st === 'ground' && Math.sin(a.t * 5 + a.seed) > .7, k = cling && a.st === 'cling';
+      body.rotation.z = k ? 1.25 : peck ? -.5 : 0; body.position.x = k ? 3 : 0;
+      head.position.x = 5 + (k && Math.sin(a.t * 16) > .5 ? 1.2 : 0);
+      const f = fly ? Math.sin(a.ph) * 1.1 : 0; wings[0].rotation.x = -f; wings[1].rotation.x = f;
+      feet.forEach(ft => { ft.visible = !fly; });
+    } };
+  };
+  B.ladybug = () => {
+    const g = grp();
+    blob(g, '#d4302a', 0, 1.2, 0, 3.4, 2.2, 2.8); blob(g, '#1e1e1e', 3, .9, 0, 1.3, 1.1, 1.5);
+    [[-1, 2.4, 1.2], [1.3, 2.2, 1.5], [-1, 2.4, -1.2], [1.3, 2.2, -1.5], [-2.4, 1.8, 0]].forEach(([x, y, z]) => blob(g, '#1a1a1a', x, y, z, .7, .5, .7));
+    return { g, pose() {} };
+  };
+  B.butterfly = () => {
+    const g = grp(); stick(g, '#2a2a2a', -2.6, 0, 0, 2.6, 0, 0, .5);
+    const wings = [1, -1].map(s => { const w = grp(g, 0, 0, s * .3); blob(w, '#f6f8fc', .9, 0, s * 3.4, 2.8, .25, 3.2); blob(w, '#e8eef8', -1.6, 0, s * 2.4, 2, .25, 2.2); blob(w, '#2a2a2a', 1.6, .2, s * 4.2, .6, .2, .6); return w; });
+    return { g, pose(a) { const f = reduceMotion ? .8 : .25 + .75 * Math.abs(Math.sin(a.ph)), o = (1 - f) * 1.3; wings[0].rotation.x = -o; wings[1].rotation.x = o; } };
+  };
+  B.bee = () => {
+    const g = grp();
+    blob(g, '#f0c030', 0, 0, 0, 3.6, 2.6, 2.6); blob(g, '#2a2a2a', -.6, 0, 0, .7, 2.7, 2.7); blob(g, '#2a2a2a', 1.4, 0, 0, .6, 2.5, 2.5); blob(g, '#2a2a2a', 3.4, .2, 0, 1.6, 1.5, 1.5);
+    const wings = [1, -1].map(s => { const w = grp(g, .4, 1.8, s * 1); blob(w, '#ffffff', -.6, 0, s * 2.2, 2.4, .15, 1.6, .7); return w; });
+    return { g, pose(a) { const f = reduceMotion ? 0 : Math.sin(a.t * 45) * .7; wings[0].rotation.x = -.3 - f; wings[1].rotation.x = .3 + f; } };
+  };
+  B.fish = () => {
+    const g = grp(), body = grp(g);
+    blob(body, '#c6d4dc', 0, 0, 0, 6, 2.6, 2.1); blob(body, '#8fa2ae', -.5, 1.3, 0, 5, 1.3, 1.4); eyes(body, 3.6, .5, 1.5, .5);
+    const tail = grp(body, -5.2, 0, 0); blob(tail, '#8fa2ae', -2.4, 0, 0, 2.8, 2.6, .5);
+    return { g, pose(a) { const out = a.z > 1; tail.rotation.y = Math.sin(a.ph * 2) * .45; body.rotation.z = out ? a.jumpRot || 0 : 0; body.position.y = out ? 0 : -1.5; } };
+  };
+  B.beaver = () => {
+    const g = grp(), body = grp(g);
+    blob(body, '#7a4e2c', 0, 3, 0, 10, 5.2, 5.6);
+    const tail = grp(body, -9, 2, 0); blob(tail, '#3f2a1c', -6, 0, 0, 7, 1.2, 4);
+    const head = grp(body, 9, 5, 0);
+    blob(head, '#865834', 0, 0, 0, 5, 4.2, 4.2); blob(head, '#3a2416', 4.6, -.2, 0, 1.6, 1.3, 1.6); blob(head, '#f4ecd8', 4.2, -2, 0, .6, 1, .9); eyes(head, 2.6, 1.5, 2.8, .7);
+    [1, -1].forEach(s => blob(head, '#5a3a22', -1, 3.4, s * 2.6, 1.2, 1.1, .8));
+    stick(head, '#6b4a2f', 4.2, -1.6, -5, 4.8, -1, 9, .7); blob(head, '#6fa44a', 4.8, -.6, 7.4, 2.4, .8, 1.4);
+    return { g, pose(a) { body.position.y = -3 + (reduceMotion ? 0 : Math.sin(a.t * 3) * .8); tail.rotation.z = Math.sin(a.ph) * .15; }, clip: true };
+  };
+  B.frog = () => {
+    const g = grp(), body = grp(g);
+    blob(body, '#62a44c', 0, 3.4, 0, 5, 3.4, 4.2); blob(body, '#d8e0a0', 1.6, 2.4, 0, 3.4, 2, 3.2);
+    [1, -1].forEach(s => { blob(body, '#72b45a', 2.4, 6.2, s * 2, 1.8, 1.8, 1.8); blob(body, '#15110e', 3.4, 6.6, s * 2.3, .8, .8, .8); blob(body, '#4f8a3a', 3.2, .6, s * 2.6, 1.4, .7, 1.2); });
+    const legs = [1, -1].map(s => { const l = grp(body, -2.6, 2.4, s * 3.4); blob(l, '#4f8a3a', 0, 0, 0, 3, 1.8, 1.6); blob(l, '#4f8a3a', -1.8, -1.6, 0, 2.6, .8, 1.4); return l; });
+    const sac = blob(body, '#e8e0a8', 4, 1.6, 0, 2, 2, 2);
+    return { g, pose(a) {
+      const air = a.z > .5, cr = !air && a.idle > 0 ? Math.max(0, Math.sin(a.idle * 4)) : 0;
+      legs.forEach(l => { l.rotation.z = air ? .9 : 0; l.position.x = air ? -4 : -2.6; }); body.rotation.z = air ? .3 : 0;
+      sac.visible = cr > .2; sac.scale.setScalar(Math.max(.1, 2 * cr));
+    } };
+  };
+  B.heron = () => {
+    const g = grp();
+    const legs = [1, -1].map(s => { const l = grp(g, 0, 14, s * 1.4); stick(l, '#555b5e', 0, 0, 0, 0, -14, 0, .45); stick(l, '#555b5e', 0, -14, 0, 2.4, -14, 0, .3); return l; });
+    const body = grp(g, 0, 18, 0); body.rotation.z = .3;
+    blob(body, '#9aa3a8', 0, 0, 0, 8, 4.8, 4.2); [1, -1].forEach(s => blob(body, '#7d868b', -2, .6, s * 2.6, 7, 3.2, 1.8)); blob(body, '#6f787d', -8, -.6, 0, 3, 1, 2);
+    const neck = grp(g, 6, 21, 0); stick(neck, '#b8c0c4', 0, 0, 0, -1, 8, 0, 1.2); stick(neck, '#b8c0c4', -1, 8, 0, 1.6, 12.6, 0, 1.1);
+    const head = grp(neck, 2, 13.4, 0);
+    blob(head, '#e8ecee', 0, 0, 0, 2.8, 2.2, 2.2); stick(head, '#2a2a2a', -1, 1.4, 0, -6, 2.4, 0, .4); eyes(head, 1.2, .6, 1.8, .5);
+    cone(head, '#e0b040', 5.6, -.4, 0, .8, 7, 0, -Math.PI / 2);
+    return { g, pose(a) {
+      const sw = Math.sin(a.ph) * .35 * a.mv, st = !a.mv && a.idle > 0 ? clamp(Math.sin(a.idle * 1.4) * 3 - 2, 0, 1) : 0;
+      legs[0].rotation.z = sw; legs[1].rotation.z = -sw; neck.rotation.z = -st * 1.4;
+    } };
+  };
+  B.eagle = () => {
+    const g = grp();
+    blob(g, '#5a4230', 0, 0, 0, 6, 2.6, 3.2); blob(g, '#c9a06a', 6, .8, 0, 2.6, 2.2, 2.2); cone(g, '#e0b040', 8.8, .4, 0, .8, 2.4, 0, -Math.PI / 2); eyes(g, 7, 1.4, 1.5, .45);
+    blob(g, '#4a3624', -7, 0, 0, 4, .6, 3);
+    const wings = [1, -1].map(s => { const w = grp(g, 0, .8, s * 2.4); blob(w, '#4a3624', -.6, 0, s * 10, 4.2, .6, 10.5); blob(w, '#2e2016', -2.4, -.1, s * 18.5, 2.6, .5, 3.4); return w; });
+    return { g, pose(a) { const f = reduceMotion ? 0 : Math.sin(a.t * 1.8) * .22; wings[0].rotation.x = -f; wings[1].rotation.x = f; } };
+  };
+
+  const MODEL = {};
+  function model(id) {
+    if (MODEL[id]) return MODEL[id];
+    const m = MOTION[id], make = m.type === 'bird' ? B.bird(m.col) : id === 'woodpecker' ? B.bird({ back: '#222226', belly: '#f2f0ea', head: '#222226', cheek: '#f2f0ea', cap: '#c8323a' }) : B[id];
+    const o = make(); o.g.scale.setScalar(UNIT); o.g.visible = false; scene.add(o.g);
+    return (MODEL[id] = o);
+  }
+  let size = 0;
+  return {
+    // draw agent a with its feet at (x, y) in island coordinates, scaled by s
+    draw(a, x, y, s, yaw) {
+      const o = model(a.id), dens = cv.width / W * cam.z, R = Math.min(320, Math.ceil(FW * dens / 8) * 8);
+      if (R !== size) { renderer.setSize(R, R * (TOP - BOT) / FW, false); size = R; }
+      if (a.yawS == null) a.yawS = yaw;
+      let dy = yaw - a.yawS; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); a.yawS += dy * (reduceMotion ? 1 : .18);
+      o.pose(a, MOTION[a.id].type === 'cling');
+      o.g.rotation.y = -a.yawS; o.g.visible = true;
+      renderer.clippingPlanes = o.clip ? WATER : [];
+      renderer.render(scene, camera); o.g.visible = false;
+      ctx.drawImage(renderer.domElement, x - FW / 2 * s, y - TOP * s, FW * s, (TOP - BOT) * s);
+    },
+  };
+})();
+
 /* ================= agents: wandering, hopping, flying ================= */
 let agents = {};
 const rnd = Math.random;
@@ -691,7 +902,7 @@ function syncAgents(now) {
   for (const [k, id] of Object.entries(want)) if (!agents[k]) agents[k] = spawn(id, k, now);
 }
 function spawn(id, k, now) {
-  const m = MOTION[id], a = { id, k, d: 1, ph: rnd() * 6, mv: 0, z: 0, st: 'idle', idle: 0, timer: rnd() * 2, seed: rnd() * 10, born: appear[id] != null ? appear[id] : now - 1000 };
+  const m = MOTION[id], a = { id, k, d: 1, yaw: rnd() * 6.28, ph: rnd() * 6, mv: 0, z: 0, st: 'idle', idle: 0, timer: rnd() * 2, seed: rnd() * 10, born: appear[id] != null ? appear[id] : now - 1000 };
   if (m.type === 'bird') { const tt = treeTiles(m.perch); if (tt.length) Object.assign(a, perchPt(tt), { st: 'perch' }); else Object.assign(a, { fx: C, fy: C, z: 0, st: 'ground' }); }
   else if (m.type === 'crawl') Object.assign(a, { fx: C, fy: C, ang: 0 });
   else { const tl = areaTiles(m.area || []); const p = tl.length ? randIn(tl, .5) : [C, C]; a.fx = p[0]; a.fy = p[1]; }
@@ -703,13 +914,13 @@ function clingPt(m) {
   const tt = treeTiles(m.area); if (!tt.length) return { fx: C, fy: C, z: 18 };
   const p = perchPt(tt); return { fx: p.fx + .12, fy: p.fy - .12, z: 20 };
 }
-function faceTo(a, dx, dy) { const sx = dx - dy; if (Math.abs(sx) > .01) a.d = sx > 0 ? 1 : -1; }
+function faceTo(a, dx, dy) { const sx = dx - dy; if (Math.abs(sx) > .01) a.d = sx > 0 ? 1 : -1; if (Math.hypot(dx, dy) > .002) a.yaw = Math.atan2(dy, dx); }
 
 function stepAgent(a, dt, t) {
   const m = MOTION[a.id]; a.t = t;
   if (m.type === 'none') return;
   if (m.type === 'crawl') { a.ang = (a.ang || 0) + dt * .8; a.ph += dt; return; }
-  if (m.type === 'soar') { const tl = areaTiles(m.area); if (!tl.length) return; const cx = tl.reduce((s, q) => s + q[0], 0) / tl.length, cy = tl.reduce((s, q) => s + q[1], 0) / tl.length; const ang = t * .35 + a.seed; a.fx = cx + Math.cos(ang) * 1.6; a.fy = cy + Math.sin(ang) * 1.6; a.z = 92 + Math.sin(t * .7) * 6; a.d = -Math.sin(ang) - Math.cos(ang) > 0 ? 1 : -1; return; }
+  if (m.type === 'soar') { const tl = areaTiles(m.area); if (!tl.length) return; const cx = tl.reduce((s, q) => s + q[0], 0) / tl.length, cy = tl.reduce((s, q) => s + q[1], 0) / tl.length; const ang = t * .35 + a.seed; a.fx = cx + Math.cos(ang) * 1.6; a.fy = cy + Math.sin(ang) * 1.6; a.z = 92 + Math.sin(t * .7) * 6; a.d = -Math.sin(ang) - Math.cos(ang) > 0 ? 1 : -1; a.yaw = ang + Math.PI / 2; return; }
   if (m.type === 'bird' || m.type === 'cling') return stepBird(a, m, dt, t);
   const area = areaTiles(m.area);
   if (!area.length) return;
@@ -786,10 +997,20 @@ function drawAgent(a, now) {
     const cy = CANOPY[tr], rx = { m1: 6, m2: 9, m3: 16 }[tr] || 8;
     x += Math.cos(a.ang) * rx; y += cy + Math.sin(a.ang) * rx * .45 + (Math.sin(a.ang) > 0 ? 0 : 0);
     a.ang2 = a.ang + Math.PI / 2;
+    if (A3) { A3.draw(a, x, y, S * .8, a.ang + Math.PI / 2); return; }
     ctx.save(); ctx.translate(x, y); ctx.scale(S, S); PAINT.ladybug({ ang: a.ang + Math.PI / 2 }); ctx.restore(); return;
   }
   const swim = m.type === 'swim', high = m.type === 'soar';
   if (!high && (m.type !== 'bird' || a.st !== 'perch') && m.type !== 'cling') shadowEl(x, y + 1, (swim ? 6 : 9) * S * (1 - clamp(a.z / 60, 0, .8)));
+  if (A3) {
+    A3.draw(a, x, y - a.z + (swim && a.z <= 1 ? 1 : 0), S, a.yaw);
+    if (a.id === 'beaver') { // ripples around the swimmer
+      ctx.strokeStyle = 'rgba(225,245,255,.55)'; ctx.lineWidth = .9;
+      for (let k = 0; k < 2; k++) { const rr = (a.t * .8 + k * .5) % 1; ctx.globalAlpha = 1 - rr; ctx.beginPath(); ctx.ellipse(x, y + 1, 10 + rr * 10, 3.5 + rr * 3, 0, 0, 7); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    return;
+  }
   ctx.save(); ctx.translate(x, y - a.z + (swim && a.z <= 1 ? 2 : 0)); ctx.scale(a.d * S, S);
   if (m.type === 'bird') PAINT.bird(a, m.col);
   else if (m.type === 'cling') PAINT.woodpecker(a);
