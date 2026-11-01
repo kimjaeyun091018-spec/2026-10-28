@@ -61,8 +61,24 @@ button:focus-visible { outline: 2px solid #fff2c8; outline-offset: 2px; }
 .hud > * { pointer-events: auto; }
 .lvchip { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; }
 .lvchip b { font-family: var(--font-display); font-weight: 400; font-size: 17px; white-space: nowrap; }
-.bar { width: 90px; height: 6px; background: rgba(255, 255, 255, .25); border-radius: 999px; overflow: hidden; }
+.bar { display: block; width: 90px; height: 6px; background: rgba(255, 255, 255, .25); border-radius: 999px; overflow: hidden; }
 .bar > i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .3s; }
+.lvchip { cursor: pointer; border: 1px solid rgba(255, 255, 255, .18); font: inherit; }
+.lvchip .iname { font-size: 13px; white-space: nowrap; opacity: .9; }
+.picker-back { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; padding: 16px; background: rgba(12, 14, 30, .45); }
+.picker { width: min(720px, 100%); max-height: 100%; overflow-y: auto; border-radius: 22px; padding: 20px; background: rgba(250, 248, 255, .94); color: #1d2a22; }
+.picker h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0 0 4px; }
+.picker > p { margin: 0 0 14px; color: #5d6b61; font-size: 14px; }
+.isles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 480px) { .isles { grid-template-columns: 1fr; } }
+.isle { display: grid; grid-template-columns: 54px 1fr; gap: 4px 12px; align-items: center; text-align: left; padding: 14px; border-radius: 16px; border: 1px solid #d8d4e6; background: #ffffff; color: #1d2a22; cursor: pointer; }
+.isle:hover { border-color: #8a7fc0; }
+.isle[aria-current="true"] { border: 2px solid #6a5fb0; }
+.isle .em { font-size: 38px; grid-row: span 2; text-align: center; }
+.isle b { font-family: var(--font-display); font-weight: 400; font-size: 19px; }
+.isle .st { font-size: 12px; color: #6a5fb0; margin-left: 6px; }
+.isle span.d { font-size: 13px; color: #5d6b61; line-height: 1.45; }
+.picker .close { margin-top: 12px; }
 .skychip { padding: 6px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; pointer-events: none; }
 .spacer { flex: 1; }
 .round { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; cursor: pointer; padding: 0; font-size: 18px; flex: none; }
@@ -133,7 +149,7 @@ button:focus-visible { outline: 2px solid #fff2c8; outline-offset: 2px; }
 <div class="scene" id="scene"></div>
 
 <div class="hud">
-  <div class="lvchip glass"><b id="lv">Lv 1</b><div class="bar" title="다음 레벨까지"><i id="xpbar"></i></div></div>
+  <button class="lvchip glass" id="islandBtn" type="button" aria-label="섬 바꾸기"><span class="iname" id="islandName"></span><b id="lv">Lv 1</b><span class="bar" title="다음 레벨까지"><i id="xpbar"></i></span></button>
   <div class="skychip glass" id="skyChip" aria-live="polite"></div>
   <div class="spacer"></div>
   <button class="round glass" id="menuBtn" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="menu">
@@ -168,6 +184,7 @@ button:focus-visible { outline: 2px solid #fff2c8; outline-offset: 2px; }
     <section>
       <h3>섬</h3>
       <dl class="facts">
+        <dt>섬</dt><dd id="fIsland"></dd>
         <dt>레벨</dt><dd id="fLv"></dd>
         <dt>경험치</dt><dd id="fXp"></dd>
         <dt>어미나무</dt><dd id="fStage"></dd>
@@ -184,13 +201,15 @@ button:focus-visible { outline: 2px solid #fff2c8; outline-offset: 2px; }
       <div class="row">
         <label class="toggle"><input type="checkbox" id="demo" checked> 시연 모드 (1초 = 1분)</label>
         <label class="toggle"><input type="checkbox" id="realClock"> 낮과 밤을 실제 시각에 맞추기</label>
-        <button class="btn ghost" id="resetBtn" type="button">처음부터</button>
+        <button class="btn ghost" id="pickBtn" type="button">다른 섬으로</button>
+        <button class="btn ghost" id="resetBtn" type="button">이 섬 처음부터</button>
       </div>
     </section>
     <section>
       <h3>도움말</h3>
       <ul class="rules">
         <li>공부 1분마다 경험치 1, 처음 찾아온 손님마다 경험치 10.</li>
+        <li>숲 섬, 눈 섬, 사막 섬, 바다 섬 중에서 골라 키워요. 섬마다 레벨과 땅은 따로, 손님 도감은 함께예요. 왼쪽 위 섬 이름을 누르면 바꿀 수 있어요.</li>
         <li>레벨이 오르면 섬이 마름모 모양으로 한 바퀴 넓어져요. 끝이 없어요.</li>
         <li>지형은 넓은 구역마다 하나씩 저절로 정해지고, 같은 지형끼리 크게 모여요. 구역마다 손님이 한두 마리 살아요.</li>
         <li>하늘은 16분마다 새벽 → 낮 → 해 질 녘 → 밤으로 바뀌고(설정에서 실제 시각에 맞출 수 있어요), 날씨는 맑음·흐림·비·눈·안개가 몇 분마다 바뀌어요. 밤에는 풀숲에 반딧불이가 나와요.</li>
@@ -199,6 +218,14 @@ button:focus-visible { outline: 2px solid #fff2c8; outline-offset: 2px; }
         <li>게스트 기록은 이 브라우저에만, 구글로 로그인하면 클라우드에도 저장돼요.</li>
       </ul>
     </section>
+  </div>
+</div>
+<div class="picker-back" id="picker" hidden>
+  <div class="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+    <h2 id="pickerTitle">어떤 섬에서 공부할까요?</h2>
+    <p>섬마다 시작하는 땅과 넓어지는 지형, 찾아오는 손님이 달라요. 섬은 저마다 따로 자라고, 손님 도감은 함께 채워져요.</p>
+    <div class="isles" id="isles"></div>
+    <button class="btn ghost close" id="pickerClose" type="button">닫기</button>
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -316,14 +343,43 @@ function lvNeed(n) { let s = 0; for (let k = 2; k <= n; k++) s += 15 + 20 * (k -
 
 /* ================= state ================= */
 const KEY = 'sup-island-v1';
-const fresh = () => ({ ver: 2, lv: 1, xp: 0, total: 0, zones: {}, seen: {}, demo: true, realClock: false, cs: [Math.random() * 90, Math.random() * 90] });
-function normalize(s) { const o = Object.assign(fresh(), s || {}); delete o.tiles; delete o.cur; if (!o.zones || typeof o.zones !== 'object') o.zones = {}; if (!Array.isArray(o.cs)) o.cs = [Math.random() * 90, Math.random() * 90]; o.ver = 2; return o; }
-let state = fresh();
-try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && typeof s === 'object') state = normalize(s); } catch (e) {}
+const TEMPERATE = ['oak', 'plains', 'meadow', 'cherry', 'river', 'swamp', 'bamboo'];
+// Islands you can grow. Each has its own climate ladder (neighbouring rungs are always compatible), a
+// starting biome under the mother tree, and its own level, study time and land. The visitor log is shared.
+const ISLANDS = {
+  forest: { name: '숲 섬', e: '🌳', desc: '꽃밭에서 시작해 숲과 강, 습지, 벚나무·대나무숲으로 넓어져요. 가장자리엔 서늘한 침엽수림과 돌산.', start: 'meadow', ladder: [['taiga', 'birch', 'mountain'], TEMPERATE, TEMPERATE, TEMPERATE], g0: 2.5 },
+  snow: { name: '눈 섬', e: '❄️', desc: '눈 덮인 설원과 얼음 호수에서 시작해 침엽수림, 자작나무 숲, 돌산으로 이어져요.', start: 'snow', ladder: [['snow'], ['snow'], ['taiga', 'birch', 'mountain']], g0: 1 },
+  desert: { name: '사막 섬', e: '🏜️', desc: '모래 언덕과 오아시스에서 시작해 야자수 늘어선 바닷가로 이어져요.', start: 'desert', ladder: [['beach'], ['desert'], ['desert']], g0: 1.6 },
+  sea: { name: '바다 섬', e: '🏝️', desc: '모래사장과 파도에서 시작해 강과 습지, 초원으로 이어져요.', start: 'beach', ladder: [['plains', 'river', 'swamp'], ['river', 'swamp', 'beach'], ['beach']], g0: 2.2 },
+};
+const SHARED = new Set(['seen', 'demo', 'realClock', 't']);
+const freshIsland = type => ({ type, lv: 1, xp: 0, total: 0, zones: {}, cs: [Math.random() * 90, Math.random() * 90] });
+const freshProfile = () => ({ ver: 3, cur: null, islands: {}, seen: {}, demo: true, realClock: false });
+function normalizeProfile(s) {
+  if (!s || typeof s !== 'object') return freshProfile();
+  if (s.ver === 3 && s.islands && typeof s.islands === 'object') {
+    const p = Object.assign(freshProfile(), s); p.islands = {};
+    for (const [k, I] of Object.entries(s.islands)) if (ISLANDS[k] && I) { const o = Object.assign(freshIsland(k), I, { type: k }); if (!o.zones || typeof o.zones !== 'object') o.zones = {}; if (!Array.isArray(o.cs)) o.cs = freshIsland(k).cs; p.islands[k] = o; }
+    if (!p.islands[p.cur]) p.cur = null; if (!p.seen || typeof p.seen !== 'object') p.seen = {}; return p;
+  }
+  // an older one-island save becomes the forest island
+  const p = freshProfile(), f = freshIsland('forest');
+  Object.assign(p, { seen: s.seen && typeof s.seen === 'object' ? s.seen : {}, demo: s.demo !== false, realClock: !!s.realClock, t: s.t, cur: 'forest' });
+  Object.assign(f, { lv: s.lv || 1, xp: s.xp || 0, total: s.total || 0 });
+  if (s.zones && typeof s.zones === 'object' && !s.tiles) f.zones = s.zones; if (Array.isArray(s.cs)) f.cs = s.cs;
+  p.islands.forest = f; return p;
+}
+let profile = freshProfile();
+try { profile = normalizeProfile(JSON.parse(localStorage.getItem(KEY))); } catch (e) {}
+// the current island, with the shared fields (log, settings) read and written through to the profile
+const bind = isl => new Proxy(isl, { get: (t, k) => (SHARED.has(k) ? profile[k] : t[k]), set: (t, k, v) => { if (SHARED.has(k)) profile[k] = v; else t[k] = v; return true; } });
+let state = bind(profile.islands[profile.cur] || freshIsland('forest'));
+const island = () => ISLANDS[state.type] || ISLANDS.forest;
 let running = false, lastTick = 0, session = 0, tickId = null, snapshot = null;
 const save = () => {
-  state.t = Date.now();
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  if (!profile.cur) return; // nothing chosen yet
+  profile.t = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch (e) {}
   if (!running) cloud.queue(); // only finished sessions reach the cloud
 };
 
@@ -343,19 +399,17 @@ function zoneOf(gx, gy) {
   zoneCache.set(k, z); return z;
 }
 const zij = z => z.split(',').map(Number);
-const biomeAt = (gx, gy) => { const Z = state.zones[zoneOf(gx, gy)]; return Z ? Z.b : 'meadow'; };
+const biomeAt = (gx, gy) => { const Z = state.zones[zoneOf(gx, gy)]; return Z ? Z.b : island().start; };
 
 // give every zone that has open land a biome and its residents
 // Biomes grow as big patches. A slow climate map (random per island) runs under the whole world, from
-// snow through cold woods and temperate land to beach and desert. Its slope is kept under one class per
+// snow through cold woods and temperate land to beach and desert; each island walks its own ladder of it. Its slope is kept under one class per
 // zone step (value noise moves at most 3·f per diagonal step, × 8 = .96 < 1), so neighbouring zones are
 // never more than one climate class apart: a snowfield can never touch a desert.
-const TEMPERATE = ['oak', 'plains', 'meadow', 'cherry', 'river', 'swamp', 'bamboo'];
-const CLASSES = [['snow'], ['taiga', 'mountain', 'birch'], TEMPERATE, TEMPERATE, ['beach'], ['desert']];
-function climate(i, j) { const [ox, oy] = state.cs, f = .04, g = 3 + (vnoise(i * f + ox, j * f + oy) - vnoise(ox, oy)) * 8; return clamp(Math.floor(g), 0, 5); }
+function climate(i, j) { const L = island().ladder, [ox, oy] = state.cs, f = .04, g = island().g0 + (vnoise(i * f + ox, j * f + oy) - vnoise(ox, oy)) * 8; return L[clamp(Math.floor(g), 0, L.length - 1)]; }
 function pickBiome(z) {
-  if (z === '0,0') return 'meadow';
-  const [i, j] = zij(z), band = CLASSES[climate(i, j)], near = [];
+  if (z === '0,0') return island().start;
+  const [i, j] = zij(z), band = climate(i, j), near = [];
   for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const n = state.zones[(i + a) + ',' + (j + b)]; if (n && band.includes(n.b)) near.push(n.b); }
   if (near.length && Math.random() < .78) return near[Math.floor(Math.random() * near.length)];
   const unseen = b => SPECIES.some(s => s.biome === b && !state.seen[s.id]);
@@ -385,7 +439,7 @@ function waterAt(gx, gy) { // 'w' water, 'i' ice, '' land
   if (w != null) return w;
   w = '';
   const z = zoneOf(gx, gy), Z = state.zones[z];
-  if (Z && isOpen(gx, gy)) {
+  if (Z && isOpen(gx, gy) && ring(gx, gy) > 2) {
     const kind = BIOMES[Z.b].water, [i, j] = zij(z), [cx, cy] = zoneCenter(i, j), x = gx + .5 - cx, y = gy + .5 - cy;
     if (kind === 'river') { const a = hash(i + .5, j + .5) * Math.PI, u = x * Math.cos(a) + y * Math.sin(a), v = -x * Math.sin(a) + y * Math.cos(a); if (Math.abs(v - Math.sin(u * .55 + i) * 1.4) < 1.05) w = 'w'; }
     else if (kind === 'swamp') { if (fbm(gx * .35 + 3, gy * .35) > .55) w = 'w'; }
@@ -1505,7 +1559,7 @@ const world = (() => {
   return {
     ok: true,
     dirty() { ver++; },
-    reset() { for (const c of chunks.values()) if (c.g) { scene.remove(c.g); disposeGroup(c.g); } chunks.clear(); for (const a of agents.values()) { scene.remove(a.o.g); scene.remove(a.sh); } agents.clear(); motherStage = -1; ver++; },
+    reset() { view.fx = view.fz = .5; view.vx = view.vz = 0; for (const c of chunks.values()) if (c.g) { scene.remove(c.g); disposeGroup(c.g); } chunks.clear(); for (const a of agents.values()) { scene.remove(a.o.g); scene.remove(a.sh); } agents.clear(); motherStage = -1; ver++; },
     start() { resize(); cur.dist = 20 * view.zoom * clamp(1.2 / camera.aspect, 1, 1.6); nextWeather(performance.now()); wx.kind = 'clear'; requestAnimationFrame(frame); },
     resize,
     focus() { return [cur.fx, cur.fz]; },
@@ -1550,7 +1604,7 @@ const cloud = (() => {
     clearTimeout(timer);
     if (!user || !dirty || running) return;
     dirty = false;
-    try { await rest('PUT', { data: JSON.stringify(state), t: state.t || Date.now() }); setSt('클라우드에 저장됨'); }
+    try { await rest('PUT', { data: JSON.stringify(profile), t: profile.t || Date.now() }); setSt('클라우드에 저장됨'); }
     catch (e) { dirty = true; setSt('클라우드 저장 실패: ' + e.message, true); }
   }
   // newer save wins: cloud → this browser, or this browser → cloud
@@ -1560,9 +1614,9 @@ const cloud = (() => {
     try {
       const r = await rest('GET');
       let cs = null; try { cs = r && r.data ? JSON.parse(r.data) : null; } catch (e) {}
-      if (cs && cs.tiles && (Number(r.t) || 0) > (state.t || 0)) {
-        state = Object.assign(fresh(), cs);
-        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+      if (cs && typeof cs === 'object' && (Number(r.t) || 0) > (profile.t || 0)) {
+        profile = normalizeProfile(cs);
+        try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch (e) {}
         reloadWorld();
         setSt('클라우드 기록을 불러왔어요');
         toast('클라우드에 있던 섬을 불러왔어요');
@@ -1591,7 +1645,8 @@ const cloud = (() => {
   };
 })();
 function reloadWorld() {
-  state = normalize(state); assignZones(); landChanged(); if (world.ok) world.reset();
+  state = bind(profile.islands[profile.cur] || freshIsland('forest')); zoneCache.clear(); assignZones(); landChanged(); if (world.ok) world.reset();
+  $('islandName').textContent = island().e + ' ' + island().name;
   present = presentNow(); $('demo').checked = state.demo; $('realClock').checked = !!state.realClock; renderUI();
 }
 
@@ -1637,6 +1692,7 @@ function renderUI() {
   const lv = state.lv, lo = lvNeed(lv), hi = lvNeed(lv + 1);
   $('lv').textContent = 'Lv ' + lv;
   $('xpbar').style.width = clamp((state.xp - lo) / (hi - lo) * 100, 0, 100) + '%';
+  $('fIsland').textContent = island().e + ' ' + island().name;
   $('fLv').textContent = 'Lv ' + lv + ' · 다음 레벨까지 ' + Math.max(0, Math.ceil(hi - state.xp));
   $('fXp').textContent = Math.floor(state.xp) + ' / ' + hi;
   $('fStage').textContent = STAGE_NAME[stageOf(state.total)];
@@ -1652,6 +1708,27 @@ function renderUI() {
   }).join('');
 }
 
+// island picker
+function renderIsles() {
+  $('isles').innerHTML = Object.entries(ISLANDS).map(([k, I]) => {
+    const own = profile.islands[k], st = own ? 'Lv ' + own.lv : '새 섬';
+    return '<button class="isle" type="button" data-k="' + k + '"' + (profile.cur === k ? ' aria-current="true"' : '') + '><span class="em">' + I.e + '</span><span><b>' + I.name + '</b><span class="st">' + st + '</span></span><span class="d">' + I.desc + '</span></button>';
+  }).join('');
+  $('pickerClose').hidden = !profile.cur;
+}
+function openPicker() { if (running) { toast('공부 중에는 섬을 바꿀 수 없어요'); return; } renderIsles(); $('picker').hidden = false; const b = $('isles').querySelector('[aria-current]') || $('isles').querySelector('button'); if (b) b.focus(); }
+function closePicker() { if (!profile.cur) return; $('picker').hidden = true; }
+$('isles').addEventListener('click', e => {
+  const b = e.target.closest('.isle'); if (!b) return;
+  const k = b.dataset.k; if (!profile.islands[k]) profile.islands[k] = freshIsland(k);
+  const changed = profile.cur !== k; profile.cur = k; $('picker').hidden = true;
+  if (changed) { logSig = ''; reloadWorld(); }
+  save(); toast(ISLANDS[k].e + ' ' + ISLANDS[k].name + '에 왔어요');
+});
+$('islandBtn').onclick = openPicker; $('pickerClose').onclick = closePicker;
+$('pickBtn').onclick = () => { closeMenu(); openPicker(); };
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('picker').hidden) closePicker(); });
+
 // menu sheet
 function openMenu() { $('menu').hidden = false; $('menuBtn').setAttribute('aria-expanded', 'true'); logSig = ''; renderUI(); $('menuClose').focus(); }
 function closeMenu() { $('menu').hidden = true; $('menuBtn').setAttribute('aria-expanded', 'false'); $('menuBtn').focus(); }
@@ -1666,7 +1743,7 @@ function tick() {
   evaluate(false);
 }
 function start() {
-  snapshot = JSON.stringify(state);
+  snapshot = JSON.stringify(profile);
   running = true; lastTick = Date.now(); session = 0;
   notice(''); $('scene').classList.remove('drought');
   $('startBtn').textContent = '공부 마치기'; $('startBtn').classList.add('stop'); $('demo').disabled = true; $('resetBtn').disabled = true;
@@ -1679,20 +1756,20 @@ function stop(commit) {
   $('startBtn').textContent = '공부 시작'; $('startBtn').classList.remove('stop'); $('demo').disabled = false; $('resetBtn').disabled = false;
   renderUI(); cloud.paint();
 }
-$('startBtn').onclick = () => (running ? stop(true) : start());
+$('startBtn').onclick = () => (running ? stop(true) : profile.cur ? start() : openPicker());
 $('demo').onchange = e => { state.demo = e.target.checked; save(); renderUI(); };
 $('realClock').onchange = e => { state.realClock = e.target.checked; save(); };
 $('resetBtn').onclick = () => {
-  if (!confirm('섬과 도감을 모두 지우고 처음부터 시작할까요?')) return;
+  if (!profile.cur || !confirm(island().name + '을(를) 지우고 처음부터 시작할까요? 다른 섬과 손님 도감은 그대로 남아요.')) return;
   if (running) stop(false);
-  const demo = $('demo').checked; state = fresh(); state.demo = demo; logSig = '';
+  profile.islands[profile.cur] = freshIsland(profile.cur); logSig = '';
   notice(''); $('scene').classList.remove('drought'); reloadWorld(); save(); closeMenu();
 };
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && running) {
     const lost = Math.floor(session);
     stop(false);
-    if (snapshot) { state = JSON.parse(snapshot); save(); }
+    if (snapshot) { profile = normalizeProfile(JSON.parse(snapshot)); save(); }
     reloadWorld();
     $('scene').classList.add('drought');
     notice('화면을 벗어나서 이번 세션 ' + lost + '분은 없던 일이 됐어요. 그동안 얻은 경험치와 손님, 땅도 되돌아갔어요.');
@@ -1704,8 +1781,10 @@ window.addEventListener('resize', () => world.resize());
 assignZones(); landChanged();
 present = presentNow();
 $('demo').checked = state.demo; $('realClock').checked = !!state.realClock;
+$('islandName').textContent = island().e + ' ' + island().name;
 renderUI();
 world.start();
+if (!profile.cur) openPicker();
 })();
 </script>
 </body>
