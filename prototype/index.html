@@ -122,6 +122,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-size: 16px; max-width: calc(100% - 32px); text-align: center; z-index: 30;
 }
 footer { color: var(--muted); font-size: 13px; }
+.account { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 14px; }
+.account .who { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.account .who b { font-family: var(--font-display); font-weight: 400; font-size: 16px; }
+.account .st { display: block; color: var(--muted); font-size: 12px; }
+.account .st.err { color: var(--warn); }
+.gbtn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.gbtn:disabled { opacity: .5; cursor: not-allowed; }
+.gbtn svg { width: 16px; height: 16px; flex: none; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -132,6 +140,12 @@ footer { color: var(--muted); font-size: 13px; }
     <h1>숲공부</h1>
     <p>구름 위 작은 섬, 묘목 한 칸에서 시작해요. 손님이 찾아오면 레벨이 오르고, 땅이 십자로 넓어져요.</p>
   </header>
+
+  <div class="account" id="account">
+    <div class="who"><b id="accName">게스트</b><span class="st" id="accSt">이 브라우저에만 저장돼요</span></div>
+    <button class="gbtn" id="gLogin" type="button"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>구글로 로그인</button>
+    <button class="btn ghost" id="gLogout" type="button" hidden>로그아웃</button>
+  </div>
 
   <div class="hud">
     <div class="lv" id="lv">Lv 1</div>
@@ -165,7 +179,7 @@ footer { color: var(--muted); font-size: 13px; }
     <ol id="log"></ol>
   </section>
 
-  <footer>공부 중에 화면을 벗어나면 그 세션은 없던 일이 돼요. 기록은 이 브라우저에만 저장돼요.</footer>
+  <footer>공부 중에 화면을 벗어나면 그 세션은 없던 일이 돼요. 게스트 기록은 이 브라우저에만, 구글로 로그인하면 클라우드에도 저장돼요.</footer>
 </div>
 
 <div class="sheet-back" id="sheetBack" hidden>
@@ -271,7 +285,11 @@ const KEY = 'sup-island-v1';
 const fresh = () => ({ lv: 1, xp: 0, total: 0, cur: { seed: 0, drop: 2, stone: 1 }, tiles: { [key(C, C)]: 'sapling' }, seen: {}, demo: true });
 let state = fresh();
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.tiles) state = Object.assign(fresh(), s); } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const save = () => {
+  state.t = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  if (!running) cloud.queue(); // only finished sessions reach the cloud
+};
 
 let running = false, startAt = 0, lastTick = 0, session = 0, tickId = null, snapshot = null;
 let present = new Set(), appear = {}, tileAppear = {}, selected = null;
@@ -522,90 +540,86 @@ function leg(x, y, len, ang, c, w) { line(x, y, x + Math.sin(ang) * len, y + Mat
 const PAINT = {
   rabbit(a) {
     const air = a.z > .5, earA = air ? -.55 : -.15 + Math.sin(a.t * 1.3) * .05, chew = a.mv ? 0 : Math.sin(a.t * 9) * .3;
-    ball(-8, -6, 2.6, 2.4, '#f4f1ea');
+    el(-8, -6, 2.6, 2.4, '#f4f1ea');
     if (air) { leg(-3, -4, 6, -1.1, '#8a7a6c', 2.2); leg(5, -6, 5, .9, '#9c8a7a', 1.6); }
-    ball(-4, -5, 5.5, 5, '#968676');
-    ball(0, -7, 8, 5.6, '#a8988a', air ? -.25 : -.1);
-    ball(7, -12 + chew * .4, 4.4, 4, '#b3a395');
-    for (const [ex, k] of [[5.5, 1], [7.5, .9]]) { ctx.save(); ctx.translate(ex, -15); ctx.rotate(earA * k); ball(0, -4.2, 1.5, 4.8, '#b3a395'); el(0, -4.2, .6, 3.4, '#e6b4b8'); ctx.restore(); }
-    eye(9, -13, 1.1); el(11.2, -11.4, .8, .6, '#d08a90');
+    el(-4, -5, 5.5, 5, '#968676');
+    el(0, -7, 8, 5.6, '#a8988a', air ? -.25 : -.1);
+    el(7, -12 + chew * .4, 4.4, 4, '#b3a395');
+    for (const [ex, k] of [[5.5, 1], [7.5, .9]]) { ctx.save(); ctx.translate(ex, -15); ctx.rotate(earA * k); el(0, -4.2, 1.5, 4.8, '#b3a395'); el(0, -4.2, .6, 3.4, '#e6b4b8'); ctx.restore(); }
+    el(9, -13, 1.1, 1.1, '#111'); el(11.2, -11.4, .8, .6, '#d08a90');
   },
   fox(a) {
     const sw = Math.sin(a.ph) * .55 * a.mv, tail = Math.sin(a.t * 1.6) * .12;
-    ctx.save(); ctx.translate(-9, -10); ctx.rotate(.35 + tail - a.mv * .25); ball(-6, 0, 9, 3.8, '#d0682a'); ball(-13, -.5, 3.2, 2.7, '#f6f0e6'); ctx.restore();
+    ctx.save(); ctx.translate(-9, -10); ctx.rotate(.35 + tail - a.mv * .25); el(-6, 0, 9, 3.8, '#d0682a'); el(-13, -.5, 3.2, 2.7, '#f6f0e6'); ctx.restore();
     leg(-6, -7, 7, -sw, '#5a3420', 2); leg(6, -7, 7, sw, '#5a3420', 2);
-    ball(0, -10, 10, 5.4, '#d8742e'); ball(2, -7.2, 6, 2.4, '#f2e6d4');
+    el(0, -10, 10, 5.4, '#d8742e'); el(2, -7.2, 6, 2.4, '#f2e6d4');
     leg(-4, -7, 7, sw, '#3e2414', 2.2); leg(8, -7, 7, -sw, '#3e2414', 2.2);
     const hb = Math.sin(a.ph * 2) * .6 * a.mv;
-    ball(10, -14 + hb, 5, 4.4, '#e07e34'); ball(14.6, -12.4 + hb, 3.2, 2.1, '#f2e6d4'); el(17.4, -12.6 + hb, 1, .8, '#1a1a1a');
+    el(10, -14 + hb, 5, 4.4, '#e07e34'); el(14.6, -12.4 + hb, 3.2, 2.1, '#f2e6d4'); el(17.4, -12.6 + hb, 1, .8, '#1a1a1a');
     ctx.fillStyle = '#b85a24';
     ctx.beginPath(); ctx.moveTo(7, -16 + hb); ctx.lineTo(8, -22 + hb); ctx.lineTo(10.5, -17 + hb); ctx.fill();
     ctx.beginPath(); ctx.moveTo(10.5, -17 + hb); ctx.lineTo(12.5, -22 + hb); ctx.lineTo(13.5, -16 + hb); ctx.fill();
-    eye(11.5, -15 + hb, 1);
+    el(11.5, -15 + hb, 1, 1, '#111');
   },
   roe(a) {
     const sw = Math.sin(a.ph) * .5 * a.mv, g = a.mv ? 0 : clamp(Math.sin(a.idle * .9) * 1.6, 0, 1);
     leg(-7, -11, 11, -sw, '#5a3a24', 1.8); leg(6, -11, 11, sw, '#5a3a24', 1.8);
-    ball(0, -14, 11, 5.8, '#a8744a'); ball(-10, -14, 2.8, 3.2, '#f4efe6'); ball(1, -11, 7, 2.4, '#c49a72');
+    el(0, -14, 11, 5.8, '#a8744a'); el(-10, -14, 2.8, 3.2, '#f4efe6'); el(1, -11, 7, 2.4, '#c49a72');
     leg(-5, -11, 11, sw, '#4a2e1c', 2); leg(8, -11, 11, -sw, '#4a2e1c', 2);
     const hx = 15, hy = -26 + g * 15;
     ctx.strokeStyle = '#a07048'; ctx.lineWidth = 4.2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(8, -16); ctx.lineTo(hx - 1, hy + 2); ctx.stroke();
-    ball(hx, hy, 4.4, 3.2, '#b07c50', .3); ball(hx - 2, hy - 3.4, 1.4, 2.4, '#b07c50', -.4);
+    el(hx, hy, 4.4, 3.2, '#b07c50', .3); el(hx - 2, hy - 3.4, 1.4, 2.4, '#b07c50', -.4);
     line(hx - .5, hy - 3, hx - 1.5, hy - 9, '#5a4028', 1.1); line(hx + 1, hy - 3, hx + 2.4, hy - 9, '#5a4028', 1.1);
-    el(hx + 4, hy + .6, 1.2, 1, '#1a1a1a'); eye(hx + .8, hy - .8, .9);
+    el(hx + 4, hy + .6, 1.2, 1, '#1a1a1a'); el(hx + .8, hy - .8, .9, .9, '#111');
   },
   goral(a) {
     const sw = Math.sin(a.ph) * .45 * a.mv, look = Math.sin(a.t * .4) * 1.2;
     leg(-6, -8, 8, -sw, '#2a2622', 2.4); leg(5, -8, 8, sw, '#2a2622', 2.4);
-    ball(0, -11, 10, 6.2, '#857a6e'); ball(1, -8, 7, 2.6, '#a69a8c');
+    el(0, -11, 10, 6.2, '#857a6e'); el(1, -8, 7, 2.6, '#a69a8c');
     leg(-4, -8, 8, sw, '#1e1a18', 2.6); leg(7, -8, 8, -sw, '#1e1a18', 2.6);
-    ball(10 + look, -16, 4.6, 4, '#8f8478'); ball(12.8 + look, -13.6, 2.4, 1.8, '#f0ece4');
+    el(10 + look, -16, 4.6, 4, '#8f8478'); el(12.8 + look, -13.6, 2.4, 1.8, '#f0ece4');
     line(9 + look, -19, 7.4 + look, -23.5, '#2a2622', 1.5); line(11 + look, -19, 10 + look, -23.5, '#2a2622', 1.5);
-    eye(11.6 + look, -17, .9);
+    el(11.6 + look, -17, .9, .9, '#111');
   },
   squirrel(a) {
     const b = a.mv ? Math.abs(Math.sin(a.ph * 1.5)) * 2.5 : 0, up = a.mv ? 0 : clamp(Math.sin(a.idle * 1.2) * 2, 0, 1) * 3;
-    ball(-7, -12 - b, 5, 9, '#a8643a', -.35); ball(-8, -19 - b, 3.4, 4, '#c48250', -.3);
-    ball(0, -6 - b - up, 5, 6 + up * .3, '#b8703f'); ball(1, -4 - b - up, 3, 3.6, '#ecd6b4');
-    ball(3, -13 - b - up * 1.4, 3.8, 3.4, '#c47a45'); ball(2, -16.6 - b - up * 1.4, 1.2, 2, '#c47a45');
-    eye(4.6, -13.6 - b - up * 1.4, .85);
-    if (!a.mv) ball(4.5, -7 - up, 1.6, 1.8, '#7a5a30');
+    el(-7, -12 - b, 5, 9, '#a8643a', -.35); el(-8, -19 - b, 3.4, 4, '#c48250', -.3);
+    el(0, -6 - b - up, 5, 6 + up * .3, '#b8703f'); el(1, -4 - b - up, 3, 3.6, '#ecd6b4');
+    el(3, -13 - b - up * 1.4, 3.8, 3.4, '#c47a45'); el(2, -16.6 - b - up * 1.4, 1.2, 2, '#c47a45');
+    el(4.6, -13.6 - b - up * 1.4, .85, .85, '#111');
+    if (!a.mv) el(4.5, -7 - up, 1.6, 1.8, '#7a5a30');
   },
-  bird(a, c) {
+  bird(a, c) { // same shapes as 민둥산의 묘목 drawBird
     const fly = a.st === 'fly', peck = a.st === 'ground' && Math.sin(a.t * 5 + a.seed) > .7;
-    ctx.save(); if (peck) { ctx.translate(2, -2); ctx.rotate(.5); ctx.translate(-2, 2); }
-    ball(-7, -4.5, 4.6, 1.5, tone(c.back, -.15), .25);
-    ball(0, -5, 6, 4.4, c.back); ball(1, -3.6, 4.4, 2.8, c.belly, 0, .4);
-    if (c.stripe) line(1, -6, 1, -1, c.stripe, 1.3);
-    ball(5, -8, 3.5, 3.3, c.head); el(5.6, -7.2, 1.8, 1.4, c.cheek);
-    eye(6.3, -8.6, .8); if (c.ring) { ctx.strokeStyle = '#fff'; ctx.lineWidth = .7; ctx.beginPath(); ctx.arc(6.3, -8.6, 1.4, 0, 7); ctx.stroke(); }
-    ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.moveTo(8.2, -8.2); ctx.lineTo(10.6, -7.5); ctx.lineTo(8.2, -7); ctx.fill();
+    ctx.save(); ctx.translate(0, -5); if (peck) { ctx.translate(2, 0); ctx.rotate(.5); ctx.translate(-2, 0); }
+    el(-6, 1, 4.5, 1.6, c.back, .3); el(0, 0, 6, 4.2, c.back); el(1, 1.5, 4.5, 2.8, c.belly);
+    if (c.stripe) line(1, -1, 1, 4, c.stripe, 1.3);
+    el(5, -3, 3.4, 3.2, c.head); el(5.5, -2.3, 1.8, 1.4, c.cheek); el(6.2, -3.6, .8, .8, '#111');
+    if (c.ring) { ctx.strokeStyle = '#fff'; ctx.lineWidth = .7; ctx.beginPath(); ctx.arc(6.2, -3.6, 1.4, 0, 7); ctx.stroke(); }
+    ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.moveTo(8.2, -3.2); ctx.lineTo(10.4, -2.6); ctx.lineTo(8.2, -2.1); ctx.fill();
+    if (fly) { const f = reduceMotion ? 0 : Math.sin(a.ph) * 5; ctx.fillStyle = c.back; ctx.beginPath(); ctx.moveTo(-2, -1); ctx.lineTo(-2, -6 - f); ctx.lineTo(3, -1); ctx.fill(); }
+    else line(0, 4, 0, 5.6, '#6a5a4a', .8);
     ctx.restore();
-    const wa = fly ? Math.sin(a.ph) * 1.1 : .15;
-    ctx.save(); ctx.translate(-1, -6); ctx.rotate(-wa); ball(-3, 0, 6, 2.2, tone(c.back, -.2), 0, .2); ctx.restore();
-    if (!fly) { line(-1, -1, -1.6, 1, '#6a5a4a', .8); line(1.5, -1, 1.2, 1, '#6a5a4a', .8); }
   },
   woodpecker(a) {
     const peck = a.st === 'cling' && Math.sin(a.t * 16) > .5 ? 1.4 : 0;
     if (a.st === 'fly') return PAINT.bird(a, { back: '#222226', belly: '#f2f0ea', head: '#222226', cheek: '#f2f0ea' });
-    ball(0, 0, 3.2, 5.8, '#222226'); ball(.6, 1, 1.6, 3, '#f2f0ea');
-    ball(1.4 + peck, -5.4, 2.7, 2.5, '#2a2a2e'); ball(1 + peck, -6.9, 1.8, 1.2, '#c8323a');
-    line(3.6 + peck, -5.4, 6.4 + peck, -5.2, '#555', 1); ball(-.5, 5.4, 1.4, 1, '#c8323a'); eye(2.2 + peck, -5.8, .55);
+    el(0, 0, 3.2, 5.8, '#222226'); el(.6, 1, 1.6, 3, '#f2f0ea');
+    el(1.4 + peck, -5.4, 2.7, 2.5, '#2a2a2e'); el(1 + peck, -6.9, 1.8, 1.2, '#c8323a');
+    line(3.6 + peck, -5.4, 6.4 + peck, -5.2, '#555', 1); el(-.5, 5.4, 1.4, 1, '#c8323a'); el(2.2 + peck, -5.8, .55, .55, '#111');
   },
   ladybug(a) {
     ctx.save(); ctx.rotate(a.ang || 0);
     for (const s of [-1, 1]) for (const k of [-1.5, 0, 1.5]) line(k, 0, k + s * .8, s * 3.2, '#1a1a1a', .5);
-    ball(0, 0, 3.4, 2.7, '#d4302a', 0, .45); line(-3.2, 0, 3.2, 0, '#1a1a1a', .5);
-    el(-1.4, -1, .7, .7, '#1a1a1a'); el(1.2, .9, .7, .7, '#1a1a1a'); el(-1.2, 1.1, .6, .6, '#1a1a1a'); ball(3.2, 0, 1.4, 1.3, '#1e1e1e');
+    el(0, 0, 3.4, 2.7, '#d4302a', 0, .45); line(-3.2, 0, 3.2, 0, '#1a1a1a', .5);
+    el(-1.4, -1, .7, .7, '#1a1a1a'); el(1.2, .9, .7, .7, '#1a1a1a'); el(-1.2, 1.1, .6, .6, '#1a1a1a'); el(3.2, 0, 1.4, 1.3, '#1e1e1e');
     ctx.restore();
   },
   butterfly(a) {
     const f = reduceMotion ? .8 : .25 + .75 * Math.abs(Math.sin(a.ph));
-    glow(0, -1, 9, '#e8f4ff', .35);
     for (const s of [-1, 1]) {
       ctx.save(); ctx.scale(s * f, 1);
-      const g = ctx.createLinearGradient(0, -5, 5, 2); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#dce8ff');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(3, -2.5, 3.6, 3, -.4, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(2.4, 1.6, 2.4, 2, .4, 0, 7); ctx.fill();
+      ctx.fillStyle = '#f6f8fc'; ctx.beginPath(); ctx.ellipse(3, -2.5, 3.6, 3, -.4, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(2.4, 1.6, 2.4, 2, .4, 0, 7); ctx.fill();
       el(3.6, -3, .7, .7, '#2a2a2a'); ctx.restore();
     }
     line(0, -3, 0, 2.6, '#2a2a2a', .9);
@@ -613,51 +627,49 @@ const PAINT = {
   bee(a) {
     const f = reduceMotion ? 0 : Math.sin(a.t * 45) * 1.6;
     el(-1, -3.4 - f, 2.6, 1.6, 'rgba(255,255,255,.72)', -.4); el(1.4, -3.4 + f, 2.6, 1.6, 'rgba(255,255,255,.72)', .4);
-    ball(0, 0, 3.8, 2.7, '#f0c030', 0, .45); line(-.6, -2.4, -.6, 2.4, '#2a2a2a', 1); line(1.6, -2.2, 1.6, 2.2, '#2a2a2a', .9); ball(3.4, -.4, 1.6, 1.5, '#2a2a2a');
+    el(0, 0, 3.8, 2.7, '#f0c030', 0, .45); line(-.6, -2.4, -.6, 2.4, '#2a2a2a', 1); line(1.6, -2.2, 1.6, 2.2, '#2a2a2a', .9); el(3.4, -.4, 1.6, 1.5, '#2a2a2a');
   },
   fish(a) {
     const out = a.z > 1, wig = Math.sin(a.ph * 2) * .25;
     ctx.globalAlpha = out ? 1 : .75;
     ctx.save(); ctx.rotate(out ? a.jumpRot || 0 : 0);
     ctx.fillStyle = '#8fa2ae'; ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-9.5, -3 + wig * 4); ctx.lineTo(-9, 3 + wig * 4); ctx.fill();
-    ball(0, 0, 6, 2.6, '#c6d4dc', 0, .5); line(-3, 0, 4, 0, 'rgba(110,140,170,.6)', .7); eye(3.6, -.6, .6);
+    el(0, 0, 6, 2.6, '#c6d4dc', 0, .5); line(-3, 0, 4, 0, 'rgba(110,140,170,.6)', .7); el(3.6, -.6, .6, .6, '#111');
     ctx.restore(); ctx.globalAlpha = 1;
   },
-  beaver(a) {
-    const bob = Math.sin(a.t * 3) * .8, pad = Math.sin(a.ph) * .3;
-    ctx.save(); ctx.translate(-12, 1); ctx.rotate(.2 + pad); ball(0, 0, 7.5, 2.8, '#3f2a1c', 0, .15); ctx.restore();
-    ball(0, -2 + bob, 11, 5.2, '#7a4e2c'); ball(9, -6 + bob, 5.4, 4.6, '#865834'); ball(13.6, -5 + bob, 2.2, 1.7, '#3a2416');
-    ball(8, -9.6 + bob, 1.4, 1.2, '#5a3a22'); eye(10.6, -7.4 + bob, .9);
-    line(8, -5 + bob, 22, 0 + bob, '#6b4a2f', 2); ball(19, -2.4 + bob, 3, 1.5, '#6fa44a');
-    ctx.strokeStyle = 'rgba(225,245,255,.55)'; ctx.lineWidth = .9;
-    for (let k = 0; k < 2; k++) { const rr = ((a.t * .8 + k * .5) % 1); ctx.globalAlpha = 1 - rr; ctx.beginPath(); ctx.ellipse(0, 1, 10 + rr * 10, 3.5 + rr * 3, 0, 0, 7); ctx.stroke(); }
-    ctx.globalAlpha = 1;
+  beaver(a) { // same shapes as 민둥산의 묘목 drawBeaver
+    const bob = reduceMotion ? 0 : Math.sin(a.t * 3) * .8, pad = Math.sin(a.ph) * .15;
+    ctx.save(); ctx.scale(.8, .8); ctx.translate(0, bob - 2);
+    el(-15, 3, 9, 3, '#3f2a1c', .1 + pad); el(0, 1, 14, 7, '#7a4e2c'); el(12, -3, 6.5, 5.5, '#865834');
+    el(17, -2, 2.2, 1.8, '#3a2416'); el(13, -5, 1.1, 1.1, '#111'); el(9, -8, 1.6, 1.4, '#5a3a22');
+    ctx.strokeStyle = '#6b4a2f'; ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(8, -6); ctx.lineTo(28, -1); ctx.stroke(); el(24, -4, 3, 1.6, '#6fa44a');
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(230,245,255,.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-13, 4); ctx.lineTo(-24, 2); ctx.moveTo(-11, 6); ctx.lineTo(-21, 7); ctx.stroke();
   },
   frog(a) {
     const air = a.z > .5, croak = !air && a.idle > 0 ? Math.max(0, Math.sin(a.idle * 4)) : 0;
     if (air) { leg(-3, -3, 6, -1.3, '#4f8a3a', 2); leg(3, -3, 5, 1.2, '#4f8a3a', 1.6); }
-    else { ball(-4, -1.5, 3, 2, '#4f8a3a'); ball(4, -1.2, 2.4, 1.8, '#4f8a3a'); }
-    if (croak > .2) ball(3, -2, 2.4 * croak, 2 * croak, '#e8e0a8', 0, .5);
-    ball(0, -3.6, 6, 4, '#62a44c', 0, .45);
-    ball(-2.6, -7, 2, 2, '#72b45a'); ball(2.4, -7, 2, 2, '#72b45a'); eye(-2.4, -7.3, .9); eye(2.6, -7.3, .9);
+    else { el(-4, -1.5, 3, 2, '#4f8a3a'); el(4, -1.2, 2.4, 1.8, '#4f8a3a'); }
+    if (croak > .2) el(3, -2, 2.4 * croak, 2 * croak, '#e8e0a8', 0, .5);
+    el(0, -3.6, 6, 4, '#62a44c', 0, .45);
+    el(-2.6, -7, 2, 2, '#72b45a'); el(2.4, -7, 2, 2, '#72b45a'); el(-2.4, -7.3, .9, .9, '#111'); el(2.6, -7.3, .9, .9, '#111');
   },
   heron(a) {
     const sw = Math.sin(a.ph) * .35 * a.mv, strike = !a.mv && a.idle > 0 ? clamp(Math.sin(a.idle * 1.4) * 3 - 2, 0, 1) : 0;
     leg(-2, -13, 13, -sw, '#555b5e', 1.3); leg(2, -13, 13, sw, '#5f6568', 1.3);
-    ball(0, -18, 9, 5.6, '#9aa3a8', -.3); ball(-7, -16, 5.4, 2.2, '#7d868b', -.2);
+    el(0, -18, 9, 5.6, '#9aa3a8', -.3); el(-7, -16, 5.4, 2.2, '#7d868b', -.2);
     const hx = 7 + strike * 7, hy = -35 + strike * 18;
     ctx.strokeStyle = '#b8c0c4'; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(6, -21); ctx.quadraticCurveTo(1 + strike * 6, -28 + strike * 6, hx - 1, hy + 1); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(5.4, -21.5); ctx.quadraticCurveTo(.4 + strike * 6, -28.5 + strike * 6, hx - 1.6, hy + .5); ctx.stroke();
-    ball(hx, hy, 3.4, 2.6, '#e8ecee'); line(hx + 2, hy - 1, hx + 8, hy - 2, '#2a2a2a', 1);
-    line(hx + 2, hy, hx + 10, hy + 1 + strike * 2, '#e0b040', 1.5); eye(hx + 1, hy - .8, .7);
+    el(hx, hy, 3.4, 2.6, '#e8ecee'); line(hx + 2, hy - 1, hx + 8, hy - 2, '#2a2a2a', 1);
+    line(hx + 2, hy, hx + 10, hy + 1 + strike * 2, '#e0b040', 1.5); el(hx + 1, hy - .8, .7, .7, '#111');
   },
   eagle(a) {
     const f = reduceMotion ? 0 : Math.sin(a.t * 1.8) * 2.2;
     for (const s of [-1, 1]) {
-      const g = ctx.createLinearGradient(0, 0, s * 24, 0); g.addColorStop(0, '#5a4230'); g.addColorStop(1, '#2e2016');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -1); ctx.quadraticCurveTo(s * 12, -7 - f, s * 25, -3 - f); ctx.lineTo(s * 21, 0 - f * .5); ctx.lineTo(s * 17, 1); ctx.quadraticCurveTo(s * 8, 3, 0, 3); ctx.fill();
+      ctx.fillStyle = '#4a3624'; ctx.beginPath(); ctx.moveTo(0, -1); ctx.quadraticCurveTo(s * 12, -7 - f, s * 25, -3 - f); ctx.lineTo(s * 21, 0 - f * .5); ctx.lineTo(s * 17, 1); ctx.quadraticCurveTo(s * 8, 3, 0, 3); ctx.fill();
     }
-    ball(0, 1, 4.4, 3, '#5a4230'); ball(0, -2, 2.6, 2.2, '#c9a06a'); ctx.fillStyle = '#e0b040'; ctx.beginPath(); ctx.moveTo(-1, -1); ctx.lineTo(1, -1); ctx.lineTo(0, 1); ctx.fill();
+    el(0, 1, 4.4, 3, '#5a4230'); el(0, -2, 2.6, 2.2, '#c9a06a'); ctx.fillStyle = '#e0b040'; ctx.beginPath(); ctx.moveTo(-1, -1); ctx.lineTo(1, -1); ctx.lineTo(0, 1); ctx.fill();
     ctx.fillStyle = '#4a3624'; ctx.beginPath(); ctx.moveTo(-3, 3); ctx.lineTo(3, 3); ctx.lineTo(0, 8); ctx.fill();
   },
 };
@@ -772,7 +784,7 @@ function splash(fx, fy) { if (splashes.length < 10) splashes.push({ fx, fy, life
 function drawAgent(a, now) {
   const m = MOTION[a.id]; if (m.type === 'none') return;
   const pop = easeBack((now - a.born) / 650); if (pop <= 0) return;
-  const S = .82 * pop, gh = groundH(a.fx, a.fy);
+  const S = 1 * pop, gh = groundH(a.fx, a.fy);
   let x = isoX(a.fx, a.fy), y = isoY(a.fx, a.fy, gh);
   if (m.type === 'crawl') {
     const tr = treeOf('sapling'); if (!tr) return;
@@ -1076,7 +1088,7 @@ function start() {
   running = true; startAt = lastTick = Date.now(); session = 0;
   notice(''); $('scene').classList.remove('drought');
   $('startBtn').textContent = '공부 마치기'; $('startBtn').classList.add('stop'); $('demo').disabled = true;
-  tickId = setInterval(tick, 200); renderUI();
+  tickId = setInterval(tick, 200); renderUI(); cloud.paint();
 }
 function stop(commit) {
   clearInterval(tickId);
@@ -1089,7 +1101,7 @@ function stop(commit) {
   }
   session = 0; save();
   $('startBtn').textContent = '공부 시작'; $('startBtn').classList.remove('stop'); $('demo').disabled = false;
-  renderUI();
+  renderUI(); cloud.paint();
 }
 $('startBtn').onclick = () => (running ? stop(true) : start());
 $('demo').onchange = e => { state.demo = e.target.checked; save(); };
@@ -1123,6 +1135,90 @@ cv.addEventListener('click', e => {
 $('sheetClose').onclick = closeSheet;
 $('sheetBack').addEventListener('click', e => { if (e.target === $('sheetBack')) closeSheet(); });
 window.addEventListener('resize', resize);
+
+/* ================= Google login + cloud save (Firebase, shared with the Soul Knight-style game) ================= */
+// Database path: forest/{uid} = { data: "state JSON", t: last save time }. Needs its own rule (see README).
+const FIREBASE = {
+  apiKey: 'AIzaSyD_bGIXNy_n0QEhYqaTUS6y97CPBc5tbdQ',
+  authDomain: 'dongeon-shooter.firebaseapp.com',
+  databaseURL: 'https://dongeon-shooter-default-rtdb.firebaseio.com',
+};
+const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const ERR = {
+  'auth/popup-blocked': '팝업이 막혔어요. 이 사이트의 팝업을 허용하고 다시 눌러 주세요',
+  'auth/popup-closed-by-user': '로그인 창을 닫았어요',
+  'auth/cancelled-popup-request': '로그인 창을 닫았어요',
+  'auth/unauthorized-domain': '이 주소가 Firebase 승인된 도메인에 없어요',
+  'auth/operation-not-allowed': 'Firebase에서 Google 로그인이 꺼져 있어요',
+  'auth/network-request-failed': '인터넷 연결을 확인해 주세요',
+};
+const cloud = (() => {
+  let sdk = null, user = null, timer = 0, dirty = false, ready = false;
+  const setSt = (msg, err) => { $('accSt').textContent = msg; $('accSt').classList.toggle('err', !!err); };
+  function paint() {
+    $('accName').textContent = user ? (user.displayName || user.email || '구글 계정') : '게스트';
+    $('gLogin').hidden = !!user; $('gLogout').hidden = !user;
+    $('gLogin').disabled = !sdk || running;
+    if (!user) setSt(sdk || !ready ? '이 브라우저에만 저장돼요' : '이 브라우저에만 저장돼요 · 구글 로그인을 쓸 수 없어요');
+  }
+  async function rest(method, body) {
+    const tok = await user.getIdToken();
+    const res = await fetch(`${FIREBASE.databaseURL}/forest/${user.uid}.json?auth=${encodeURIComponent(tok)}`,
+      { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(res.status === 401 || res.status === 403 ? '권한이 없어요 (데이터베이스 규칙에 forest를 추가해야 해요)' : (data && data.error) || 'HTTP ' + res.status);
+    return data;
+  }
+  async function push() {
+    clearTimeout(timer);
+    if (!user || !dirty || running) return;
+    dirty = false;
+    try { await rest('PUT', { data: JSON.stringify(state), t: state.t || Date.now() }); setSt('클라우드에 저장됨'); }
+    catch (e) { dirty = true; setSt('클라우드 저장 실패: ' + e.message, true); }
+  }
+  // newer save wins: cloud → this browser, or this browser → cloud
+  async function sync() {
+    if (!user || running) return;
+    setSt('클라우드와 맞추는 중…');
+    try {
+      const r = await rest('GET');
+      let cs = null; try { cs = r && r.data ? JSON.parse(r.data) : null; } catch (e) {}
+      if (cs && cs.tiles && (Number(r.t) || 0) > (state.t || 0)) {
+        state = Object.assign(fresh(), cs);
+        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+        reloadWorld();
+        setSt('클라우드 기록을 불러왔어요');
+        toast('클라우드에 있던 섬을 불러왔어요');
+      } else { dirty = true; await push(); }
+    } catch (e) { setSt('클라우드 연결 실패: ' + e.message, true); }
+  }
+  // load the SDK up front: the popup must open in the same tick as the click or it gets blocked
+  Promise.all([import(SDK + 'firebase-app.js'), import(SDK + 'firebase-auth.js')]).then(([app, au]) => {
+    const auth = au.getAuth(app.initializeApp(FIREBASE, 'forest'));
+    au.setPersistence(auth, au.browserLocalPersistence).catch(() => {});
+    sdk = { au, auth }; ready = true; paint();
+    au.onAuthStateChanged(auth, u => { const was = user && user.uid; user = u; paint(); if (u && u.uid !== was) sync(); });
+  }).catch(() => { ready = true; paint(); });
+  $('gLogin').onclick = () => {
+    if (!sdk || running) return;
+    const provider = new sdk.au.GoogleAuthProvider(); provider.setCustomParameters({ prompt: 'select_account' });
+    sdk.au.signInWithPopup(sdk.auth, provider).catch(e => setSt(ERR[e && e.code] || (e && e.message) || String(e), true));
+  };
+  $('gLogout').onclick = async () => { await push(); sdk.au.signOut(sdk.auth); toast('로그아웃했어요. 섬은 이 브라우저에 남아 있어요'); };
+  addEventListener('visibilitychange', () => { if (document.hidden) push(); });
+  addEventListener('pagehide', push);
+  paint();
+  return {
+    queue() { if (!user) return; dirty = true; clearTimeout(timer); timer = setTimeout(push, 2500); setSt('올리는 중…'); },
+    paint,
+  };
+})();
+function reloadWorld() {
+  present = new Set(); appear = {}; tileAppear = {}; agents = {}; lastStage = stageOf(state.total);
+  $('demo').checked = state.demo;
+  present = new Set(visitorsNow().map(v => v.id));
+  fitCamera(); renderUI();
+}
 
 $('demo').checked = state.demo;
 buildSprites();
