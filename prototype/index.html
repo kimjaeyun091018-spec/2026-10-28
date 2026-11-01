@@ -55,8 +55,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .xp small { color: var(--muted); font-size: 12px; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .bar { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; }
 .bar > i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .3s; }
-.cur { display: flex; gap: 6px; }
-.chip { font-family: var(--font-num); font-size: 13px; font-variant-numeric: tabular-nums; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); white-space: nowrap; }
 
 /* the island is an illustration with its own fixed daylight palette */
 .scene {
@@ -95,27 +93,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .log li.locked .e { filter: grayscale(1) opacity(.35); }
 .log li.locked strong { color: var(--muted); }
 
-.sheet-back { position: fixed; inset: 0; background: rgba(10, 16, 12, .45); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
-.sheet {
-  width: 100%; max-width: 620px; max-height: 82%; overflow-y: auto; background: var(--surface); color: var(--ink);
-  border-radius: 18px 18px 0 0; padding-block: 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-}
-.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.sheet h3 { font-family: var(--font-display); font-weight: 400; font-size: 21px; margin: 0; }
-.biomes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-@media (max-width: 420px) { .biomes { grid-template-columns: repeat(2, 1fr); } }
-.biome {
-  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px 10px; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; min-width: 0; text-align: center;
-}
-.biome img { width: 72px; height: 72px; image-rendering: pixelated; }
-.biome b { font-family: var(--font-display); font-weight: 400; font-size: 16px; }
-.biome span { font-size: 12px; color: var(--muted); }
-.biome .cost { font-family: var(--font-num); font-size: 12px; color: var(--ink); }
-.biome:disabled { cursor: not-allowed; opacity: .5; }
-.biome:disabled .cost { color: var(--warn); }
-
 .toast {
   position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-family: var(--font-display);
@@ -138,7 +115,7 @@ footer { color: var(--muted); font-size: 13px; }
 <div class="wrap">
   <header>
     <h1>숲공부</h1>
-    <p>구름 위 작은 섬, 묘목 한 칸에서 시작해요. 손님이 찾아오면 레벨이 오르고, 땅이 십자로 넓어져요.</p>
+    <p>구름 위 작은 섬, 묘목 한 칸에서 시작해요. 공부하면 레벨이 오르고, 땅이 십자로 넓어지며 어떤 지형이 생길지는 그때그때 달라요.</p>
   </header>
 
   <div class="account" id="account">
@@ -150,15 +127,10 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="hud">
     <div class="lv" id="lv">Lv 1</div>
     <div class="xp"><div class="bar"><i id="xpbar"></i></div><small id="xptext">0 / 15</small></div>
-    <div class="cur">
-      <span class="chip" id="cSeed" title="씨앗">🌱 0</span>
-      <span class="chip" id="cDrop" title="물방울">💧 0</span>
-      <span class="chip" id="cStone" title="돌">🪨 0</span>
-    </div>
   </div>
 
   <div class="scene" id="scene">
-    <canvas id="cv" aria-label="구름 위에 뜬 섬. 빈 땅을 눌러 지형을 정해요."></canvas>
+    <canvas id="cv" aria-label="구름 위에 뜬 섬. 공부할수록 땅이 넓어지고 손님이 찾아와요."></canvas>
     <div class="stage" id="stage"></div>
     <div class="hint" id="hint" hidden></div>
   </div>
@@ -170,7 +142,7 @@ footer { color: var(--muted); font-size: 13px; }
       <button class="btn ghost" id="resetBtn" type="button">처음부터</button>
       <label class="toggle"><input type="checkbox" id="demo" checked> 시연 모드 (1초 = 1분)</label>
     </div>
-    <p class="rules">씨앗은 공부 1분마다 1개. 물방울은 5분 넘게 공부하고 마치면 2개, 돌은 25분 넘게 한 번에 공부하고 마치면 3개. 경험치는 공부 1분마다 1, 새 손님마다 10.</p>
+    <p class="rules">경험치는 공부 1분마다 1, 새 손님마다 10. 레벨이 오르면 새 땅이 열리고, 지형은 저절로 생겨요.</p>
     <div class="notice" id="notice" hidden></div>
   </section>
 
@@ -182,12 +154,6 @@ footer { color: var(--muted); font-size: 13px; }
   <footer>공부 중에 화면을 벗어나면 그 세션은 없던 일이 돼요. 게스트 기록은 이 브라우저에만, 구글로 로그인하면 클라우드에도 저장돼요.</footer>
 </div>
 
-<div class="sheet-back" id="sheetBack" hidden>
-  <div class="sheet" role="dialog" aria-labelledby="sheetTitle">
-    <div class="sheet-head"><h3 id="sheetTitle">이 땅을 무엇으로 만들까요?</h3><button class="btn ghost" id="sheetClose" type="button">닫기</button></div>
-    <div class="biomes" id="biomes"></div>
-  </div>
-</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -216,18 +182,19 @@ const key = (gx, gy) => gx + ',' + gy;
 const BIOMES = {
   sapling: { name: '어미나무', h: 1, base: '#4f8a45', light: '#8cc466' },
   empty: { name: '빈 땅', h: 1, base: '#6e5644', light: '#9c7e64' },
-  plains: { name: '초원', cost: { seed: 3 }, h: 1, base: '#5a9447', light: '#93c96a', hint: '토끼·여우' },
-  meadow: { name: '꽃밭', cost: { seed: 6 }, h: 1, base: '#5c9a4e', light: '#9ccf76', hint: '나비·꿀벌' },
-  oak: { name: '참나무 숲', cost: { seed: 8 }, h: 1, tree: 'oak', base: '#3f7a40', light: '#72aa5a', hint: '다람쥐·딱따구리' },
-  birch: { name: '자작나무 숲', cost: { seed: 10 }, h: 1, tree: 'birch', base: '#6a9e55', light: '#a6cf7e', hint: '박새' },
-  cherry: { name: '벚나무 숲', cost: { seed: 14 }, h: 1, tree: 'cherry', base: '#6a9a5a', light: '#aacb8c', hint: '동박새' },
-  taiga: { name: '침엽수림', cost: { seed: 10, stone: 1 }, h: 1, tree: 'spruce', base: '#2f5e4c', light: '#5f8f6e', hint: '노루' },
-  river: { name: '강', cost: { drop: 2 }, h: .8, water: true, base: '#2a7aa2', light: '#6cc8dc', hint: '피라미·비버' },
-  swamp: { name: '습지', cost: { drop: 2, seed: 4 }, h: .9, base: '#2f5a50', light: '#5c8670', hint: '개구리·반딧불이' },
-  mountain: { name: '돌산', cost: { stone: 2 }, h: 1.9, rock: true, base: '#6d7286', light: '#aab0c2', hint: '산양·검독수리' },
+  plains: { name: '초원', h: 1, base: '#5a9447', light: '#93c96a', hint: '토끼·여우' },
+  meadow: { name: '꽃밭', h: 1, base: '#5c9a4e', light: '#9ccf76', hint: '나비·꿀벌' },
+  oak: { name: '참나무 숲', h: 1, tree: 'oak', base: '#3f7a40', light: '#72aa5a', hint: '다람쥐·딱따구리' },
+  birch: { name: '자작나무 숲', h: 1, tree: 'birch', base: '#6a9e55', light: '#a6cf7e', hint: '박새' },
+  cherry: { name: '벚나무 숲', h: 1, tree: 'cherry', base: '#6a9a5a', light: '#aacb8c', hint: '동박새' },
+  taiga: { name: '침엽수림', h: 1, tree: 'spruce', base: '#2f5e4c', light: '#5f8f6e', hint: '노루' },
+  river: { name: '강', h: .8, water: true, base: '#2a7aa2', light: '#6cc8dc', hint: '피라미·비버' },
+  swamp: { name: '습지', h: .9, base: '#2f5a50', light: '#5c8670', hint: '개구리·반딧불이' },
+  mountain: { name: '돌산', h: 1.9, rock: true, base: '#6d7286', light: '#aab0c2', hint: '산양·검독수리' },
 };
-const BUYABLE = ['plains', 'meadow', 'oak', 'birch', 'cherry', 'taiga', 'river', 'swamp', 'mountain'];
-const CUR = { seed: '🌱', drop: '💧', stone: '🪨' };
+const WILD = ['plains', 'meadow', 'oak', 'birch', 'cherry', 'taiga', 'river', 'swamp', 'mountain'];
+// how many tiles of each biome every visitor needs together: random terrain leans toward what is still missing
+const GOAL = { plains: 2, meadow: 2, oak: 2, birch: 1, cherry: 1, taiga: 2, river: 2, swamp: 2, mountain: 3 };
 
 const STAGE_MIN = [0, 4, 12, 30];
 const STAGE_NAME = ['새싹', '덤불', '어린나무', '큰나무'];
@@ -282,7 +249,7 @@ const MOTION = {
 
 /* ================= state ================= */
 const KEY = 'sup-island-v1';
-const fresh = () => ({ lv: 1, xp: 0, total: 0, cur: { seed: 0, drop: 2, stone: 1 }, tiles: { [key(C, C)]: 'sapling' }, seen: {}, demo: true });
+const fresh = () => ({ lv: 1, xp: 0, total: 0, tiles: { [key(C, C)]: 'sapling' }, seen: {}, demo: true });
 let state = fresh();
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.tiles) state = Object.assign(fresh(), s); } catch (e) {}
 const save = () => {
@@ -292,7 +259,7 @@ const save = () => {
 };
 
 let running = false, startAt = 0, lastTick = 0, session = 0, tickId = null, snapshot = null;
-let present = new Set(), appear = {}, tileAppear = {}, selected = null;
+let present = new Set(), appear = {}, tileAppear = {};
 
 function model() {
   const by = {};
@@ -310,6 +277,34 @@ function model() {
   };
 }
 function visitorsNow() { const M = model(); return VISITORS.filter(v => v.cond(M)); }
+
+/* ================= automatic terrain ================= */
+// Neighbouring tiles tend to match (forests and mountains come in patches), biomes some visitor still
+// needs are favoured, and a river gets a wood beside it so the beaver can come.
+function pickBiome(gx, gy) {
+  const cnt = {}; for (const b of Object.values(state.tiles)) cnt[b] = (cnt[b] || 0) + 1;
+  const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => state.tiles[key(gx + dx, gy + dy)]).filter(b => WILD.includes(b));
+  const wood = b => b === 'oak' || b === 'birch';
+  if (!model().riverByWood()) {
+    if (nb.includes('river') && Math.random() < .6) return Math.random() < .5 ? 'oak' : 'birch';
+    if (nb.some(wood) && (cnt.river || 0) > 0 && Math.random() < .4) return 'river';
+  }
+  const short = WILD.filter(b => (cnt[b] || 0) < GOAL[b]);
+  if (short.length && Math.random() < .55) return short[Math.floor(Math.random() * short.length)];
+  if (nb.length && Math.random() < .45) return nb[Math.floor(Math.random() * nb.length)];
+  return WILD[Math.floor(Math.random() * WILD.length)];
+}
+// give every open tile without terrain a biome, inner ring first so patches grow outward
+function fillTerrain() {
+  const todo = [];
+  for (let gx = 0; gx < N; gx++) for (let gy = 0; gy < N; gy++) {
+    const k = key(gx, gy);
+    if (ring(gx, gy) <= state.lv - 1 && (!state.tiles[k] || state.tiles[k] === 'empty')) todo.push([gx, gy]);
+  }
+  todo.sort((a, b) => ring(...a) - ring(...b) || Math.random() - .5);
+  for (const [gx, gy] of todo) state.tiles[key(gx, gy)] = pickBiome(gx, gy);
+  return todo.length;
+}
 
 /* ================= drawing primitives ================= */
 const cv = $('cv');
@@ -944,7 +939,6 @@ function frame(now) {
       ctx.strokeStyle = `rgba(200,240,255,${pul})`; ctx.lineWidth = 1.2; diamond(x, y, .7); ctx.stroke();
       glow(x, y - 2, 10, '#c8f0ff', pul * .5); ctx.fillStyle = `rgba(240,252,255,${pul + .2})`; ctx.fillRect(x - 5, y - 1, 10, 2); ctx.fillRect(x - 1, y - 5, 2, 10);
     }
-    if (selected === kk) { ctx.strokeStyle = '#fff2c8'; ctx.lineWidth = 2; diamond(x, y); ctx.stroke(); }
     // tree, then animals standing on this tile
     const tr = treeOf(b);
     const list = (byTile[kk] || []).sort((u, v) => (u.fx + u.fy) - (v.fx + v.fy));
@@ -990,44 +984,6 @@ function sapling(x, y, t) {
 }
 
 /* ================= UI ================= */
-function costText(c) { return Object.entries(c).map(([k, v]) => CUR[k] + ' ' + v).join('  '); }
-const canPay = c => Object.entries(c).every(([k, v]) => state.cur[k] >= v);
-
-let previews = {};
-function makePreviews() {
-  const main = ctx;
-  for (const b of BUYABLE) {
-    const c = document.createElement('canvas'); c.width = c.height = 144; ctx = c.getContext('2d');
-    const B = BIOMES[b], y = 6 - (B.h - 1) * BH * .5;
-    ctx.setTransform(1.45, 0, 0, 1.45, 72, 78);
-    put(SIDES[b][0], -TW / 2, y); put(SIDES[b][1], 0, y);
-    if (B.water) waterTop(0, y, 0); else put(TOPS[b][0], 0, y);
-    const tr = treeOf(b); if (tr) put(TREE_SPR[tr], 0, y, .8);
-    previews[b] = c.toDataURL();
-  }
-  ctx = main;
-}
-
-function openSheet(k) {
-  selected = k;
-  $('biomes').innerHTML = '';
-  for (const b of BUYABLE) {
-    const B = BIOMES[b], btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'biome'; btn.id = 'biome-' + b; btn.disabled = !canPay(B.cost);
-    btn.innerHTML = '<img alt="" src="' + previews[b] + '"><b>' + B.name + '</b><span>' + B.hint + '</span><span class="cost">' + costText(B.cost) + '</span>';
-    btn.onclick = () => buy(k, b);
-    $('biomes').appendChild(btn);
-  }
-  $('sheetBack').hidden = false;
-}
-function closeSheet() { $('sheetBack').hidden = true; selected = null; }
-function buy(k, b) {
-  const B = BIOMES[b]; if (!canPay(B.cost)) return;
-  for (const [c, v] of Object.entries(B.cost)) state.cur[c] -= v;
-  state.tiles[k] = b; tileAppear['d' + k] = performance.now();
-  save(); closeSheet(); toast(B.name + ' 완성'); evaluate(false);
-}
-
 let lastStage = null;
 function evaluate(quiet) {
   const vis = visitorsNow(), ids = new Set(vis.map(v => v.id)), news = [];
@@ -1048,7 +1004,12 @@ function levelCheck(quiet) {
     const now = performance.now(), r = state.lv - 1;
     let cnt = 0;
     for (let gx = 0; gx < N; gx++) for (let gy = 0; gy < N; gy++) if (ring(gx, gy) === r) { tileAppear[key(gx, gy)] = quiet ? null : now + cnt * 60; cnt++; }
-    if (!quiet) setTimeout(() => toast('레벨 ' + state.lv + '! 새 땅 ' + cnt + '칸이 열렸어요'), 900);
+    fillTerrain();
+    if (!quiet) {
+      const made = {}; for (let gx = 0; gx < N; gx++) for (let gy = 0; gy < N; gy++) if (ring(gx, gy) === r) { const b = state.tiles[key(gx, gy)]; made[b] = (made[b] || 0) + 1; }
+      const what = Object.entries(made).map(([b, n]) => BIOMES[b].name + (n > 1 ? ' ' + n : '')).join(', ');
+      setTimeout(() => toast('레벨 ' + state.lv + '! 새 땅 ' + cnt + '칸: ' + what), 900);
+    }
     fitCamera();
   }
 }
@@ -1058,13 +1019,10 @@ function renderUI() {
   $('lv').textContent = 'Lv ' + lv;
   if (lv >= MAXLV) { $('xpbar').style.width = '100%'; $('xptext').textContent = '최고 레벨'; }
   else { $('xpbar').style.width = clamp((state.xp - lo) / (hi - lo) * 100, 0, 100) + '%'; $('xptext').textContent = Math.floor(state.xp) + ' / ' + hi + ' 경험치'; }
-  $('cSeed').textContent = '🌱 ' + Math.floor(state.cur.seed);
-  $('cDrop').textContent = '💧 ' + state.cur.drop;
-  $('cStone').textContent = '🪨 ' + state.cur.stone;
   const st = stageOf(state.total);
   $('stage').textContent = '어미나무 · ' + STAGE_NAME[st];
-  const empties = openTiles().filter(o => o[2] === 'empty').length;
-  $('hint').hidden = !empties; $('hint').textContent = '빈 땅을 눌러 지형 고르기 · ' + empties + '칸';
+  $('hint').hidden = state.lv >= MAXLV;
+  $('hint').textContent = '다음 레벨까지 경험치 ' + Math.max(0, Math.ceil((LV_XP[lv + 1] || 0) - state.xp)) + ' · 새 땅 ' + (state.lv < MAXLV ? state.lv * 4 : 0) + '칸';
   $('logTitle').textContent = '손님 도감 · ' + Object.keys(state.seen).length + ' / ' + VISITORS.length;
   $('log').innerHTML = VISITORS.map(v => {
     const ok = state.seen[v.id], here = present.has(v.id);
@@ -1080,7 +1038,7 @@ function notice(msg) { $('notice').textContent = msg; $('notice').hidden = !msg;
 /* ================= session ================= */
 function tick() {
   const now = Date.now(), d = (now - lastTick) / 1000 * (state.demo ? 1 : 1 / 60); lastTick = now;
-  session += d; state.total += d; state.cur.seed += d; state.xp += d;
+  session += d; state.total += d; state.xp += d;
   evaluate(false);
 }
 function start() {
@@ -1094,10 +1052,7 @@ function stop(commit) {
   clearInterval(tickId);
   running = false;
   if (commit) {
-    const bonus = [];
-    if (session >= 5) { state.cur.drop += 2; bonus.push('💧 2'); }
-    if (session >= 25) { state.cur.stone += 3; bonus.push('🪨 3'); }
-    toast(Math.floor(session) + '분 공부 완료' + (bonus.length ? ' · 보너스 ' + bonus.join(', ') : ''));
+    toast(Math.floor(session) + '분 공부 완료');
   }
   session = 0; save();
   $('startBtn').textContent = '공부 시작'; $('startBtn').classList.remove('stop'); $('demo').disabled = false;
@@ -1129,11 +1084,8 @@ cv.addEventListener('click', e => {
     const x = isoX(gx, gy), y = isoY(gx, gy, BIOMES[b].h);
     if (Math.abs(wx - x) / (TW / 2) + Math.abs(wy - y) / (TH / 2) <= 1 && (!hit || gx + gy > hit[0] + hit[1])) hit = [gx, gy, b];
   }
-  if (hit && hit[2] === 'empty') openSheet(key(hit[0], hit[1]));
-  else if (hit && hit[2] !== 'empty') toast(BIOMES[hit[2]].name);
+  if (hit) { const B = BIOMES[hit[2]]; toast(B.name + (B.hint ? ' · 찾아오는 손님: ' + B.hint : '')); }
 });
-$('sheetClose').onclick = closeSheet;
-$('sheetBack').addEventListener('click', e => { if (e.target === $('sheetBack')) closeSheet(); });
 window.addEventListener('resize', resize);
 
 /* ================= Google login + cloud save (Firebase, shared with the Soul Knight-style game) ================= */
@@ -1214,15 +1166,16 @@ const cloud = (() => {
   };
 })();
 function reloadWorld() {
+  delete state.cur; fillTerrain();
   present = new Set(); appear = {}; tileAppear = {}; agents = {}; lastStage = stageOf(state.total);
   $('demo').checked = state.demo;
   present = new Set(visitorsNow().map(v => v.id));
   fitCamera(); renderUI();
 }
 
+delete state.cur; fillTerrain();
 $('demo').checked = state.demo;
 buildSprites();
-makePreviews();
 lastStage = stageOf(state.total);
 present = new Set(visitorsNow().map(v => v.id)); agents = {};
 fitCamera(); cam = { ...camT };
