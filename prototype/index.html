@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>숲공부 생태계 타이머</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-column field journal — live diorama on top, timer controls, then the species log */
+:root {
+  --bg: #eef1ea;
+  --surface: #f8faf5;
+  --ink: #1d2a22;
+  --muted: #5d6b61;
+  --line: #d3dacd;
+  --accent: #2c6e8f;
+  --moss: #4d7a39;
+  --warn: #b5562b;
+  --sky-top: #cfe6ef;
+  --sky-bot: #eaf4f0;
+  --soil: #b9a27c;
+  --grass: #8fb86a;
+  --water: #6aaed0;
+  --font-display: "Do Hyeon", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121814; --surface: #1a221d; --ink: #e3eadf; --muted: #9aa89d; --line: #2c3830;
+    --accent: #6cb4d6; --moss: #8cc070; --warn: #e08a5e;
+    --sky-top: #1b2c3a; --sky-bot: #24363a; --soil: #5c4d36; --grass: #3f6332; --water: #2f6f8f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121814; --surface: #1a221d; --ink: #e3eadf; --muted: #9aa89d; --line: #2c3830;
+  --accent: #6cb4d6; --moss: #8cc070; --warn: #e08a5e;
+  --sky-top: #1b2c3a; --sky-bot: #24363a; --soil: #5c4d36; --grass: #3f6332; --water: #2f6f8f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header h1 { font-family: var(--font-display); font-weight: 400; font-size: 30px; margin: 0; letter-spacing: .01em; }
+header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+.tabs { display: flex; gap: 6px; }
+.tab {
+  flex: 1; font: inherit; font-family: var(--font-display); font-size: 17px; padding: 8px 0;
+  background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.scene {
+  position: relative; width: 100%; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(var(--sky-top), var(--sky-bot) 55%);
+  border: 1px solid var(--line);
+}
+.ground { position: absolute; left: 0; right: 0; bottom: 0; height: 45%; background: var(--soil); transition: background 1.2s; }
+.scene.green .ground { background: var(--grass); }
+.river {
+  position: absolute; left: -5%; right: -5%; bottom: 14%; height: 12%; background: var(--water);
+  border-radius: 50%; transform: rotate(-4deg); transition: all 1.2s;
+}
+.pond {
+  position: absolute; left: 8%; bottom: 4%; width: 34%; height: 0; background: var(--water); border-radius: 50%;
+  opacity: .85; transition: height 1.2s;
+}
+.scene.dammed .pond { height: 16%; }
+.creature { position: absolute; transform: translate(-50%, -50%); line-height: 1; user-select: none; }
+.creature.new { animation: pop .7s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(0); } to { transform: translate(-50%, -50%) scale(1); } }
+.stage {
+  position: absolute; left: 12px; top: 10px; font-family: var(--font-display); font-size: 15px;
+  background: var(--surface); color: var(--ink); padding: 3px 10px; border-radius: 999px; opacity: .92;
+}
+.drought .ground { filter: saturate(.3) brightness(1.1); }
+
+.timer { display: flex; flex-direction: column; gap: 10px; }
+.clock { font-family: var(--font-num); font-size: 46px; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn {
+  font: inherit; font-family: var(--font-display); font-size: 18px; padding: 10px 22px; border-radius: 12px;
+  border: none; background: var(--moss); color: var(--bg); cursor: pointer;
+}
+.btn.stop { background: var(--warn); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-size: 15px; padding: 8px 14px; }
+.toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; margin-left: auto; }
+.next { font-size: 14px; color: var(--muted); }
+.next b { color: var(--ink); font-weight: 400; font-family: var(--font-display); font-size: 16px; }
+.bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.notice { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface); border-left: 3px solid var(--warn); }
+
+.log h2 { font-family: var(--font-display); font-weight: 400; font-size: 21px; margin: 0 0 8px; }
+.log ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.log li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.log li .e { font-size: 24px; text-align: center; }
+.log li .n { min-width: 0; }
+.log li .n strong { font-family: var(--font-display); font-weight: 400; font-size: 16px; display: block; }
+.log li .n span { color: var(--muted); font-size: 13px; }
+.log li .m { font-family: var(--font-num); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.log li.locked .e { filter: grayscale(1) opacity(.35); }
+.log li.locked strong { color: var(--muted); }
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-family: var(--font-display);
+  font-size: 16px; max-width: calc(100% - 32px); text-align: center; z-index: 5;
+}
+footer { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .creature.new { animation: none; } * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>숲공부</h1>
+    <p>공부한 시간만큼 지형이 자라고, 조건이 맞으면 동물이 찾아와요.</p>
+  </header>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+
+  <div class="scene" id="scene">
+    <div class="ground"></div>
+    <div class="river" id="river" hidden></div>
+    <div class="pond"></div>
+    <div id="creatures"></div>
+    <div class="stage" id="stage"></div>
+  </div>
+
+  <section class="timer">
+    <div class="clock" id="clock">00:00</div>
+    <div class="row">
+      <button class="btn" id="startBtn" type="button">공부 시작</button>
+      <button class="btn ghost" id="resetBtn" type="button">처음부터</button>
+      <label class="toggle"><input type="checkbox" id="demo" checked> 시연 모드 (1초 = 1분)</label>
+    </div>
+    <div class="notice" id="notice" hidden></div>
+    <div class="next" id="next"></div>
+    <div class="bar"><i id="bar"></i></div>
+  </section>
+
+  <section class="log">
+    <h2 id="logTitle">도감</h2>
+    <ol id="log"></ol>
+  </section>
+
+  <footer>공부 중에 화면을 벗어나면 그 세션의 시간은 기록되지 않아요. 기록은 이 브라우저에만 저장돼요.</footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// pos: [x%, y%] in the scene, s: font size in px at 400px width (scaled)
+const TERRAINS = {
+  river: {
+    name: '강', hasRiver: true,
+    stages: [[0, '마른 강변'], [10, '갈대 강변'], [40, '버드나무 강가'], [60, '비버의 강'], [100, '습지 생태계']],
+    species: [
+      { id: 'reed', name: '갈대', e: '🌾', min: 10, req: [], note: '강변에 처음 자리 잡는 풀', at: [[12, 66], [22, 70], [80, 64], [90, 69]], s: 26 },
+      { id: 'fish', name: '피라미', e: '🐟', min: 20, req: [], note: '물이 맑아지면 찾아와요', at: [[62, 80]], s: 22 },
+      { id: 'willow', name: '버드나무', e: '🌳', min: 40, req: ['reed'], note: '갈대가 흙을 붙잡아야 자라요', at: [[72, 46], [88, 50]], s: 54 },
+      { id: 'beaver', name: '비버', e: '🦫', min: 60, req: ['willow'], note: '버드나무 가지로 댐을 지어요', at: [[46, 74]], s: 32, effect: 'dam' },
+      { id: 'dam', name: '비버 댐', e: '🪵', min: 60, req: ['beaver'], note: '강물을 막아 연못을 만들어요', at: [[36, 78]], s: 28 },
+      { id: 'frog', name: '개구리', e: '🐸', min: 80, req: ['dam'], note: '댐이 만든 연못에 살아요', at: [[20, 86]], s: 24 },
+      { id: 'heron', name: '왜가리', e: '🪿', min: 100, req: ['frog', 'fish'], note: '개구리와 물고기를 먹으러 와요', at: [[30, 62]], s: 36 },
+    ],
+  },
+  forest: {
+    name: '숲',
+    stages: [[0, '빈 땅'], [5, '이끼 덮인 땅'], [40, '어린 숲'], [90, '깊은 숲']],
+    species: [
+      { id: 'moss', name: '이끼', e: '🌿', min: 5, req: [], note: '맨땅에 가장 먼저 와요', at: [[18, 84], [50, 88], [82, 86]], s: 22 },
+      { id: 'fern', name: '고사리', e: '🌱', min: 15, req: ['moss'], note: '이끼가 만든 흙에서 자라요', at: [[30, 76], [68, 78]], s: 26 },
+      { id: 'oak', name: '참나무', e: '🌳', min: 40, req: ['fern'], note: '숲의 뼈대가 되는 나무', at: [[22, 46], [56, 40], [84, 48]], s: 64 },
+      { id: 'squirrel', name: '다람쥐', e: '🐿️', min: 60, req: ['oak'], note: '도토리를 모으며 살아요', at: [[44, 72]], s: 28 },
+      { id: 'woodpecker', name: '딱따구리', e: '🐦', min: 90, req: ['oak'], note: '나무에 구멍을 뚫어요', at: [[60, 30]], s: 24, effect: 'hole' },
+      { id: 'owl', name: '올빼미', e: '🦉', min: 120, req: ['woodpecker'], note: '딱따구리가 남긴 구멍에 둥지를 틀어요', at: [[24, 30]], s: 30 },
+    ],
+  },
+  meadow: {
+    name: '초원',
+    stages: [[0, '맨 들판'], [5, '풀밭'], [20, '꽃밭'], [90, '열매 맺는 초원']],
+    species: [
+      { id: 'grass', name: '들풀', e: '🌱', min: 5, req: [], note: '들판을 덮는 첫 풀', at: [[14, 80], [40, 86], [66, 82], [88, 88]], s: 22 },
+      { id: 'flower', name: '들꽃', e: '🌼', min: 20, req: ['grass'], note: '풀밭이 자리 잡으면 피어요', at: [[26, 72], [54, 76], [78, 70]], s: 24 },
+      { id: 'rabbit', name: '토끼', e: '🐇', min: 40, req: ['grass'], note: '풀을 뜯으러 와요', at: [[36, 66]], s: 30 },
+      { id: 'bee', name: '꿀벌', e: '🐝', min: 60, req: ['flower'], note: '꽃가루를 옮겨 열매를 맺게 해요', at: [[62, 50]], s: 20 },
+      { id: 'apple', name: '사과나무', e: '🍎', min: 90, req: ['bee'], note: '꿀벌이 꽃가루를 옮겨야 열려요', at: [[84, 46]], s: 34 },
+      { id: 'fox', name: '여우', e: '🦊', min: 120, req: ['rabbit'], note: '토끼가 늘면 나타나요', at: [[14, 62]], s: 32 },
+    ],
+  },
+};
+
+const KEY = 'sup-ecosystem-v1';
+let state = { terrain: 'river', minutes: { river: 0, forest: 0, meadow: 0 }, seen: {}, demo: true };
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.minutes) state = Object.assign(state, s); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+let running = false, startAt = 0, sessionMin = 0, failed = false, rendered = new Set(), tickId = null;
+const $ = id => document.getElementById(id);
+
+function unlocked(tKey, minutes) {
+  const set = new Set();
+  // species list is ordered so requirements come first
+  for (const sp of TERRAINS[tKey].species) if (minutes >= sp.min && sp.req.every(r => set.has(r))) set.add(sp.id);
+  return set;
+}
+const effMinutes = () => state.minutes[state.terrain] + (running ? sessionMin : 0);
+const fmt = m => { const t = Math.floor(m); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+
+function renderTabs() {
+  $('tabs').innerHTML = '';
+  for (const [k, t] of Object.entries(TERRAINS)) {
+    const b = document.createElement('button');
+    b.className = 'tab'; b.type = 'button'; b.role = 'tab'; b.id = 'tab-' + k;
+    b.textContent = t.name; b.setAttribute('aria-selected', k === state.terrain);
+    b.disabled = running && k !== state.terrain;
+    b.onclick = () => { state.terrain = k; rendered = new Set(); save(); render(true); };
+    $('tabs').appendChild(b);
+  }
+}
+
+function render(quiet) {
+  const t = TERRAINS[state.terrain], m = effMinutes(), got = unlocked(state.terrain, m);
+  const scene = $('scene');
+  $('river').hidden = !t.hasRiver;
+  scene.classList.toggle('green', m >= 5);
+  scene.classList.toggle('dammed', got.has('dam'));
+  const scale = scene.clientWidth / 400;
+
+  // creatures
+  const box = $('creatures'); box.innerHTML = '';
+  const fresh = [];
+  for (const sp of t.species) {
+    if (!got.has(sp.id)) continue;
+    const isNew = !rendered.has(sp.id);
+    sp.at.forEach(([x, y]) => {
+      const el = document.createElement('span');
+      el.className = 'creature' + (isNew && !quiet ? ' new' : '');
+      el.textContent = sp.e; el.title = sp.name;
+      el.style.left = x + '%'; el.style.top = y + '%'; el.style.fontSize = Math.round(sp.s * scale) + 'px';
+      box.appendChild(el);
+    });
+    if (isNew) { rendered.add(sp.id); if (!quiet) fresh.push(sp); }
+    if (!state.seen[sp.id]) { state.seen[sp.id] = true; save(); }
+  }
+  if (fresh.length) toast(fresh.map(s => s.e + ' ' + s.name).join(', ') + ' 출현!');
+  // drop species that left (after a failed session)
+  for (const id of [...rendered]) if (!got.has(id)) rendered.delete(id);
+
+  let stageName = t.stages[0][1];
+  for (const [min, name] of t.stages) if (m >= min) stageName = name;
+  $('stage').textContent = t.name + ' · ' + stageName;
+
+  // next target
+  const next = t.species.find(sp => !got.has(sp.id));
+  if (next) {
+    const missing = next.req.filter(r => !got.has(r)).map(r => t.species.find(s => s.id === r).name);
+    const prev = Math.max(0, ...t.species.filter(s => got.has(s.id)).map(s => s.min));
+    $('next').innerHTML = '다음 출현 <b>' + next.e + ' ' + next.name + '</b> · ' + next.min + '분' +
+      (missing.length ? ' · ' + missing.join(', ') + ' 필요' : '');
+    $('bar').style.width = Math.min(100, ((m - prev) / Math.max(1, next.min - prev)) * 100) + '%';
+  } else {
+    $('next').innerHTML = '<b>이 지형의 생태계가 완성됐어요</b>';
+    $('bar').style.width = '100%';
+  }
+
+  // log
+  $('logTitle').textContent = t.name + ' 도감 · ' + got.size + ' / ' + t.species.length;
+  $('log').innerHTML = t.species.map(sp => {
+    const ok = got.has(sp.id);
+    const cond = sp.req.length ? sp.req.map(r => t.species.find(s => s.id === r).name).join(', ') + ' 필요' : '조건 없음';
+    return '<li class="' + (ok ? '' : 'locked') + '"><span class="e">' + sp.e + '</span><span class="n"><strong>' +
+      (ok || state.seen[sp.id] ? sp.name : '???') + '</strong><span>' + (ok ? sp.note : cond) + '</span></span><span class="m">' +
+      sp.min + '분</span></li>';
+  }).join('');
+
+  $('clock').textContent = fmt(running ? sessionMin : 0);
+}
+
+function toast(msg) {
+  const el = $('toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600);
+}
+function notice(msg) { $('notice').textContent = msg; $('notice').hidden = !msg; }
+
+function tick() {
+  const sec = (Date.now() - startAt) / 1000;
+  sessionMin = state.demo ? sec : sec / 60;
+  render(false);
+}
+function start() {
+  running = true; failed = false; startAt = Date.now(); sessionMin = 0;
+  notice(''); $('scene').classList.remove('drought');
+  $('startBtn').textContent = '공부 마치기'; $('startBtn').classList.add('stop');
+  $('demo').disabled = true; renderTabs();
+  tickId = setInterval(tick, 250); tick();
+}
+function stop(commit) {
+  clearInterval(tickId);
+  if (commit) {
+    state.minutes[state.terrain] += sessionMin;
+    toast(TERRAINS[state.terrain].name + '에 ' + Math.floor(sessionMin) + '분 기록');
+  }
+  running = false; sessionMin = 0; save();
+  $('startBtn').textContent = '공부 시작'; $('startBtn').classList.remove('stop');
+  $('demo').disabled = false; renderTabs(); render(true);
+}
+
+$('startBtn').onclick = () => (running ? stop(true) : start());
+$('demo').onchange = e => { state.demo = e.target.checked; save(); };
+$('resetBtn').onclick = () => {
+  if (running) stop(false);
+  state.minutes = { river: 0, forest: 0, meadow: 0 }; state.seen = {}; rendered = new Set();
+  notice(''); save(); render(true);
+};
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && running) {
+    const lost = Math.floor(sessionMin);
+    stop(false);
+    $('scene').classList.add('drought');
+    notice('화면을 벗어나서 이번 세션 ' + lost + '분은 기록되지 않았어요. 그동안 찾아온 생물도 떠났어요.');
+  }
+});
+window.addEventListener('resize', () => render(true));
+
+$('demo').checked = state.demo;
+renderTabs();
+// mark already-unlocked species as rendered so they don't pop on load
+unlocked(state.terrain, effMinutes()).forEach(id => rendered.add(id));
+render(true);
+</script>
+</body>
+</html>
