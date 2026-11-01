@@ -217,6 +217,16 @@ function vnoise(x, y) {
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 const fbm = (x, y) => .55 * vnoise(x, y) + .3 * vnoise(x * 2.1 + 5.3, y * 2.1 + 1.7) + .15 * vnoise(x * 4.3 + 9.1, y * 4.3 + 3.3);
+// a cube with softly rounded corners (superellipse), smooth normals: the toy-block look for animals and props
+function roundedCube(seg, k) {
+  const g = new THREE.BoxGeometry(2, 2, 2, seg, seg, seg), p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i); const m = Math.pow(Math.abs(v.x) ** k + Math.abs(v.y) ** k + Math.abs(v.z) ** k, 1 / k); v.multiplyScalar(1 / m); p.setXYZ(i, v.x, v.y, v.z);
+    const nx = Math.sign(v.x) * Math.abs(v.x) ** (k - 1), ny = Math.sign(v.y) * Math.abs(v.y) ** (k - 1), nz = Math.sign(v.z) * Math.abs(v.z) ** (k - 1), l = Math.hypot(nx, ny, nz) || 1; n.setXYZ(i, nx / l, ny / l, nz / l);
+  }
+  return g;
+}
+const RCUBE = typeof THREE !== 'undefined' ? roundedCube(4, 5) : null;
 const easeBack = p => { const c = 1.7; p = clamp(p, 0, 1); return 1 + (c + 1) * (p - 1) ** 3 + c * (p - 1) ** 2; };
 
 /* ================= biomes ================= */
@@ -225,13 +235,13 @@ const easeBack = p => { const c = 1.7; p = clamp(p, 0, 1); return 1 + (c + 1) * 
 // edge: what hangs from the island rim there.
 const gentle = k => (x, z) => k * fbm(x * .22, z * .22) - .02;
 const BIOMES = {
-  meadow: { name: '꽃밭', col: '#86c06a', grassCol: '#8cc867', h: gentle(.12), grass: 8, flowers: 7, edge: 'bloom' },
-  plains: { name: '초원', col: '#7db35a', grassCol: '#86bd5c', h: gentle(.12), grass: 26, flowers: 2, tree: ['oak', .03], edge: 'vine' },
+  meadow: { name: '꽃밭', col: '#86c06a', grassCol: '#8cc867', h: gentle(.12), grass: 5, flowers: 6, edge: 'bloom' },
+  plains: { name: '초원', col: '#7db35a', grassCol: '#86bd5c', h: gentle(.12), grass: 14, flowers: 2, tree: ['oak', .03], edge: 'vine' },
   oak: { name: '참나무 숲', col: '#5c9446', grassCol: '#6aa24e', h: gentle(.16), grass: 8, tree: ['oak', .4], edge: 'vine' },
   birch: { name: '자작나무 숲', col: '#88b864', grassCol: '#94c46a', h: gentle(.14), grass: 10, flowers: 2, tree: ['birch', .45], edge: 'vine' },
   cherry: { name: '벚나무 숲', col: '#94bd78', grassCol: '#9cc67c', h: gentle(.14), grass: 8, flowers: 4, tree: ['cherry', .33], edge: 'bloom' },
   taiga: { name: '침엽수림', col: '#557e5a', grassCol: '#5f8c60', h: gentle(.2), grass: 4, tree: ['spruce', .5], edge: 'vine' },
-  river: { name: '강', col: '#78ad5c', grassCol: '#82b860', h: gentle(.1), grass: 14, tree: ['willow', .05], water: 'river', edge: 'vine' },
+  river: { name: '강', col: '#78ad5c', grassCol: '#82b860', h: gentle(.1), grass: 9, tree: ['willow', .05], water: 'river', edge: 'vine' },
   swamp: { name: '습지', col: '#5b8258', grassCol: '#6a925a', h: gentle(.06), grass: 10, tree: ['willow', .1], water: 'swamp', edge: 'vine' },
   mountain: { name: '돌산', col: '#7f8290', grassCol: '#7c9a5c', h: (x, z) => { const r = 1 - Math.abs(2 * fbm(x * .16 + 7, z * .16 + 3) - 1); return .2 + 1.9 * r * r * r; }, grass: 3, tree: ['pine', .1], edge: 'moss', rock: true },
   desert: { name: '사막', col: '#e0bf78', grassCol: '#b8a860', h: (x, z) => .1 + .32 * (.5 + .5 * Math.sin(x * .9 + z * .4 + fbm(x * .2, z * .2) * 5)) * fbm(x * .3 + 4, z * .3), grass: 1, tree: ['cactus', .07], water: 'oasis', edge: 'sand' },
@@ -461,8 +471,8 @@ const A3 = (() => {
   const WATER = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)];
 
   const mats = {};
-  const M = (c, op) => mats[c + (op || '')] || (mats[c + (op || '')] = new THREE.MeshToonMaterial(op ? { color: c, transparent: true, opacity: op } : { color: c }));
-  const SPH = new THREE.SphereGeometry(1, 16, 12), CYL = new THREE.CylinderGeometry(1, 1, 1, 10), CONE = new THREE.ConeGeometry(1, 1, 10);
+  const M = (c, op) => mats[c + (op || '')] || (mats[c + (op || '')] = new THREE.MeshLambertMaterial(op ? { color: c, transparent: true, opacity: op } : { color: c }));
+  const SPH = RCUBE, CYL = new THREE.CylinderGeometry(1, 1, 1, 4, 1, false, Math.PI / 4), CONE = new THREE.ConeGeometry(1, 1, 4, 1, false, Math.PI / 4);
   const UP = new THREE.Vector3(0, 1, 0);
   const grp = (p, x, y, z) => { const g = new THREE.Group(); g.position.set(x || 0, y || 0, z || 0); if (p) p.add(g); return g; };
   function blob(p, c, x, y, z, rx, ry, rz, op) { const m = new THREE.Mesh(SPH, M(c, op)); m.position.set(x, y, z); m.scale.set(rx, ry, rz); p.add(m); return m; }
@@ -753,12 +763,13 @@ const world = (() => {
   try { renderer = new THREE.WebGLRenderer({ canvas: el3, antialias: true }); } catch (e) { fail(); return { ok: false, dirty() {}, start() {}, resize() {} }; }
   $('scene').prepend(el3);
   renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const camera = new THREE.PerspectiveCamera(34, 4 / 3, .1, 400);
   scene.fog = new THREE.Fog(0x9d92bf, 14, 44);
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
   /* ---------- planet bend + near dissolve, shared by every material ---------- */
-  const U = { uFocus: { value: new THREE.Vector2() }, uCurve: { value: .011 }, uFadeNear: { value: 6 }, uFadeW: { value: 2 }, uTime: { value: 0 } };
+  const U = { uFocus: { value: new THREE.Vector2() }, uCurve: { value: 0 }, uFadeNear: { value: 6 }, uFadeW: { value: 2 }, uTime: { value: 0 } };
   const WIND = {
     0: '',
     1: 'wp.x += sin(uTime * 1.7 + wp.x * .8 + wp.y * 1.3) * .035; wp.z += cos(uTime * 1.4 + wp.z * .7 + wp.y) * .03; wp.y += sin(uTime * 2.3 + wp.x * 2.1) * .015;',
@@ -837,8 +848,8 @@ const world = (() => {
     shadow: curve(new THREE.MeshBasicMaterial({ map: T.soft, color: 0x0c1410, transparent: true, opacity: .32, depthWrite: false })),
     line: curve(new THREE.LineDashedMaterial({ color: 0xdcf0ff, dashSize: .14, gapSize: .1, transparent: true, opacity: .45 })),
   };
-  const LEAF = {}, CARD = new THREE.PlaneGeometry(1, 1), PALMCARD = new THREE.PlaneGeometry(1, .42).translate(.5, 0, 0);
-  for (const k of ['broad', 'needle', 'bamboo', 'palm']) LEAF[k] = flat({ map: T[k], alphaTest: .45, side: THREE.DoubleSide }, 1);
+  const CARD = new THREE.PlaneGeometry(1, 1), CUBE = new THREE.BoxGeometry(1, 1, 1), PALMCARD = CARD;
+  const LEAFM = lam({ color: 0xffffff }, 1);
   const GRASS = flat({ map: T.grass, alphaTest: .4, side: THREE.DoubleSide }, 2), FLOWER = flat({ map: T.flower, alphaTest: .4, side: THREE.DoubleSide }, 2);
   const HANGM = {}; for (const k of Object.keys(H)) HANGM[k] = flat({ map: H[k], alphaTest: .35, side: THREE.DoubleSide, transparent: k === 'ice' || k === 'sand' }, 3);
   const HANGCARD = new THREE.PlaneGeometry(1, 1).translate(0, -.5, 0), GRASSCARD = (() => { const g = new THREE.PlaneGeometry(1, 1).translate(0, .5, 0), n = g.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0); return g; })(), FLAT = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
@@ -862,11 +873,11 @@ const world = (() => {
   }
   const rgb = c => { const a = hexRgb(c); return [a[0] / 255, a[1] / 255, a[2] / 255]; };
   const M4 = new THREE.Matrix4(), QQ = new THREE.Quaternion(), EE = new THREE.Euler(), SS = V(1, 1, 1), PP = V(0, 0, 0), UPV = V(0, 1, 0);
-  const ICO = new THREE.IcosahedronGeometry(1, 1), DODE = new THREE.DodecahedronGeometry(1, 0), OCTA = new THREE.OctahedronGeometry(1, 0);
+  const ICO = RCUBE, DODE = RCUBE, OCTA = new THREE.OctahedronGeometry(1, 0);
   const cylGeo = {}; const CYLG = n => cylGeo[n] || (cylGeo[n] = new THREE.CylinderGeometry(1, 1, 1, n, 1, true));
   function tube(gb, a, b, r1, r2, col, n) { // tapered branch from point a to b
     const d = b.clone().sub(a), L = d.length(); if (L < 1e-4) return;
-    const g = new THREE.CylinderGeometry(r2, r1, L, n || 6, 1, true);
+    const g = new THREE.CylinderGeometry(r2, r1, L, 4, 1, false, Math.PI / 4);
     QQ.setFromUnitVectors(UPV, d.normalize()); M4.compose(a.clone().addScaledVector(d, L / 2), QQ, SS); gb.geo(g, M4, col); g.dispose();
   }
   function blobG(gb, geo, x, y, z, sx, sy, sz, col, ry) { EE.set(0, ry || 0, 0); QQ.setFromEuler(EE); M4.compose(PP.set(x, y, z), QQ, V(sx, sy, sz)); gb.geo(geo, M4, col); }
@@ -879,76 +890,77 @@ const world = (() => {
   }
   const jitter = (c, r, k) => { const v = (r() - .5) * k; return [clamp(c[0] + v + (r() - .5) * k * .4, 0, 1), clamp(c[1] + v, 0, 1), clamp(c[2] + v + (r() - .5) * k * .4, 0, 1)]; };
 
-  /* ---------- trees: trunks into a GB, leaves as instanced cards ---------- */
-  // canopy: clusters [x, y, z, radius]; each gets cards spread through its volume, darker inside / below
-  function crown(L, list, x0, y0, z0, clusters, col, cardS, dens, r, kind) {
+  /* ---------- trees: chunky voxel-style trunks into a GB, leaves as instanced cube "leaf blocks" ---------- */
+  // a leaf block: axis-aligned cube (slightly turned for softness), snapped to a small grid so crowns read as voxels
+  function leaf(L, x, y, z, sx, col, r, sy, sz) {
+    EE.set(0, (r() - .5) * .3, 0); QQ.setFromEuler(EE); M4.compose(PP.set(x, y, z), QQ, V(sx, sy || sx, sz || sx)); L.cube.push([M4.clone(), col]);
+  }
+  // crown: clusters [x, y, z, radius] filled with leaf blocks, darker inside and underneath
+  function crown(L, x0, y0, z0, clusters, col, cs, dens, r) {
+    const g = cs * .5, snap = v => Math.round(v / g) * g;
     for (const [cx, cy, cz, cr] of clusters) {
       const n = Math.round(cr * cr * dens);
       for (let i = 0; i < n; i++) {
-        const u = r() * 2 - 1, a = r() * 6.28, q = Math.sqrt(1 - u * u), rr = cr * (.45 + .55 * Math.cbrt(r()));
-        const dx = Math.cos(a) * q, dy = u * .8, dz = Math.sin(a) * q, shade = .62 + .38 * clamp((dy + 1) / 2 * .6 + rr / cr * .5, 0, 1);
-        const c = jitter(col, r, .12).map(v => v * shade);
-        card(L[kind || 'broad'], x0 + cx + dx * rr, y0 + cy + dy * rr, z0 + cz + dz * rr, cardS * (.8 + r() * .45), c, r() * 6.28, r() * 6.28, r() * 6.28);
+        const u = r() * 2 - 1, a = r() * 6.28, q = Math.sqrt(1 - u * u), rr = cr * (.35 + .65 * Math.cbrt(r()));
+        const dx = Math.cos(a) * q, dy = u * .85, dz = Math.sin(a) * q, shade = .64 + .36 * clamp((dy + 1) / 2 * .6 + rr / cr * .5, 0, 1);
+        leaf(L, x0 + snap(cx + dx * rr), y0 + snap(cy + dy * rr), z0 + snap(cz + dz * rr), cs * (.85 + r() * .3), jitter(col, r, .1).map(v => v * shade), r);
       }
     }
   }
-  const BARK = rgb('#6b4a32'), BARK2 = rgb('#5a3e2c');
-  function branches(gb, x, y, z, s, top, n, r, col) { // trunk plus a few limbs reaching toward the crown
-    tube(gb, V(x, y - .1, z), V(x, y + top, z), .13 * s, .07 * s, col || BARK, 7);
-    for (let i = 0; i < n; i++) { const a = i / n * 6.28 + r(), h = top * (.55 + r() * .3), L = .45 * s; tube(gb, V(x, y + h * .8, z), V(x + Math.cos(a) * L, y + h + .25 * s, z + Math.sin(a) * L), .06 * s, .025 * s, col || BARK, 5); }
+  const BARK = rgb('#7a5640'), BARK2 = rgb('#664632');
+  function branches(gb, x, y, z, s, top, n, r, col) { // square trunk plus a few limbs reaching toward the crown
+    tube(gb, V(x, y - .1, z), V(x, y + top, z), .14 * s, .09 * s, col || BARK);
+    for (let i = 0; i < n; i++) { const a = i / n * 6.28 + r(), h = top * (.55 + r() * .3), Lb = .42 * s; tube(gb, V(x, y + h * .8, z), V(x + Math.cos(a) * Lb, y + h + .22 * s, z + Math.sin(a) * Lb), .065 * s, .04 * s, col || BARK); }
   }
   const TREE = {
-    oak(t, gb, L, r, y) { const s = t.s; branches(gb, t.x, y, t.z, s, 1.25 * s, 4, r); crown(L, 0, t.x, y, t.z, [[0, 1.65, 0, .7], [.5, 1.45, .2, .5], [-.48, 1.5, -.25, .5], [.18, 1.4, -.52, .46], [-.22, 1.45, .5, .46], [0, 2.0, .05, .45]].map(q => q.map(v => v * s)), rgb('#4f8a3c'), .34 * s, 80, r); },
+    oak(t, gb, L, r, y) { const s = t.s; branches(gb, t.x, y, t.z, s, 1.25 * s, 4, r); crown(L, t.x, y, t.z, [[0, 1.65, 0, .72], [.5, 1.45, .2, .5], [-.48, 1.5, -.25, .5], [.18, 1.4, -.52, .46], [-.22, 1.45, .5, .46], [0, 2.02, .05, .45]].map(q => q.map(v => v * s)), rgb('#5c9a46'), .21 * s, 52, r); },
     birch(t, gb, L, r, y) {
-      const s = t.s; tube(gb, V(t.x, y - .1, t.z), V(t.x, y + 2.2 * s, t.z), .075 * s, .035 * s, rgb('#ece6da'), 7);
-      for (let i = 0; i < 9; i++) { const h = y + .2 + i * .22 * s; tube(gb, V(t.x, h, t.z), V(t.x, h + .03, t.z), .078 * s, .078 * s, rgb('#2a2a2a'), 7); }
-      crown(L, 0, t.x, y, t.z, [[0, 2.05, 0, .42], [.26, 1.75, .1, .38], [-.22, 1.8, -.14, .38], [.05, 1.5, .24, .32], [-.05, 2.35, 0, .28]].map(q => q.map(v => v * s)), rgb('#94c464'), .26 * s, 95, r);
+      const s = t.s; tube(gb, V(t.x, y - .1, t.z), V(t.x, y + 2.2 * s, t.z), .085 * s, .05 * s, rgb('#f0ebe0'));
+      for (let i = 0; i < 8; i++) { const h = y + .25 + i * .24 * s; tube(gb, V(t.x, h, t.z), V(t.x, h + .05, t.z), .09 * s, .09 * s, rgb('#2e2e30')); }
+      crown(L, t.x, y, t.z, [[0, 2.05, 0, .44], [.26, 1.75, .1, .38], [-.22, 1.8, -.14, .38], [.05, 1.5, .24, .32], [-.05, 2.35, 0, .3]].map(q => q.map(v => v * s)), rgb('#a6d06e'), .2 * s, 40, r);
     },
     cherry(t, gb, L, r, y) {
-      const s = t.s; branches(gb, t.x, y, t.z, s, .9 * s, 5, r, rgb('#5a3e36'));
-      crown(L, 0, t.x, y, t.z, [[0, 1.4, 0, .66], [.55, 1.25, .15, .48], [-.5, 1.3, -.2, .48], [.1, 1.2, .56, .45], [-.15, 1.25, -.52, .45]].map(q => q.map(v => v * s)), rgb('#ffbcd4'), .34 * s, 140, r);
-      crown(L, 0, t.x, y, t.z, [[0, 1.4, 0, .7]].map(q => q.map(v => v * s)), rgb('#fff4f8'), .24 * s, 50, r);
+      const s = t.s; branches(gb, t.x, y, t.z, s, .9 * s, 5, r, rgb('#6a4a42'));
+      crown(L, t.x, y, t.z, [[0, 1.4, 0, .68], [.55, 1.25, .15, .5], [-.5, 1.3, -.2, .5], [.1, 1.2, .56, .46], [-.15, 1.25, -.52, .46]].map(q => q.map(v => v * s)), rgb('#ffbad2'), .2 * s, 58, r);
+      crown(L, t.x, y, t.z, [[0, 1.45, 0, .72]].map(q => q.map(v => v * s)), rgb('#fff2f7'), .16 * s, 26, r);
     },
     willow(t, gb, L, r, y) {
-      const s = t.s; branches(gb, t.x, y, t.z, s, 1.1 * s, 5, r, rgb('#5e4a36'));
-      const col = rgb('#86ae52'); crown(L, 0, t.x, y, t.z, [[0, 1.55, 0, .62], [.35, 1.4, .2, .45], [-.32, 1.45, -.2, .45]].map(q => q.map(v => v * s)), col, .3 * s, 70, r);
-      for (let k = 0; k < 16; k++) { const a = k / 16 * 6.28 + r() * .3, R = (.55 + r() * .25) * s; for (let d = 0; d < 9; d++) { const c = jitter(col, r, .1).map(v => v * (.75 + d * .03)); card(L.broad, t.x + Math.cos(a) * (R + d * .02), y + 1.5 * s - d * .13 * s, t.z + Math.sin(a) * (R + d * .02), .2 * s, c, r() * 6, a, r() * .6); } }
+      const s = t.s; branches(gb, t.x, y, t.z, s, 1.1 * s, 5, r, rgb('#6a5440'));
+      const col = rgb('#94bc5e'); crown(L, t.x, y, t.z, [[0, 1.55, 0, .62], [.35, 1.4, .2, .45], [-.32, 1.45, -.2, .45]].map(q => q.map(v => v * s)), col, .2 * s, 50, r);
+      for (let k = 0; k < 12; k++) { const a = k / 12 * 6.28 + r() * .3, R = (.58 + r() * .2) * s; for (let d = 0; d < 7; d++) leaf(L, t.x + Math.cos(a) * R, y + 1.45 * s - d * .16 * s, t.z + Math.sin(a) * R, .12 * s, jitter(col, r, .08).map(v => v * (.78 + d * .03)), r, .16 * s); }
     },
     spruce(t, gb, L, r, y, snowy, small) {
-      const s = t.s * (small ? .8 : 1), H = 2.3 * s; tube(gb, V(t.x, y - .1, t.z), V(t.x, y + H, t.z), .1 * s, .02 * s, rgb('#5a3e2a'), 6);
-      const tiers = 9, col = rgb(small ? '#3f6a48' : '#2f5c46');
+      const s = t.s * (small ? .8 : 1), H = 2.3 * s; tube(gb, V(t.x, y - .1, t.z), V(t.x, y + H, t.z), .1 * s, .04 * s, rgb('#6a4a34'));
+      const tiers = 6, col = rgb(small ? '#4f7d58' : '#3f6e56');
       for (let i = 0; i < tiers; i++) {
-        const ty = y + .4 * s + i * (H - .45 * s) / tiers, R = (.85 * (1 - i / tiers) + .1) * s, n = Math.round(8 + R * 26);
-        for (let k = 0; k < n; k++) {
-          const a = k / n * 6.28 + r() * .4, rr = R * (.35 + .65 * r()), c = jitter(col, r, .1).map(v => v * (.7 + .3 * rr / R));
-          card(L.needle, t.x + Math.cos(a) * rr * .55, ty + (r() - .5) * .08, t.z + Math.sin(a) * rr * .55, (.35 + R * .35) * s, c, -.35 - r() * .3, -a, 0, 1.2);
-          if (snowy && r() < .45) card(L.needle, t.x + Math.cos(a) * rr * .5, ty + .05, t.z + Math.sin(a) * rr * .5, (.28 + R * .3) * s, jitter([.95, .97, 1], r, .04), -1.35, -a, 0, 1.1);
-        }
+        const ty = y + .45 * s + i * (H - .5 * s) / tiers, R = (.78 * (1 - i / tiers) + .14) * s, c = jitter(col, r, .06).map(v => v * (.8 + i * .04));
+        leaf(L, t.x, ty, t.z, R * 1.7, c, r, .24 * s, R * 1.7);
+        for (let k = 0; k < 4 + Math.round(R * 6); k++) { const a = r() * 6.28; leaf(L, t.x + Math.cos(a) * R * .8, ty - .06 * s, t.z + Math.sin(a) * R * .8, .2 * s, jitter(col, r, .08).map(v => v * .85), r); }
+        if (snowy) leaf(L, t.x, ty + .14 * s, t.z, R * 1.4, jitter([.96, .98, 1], r, .02), r, .07 * s, R * 1.4);
       }
-      card(L.needle, t.x, y + H + .05, t.z, .35 * s, col, 1.2, r() * 6, 0);
+      leaf(L, t.x, y + H + .05 * s, t.z, .22 * s, snowy ? [.96, .98, 1] : col, r, .3 * s);
     },
     pine(t, gb, L, r, y) { TREE.spruce(t, gb, L, r, y, false, true); },
     snowspruce(t, gb, L, r, y) { TREE.spruce(t, gb, L, r, y, true); },
     bamboo(t, gb, L, r, y) {
-      const n = 5 + Math.floor(r() * 4), col = rgb('#8ab450'), node = rgb('#6e9a3c');
+      const n = 5 + Math.floor(r() * 4), col = rgb('#94bc5a'), node = rgb('#72a044');
       for (let k = 0; k < n; k++) {
-        const bx = t.x + (r() - .5) * .6, bz = t.z + (r() - .5) * .6, h = (2.2 + r() * 1.1) * t.s, lx = (r() - .5) * .25, lz = (r() - .5) * .25;
-        tube(gb, V(bx, y - .1, bz), V(bx + lx, y + h, bz + lz), .04, .03, col, 6);
-        for (let j = .35; j < h; j += .4) tube(gb, V(bx + lx * j / h, y + j, bz + lz * j / h), V(bx + lx * j / h, y + j + .03, bz + lz * j / h), .047, .047, node, 6);
-        for (let j = 0; j < 16; j++) { const f = .45 + r() * .55, a = r() * 6.28; card(L.bamboo, bx + lx * f + Math.cos(a) * .18, y + h * f, bz + lz * f + Math.sin(a) * .18, .34, jitter(rgb('#9ac85a'), r, .12), r() * 6, a, r() * 6); }
+        const bx = t.x + (r() - .5) * .6, bz = t.z + (r() - .5) * .6, h = (2.2 + r() * 1.1) * t.s;
+        for (let j = 0; j < h - .3; j += .4) { tube(gb, V(bx, y - .1 + j, bz), V(bx, y + j + .32, bz), .045, .045, col); tube(gb, V(bx, y + j + .32, bz), V(bx, y + j + .4, bz), .055, .055, node); }
+        for (let j = 0; j < 9; j++) { const f = .5 + r() * .5, a = Math.floor(r() * 4) * Math.PI / 2; leaf(L, bx + Math.cos(a) * .16, y + h * f, bz + Math.sin(a) * .16, .26, jitter(rgb('#a8d468'), r, .1), r, .04, .1); }
       }
     },
     palm(t, gb, L, r, y) {
       const s = t.s, a0 = r() * 6.28, lean = .5 * s; let px = t.x, pz = t.z, py = y - .1;
-      for (let i = 1; i <= 7; i++) { const f = i / 7, nx = t.x + Math.cos(a0) * lean * f * f, nz = t.z + Math.sin(a0) * lean * f * f, ny = y + 2 * s * f; tube(gb, V(px, py, pz), V(nx, ny, nz), (.1 - .03 * f) * s, (.09 - .03 * f) * s, i % 2 ? rgb('#8a7050') : rgb('#7a6042'), 7); px = nx; pz = nz; py = ny; }
-      for (let k = 0; k < 3; k++) blobG(gb, ICO, px + Math.cos(k * 2.1) * .1, py - .08, pz + Math.sin(k * 2.1) * .1, .08, .09, .08, rgb('#6a4a2a'));
-      for (let k = 0; k < 10; k++) { const a = k / 10 * 6.28 + r() * .3; card(L.palm, px, py, pz, 1.25 * s, jitter(rgb('#6aa448'), r, .12), 0, -a, -.35 - r() * .5, 1); }
+      for (let i = 1; i <= 7; i++) { const f = i / 7, nx = t.x + Math.cos(a0) * lean * f * f, nz = t.z + Math.sin(a0) * lean * f * f, ny = y + 2 * s * f; tube(gb, V(px, py, pz), V(nx, ny, nz), (.11 - .03 * f) * s, (.1 - .03 * f) * s, i % 2 ? rgb('#9a7e58') : rgb('#866a48')); px = nx; pz = nz; py = ny; }
+      for (let k = 0; k < 3; k++) blobG(gb, RCUBE, px + Math.cos(k * 2.1) * .1, py - .08, pz + Math.sin(k * 2.1) * .1, .07, .07, .07, rgb('#7a5a36'));
+      for (let k = 0; k < 8; k++) { const a = k / 8 * 6.28 + r() * .3; for (let j = 1; j <= 6; j++) { const d = j * .17 * s; leaf(L, px + Math.cos(a) * d, py + .05 - j * j * .025 * s, pz + Math.sin(a) * d, .2 * s * (1 - j / 9), jitter(rgb('#78b452'), r, .08), r, .05 * s, .2 * s * (1 - j / 9)); } }
     },
     cactus(t, gb, L, r, y) {
-      const s = t.s, h = 1.2 * s, c = rgb('#5a8f48');
-      tube(gb, V(t.x, y - .1, t.z), V(t.x, y + h, t.z), .14 * s, .13 * s, c, 8); blobG(gb, ICO, t.x, y + h, t.z, .13 * s, .1 * s, .13 * s, c);
-      for (let k = 0; k < 1 + Math.floor(r() * 2); k++) { const a = r() * 6.28, ah = y + h * (.35 + r() * .25), ex = t.x + Math.cos(a) * .32 * s, ez = t.z + Math.sin(a) * .32 * s; tube(gb, V(t.x, ah, t.z), V(ex, ah, ez), .08 * s, .08 * s, c, 6); tube(gb, V(ex, ah - .05, ez), V(ex, ah + .4 * s, ez), .08 * s, .07 * s, c, 6); blobG(gb, ICO, ex, ah + .4 * s, ez, .07 * s, .06 * s, .07 * s, c); }
-      blobG(gb, ICO, t.x, y + h + .1 * s, t.z, .05, .04, .05, rgb('#f080a8'));
+      const s = t.s, h = 1.2 * s, c = rgb('#68a058');
+      tube(gb, V(t.x, y - .1, t.z), V(t.x, y + h, t.z), .15 * s, .14 * s, c);
+      for (let k = 0; k < 1 + Math.floor(r() * 2); k++) { const a = Math.floor(r() * 4) * Math.PI / 2, ah = y + h * (.35 + r() * .25), ex = t.x + Math.cos(a) * .32 * s, ez = t.z + Math.sin(a) * .32 * s; tube(gb, V(t.x, ah, t.z), V(ex, ah, ez), .09 * s, .09 * s, c); tube(gb, V(ex, ah - .08, ez), V(ex, ah + .4 * s, ez), .09 * s, .08 * s, c); }
+      blobG(gb, RCUBE, t.x, y + h + .06 * s, t.z, .06, .05, .06, rgb('#f490b4'));
     },
   };
 
@@ -973,7 +985,7 @@ const world = (() => {
   function buildChunk(ci, cj) {
     const g0 = ci * CH, h0 = cj * CH, R = state.lv - 1;
     const terr = new GB(), wall = new GB(), solid = new GB(), water = new GB(), ice = new GB(), falls = new GB();
-    const L = { broad: [], needle: [], bamboo: [], palm: [] }, grass = [], flowers = [], shadows = [], glows = [], hangs = {}, dash = [];
+    const L = { cube: [] }, grass = [], flowers = [], shadows = [], glows = [], hangs = {}, dash = [];
     const memo = new Map(), at = (x, z) => { const k = x + ',' + z; let v = memo.get(k); if (!v) { const s = ground(x, z, true), e = .12, hx = heightAt(x + e, z) - heightAt(x - e, z), hz = heightAt(x, z + e) - heightAt(x, z - e), n = V(-hx / (2 * e), 1, -hz / (2 * e)).normalize(); v = [s, n]; memo.set(k, v); } return v; };
     let any = false;
     for (let gx = g0; gx < g0 + CH; gx++) for (let gy = h0; gy < h0 + CH; gy++) {
@@ -1023,7 +1035,7 @@ const world = (() => {
             list.push([M4.clone(), c]);
             if ((kind === 'vine' || kind === 'bloom') && layer && r() < .25) glows.push([x + nx * .05, top(x, z) - len2 * .9, z + nz * .05, r() < .5 ? rgb('#9ff0ff') : rgb('#ffc0e6'), .22, .8]);
           }
-          if (kind === 'vine' || kind === 'bloom' || kind === 'moss') for (let k = 0; k < 7; k++) { const t2 = r(), x = ax + (ex - ax) * t2 + nx * .03, z = az + (ez - az) * t2 + nz * .03; card(L.broad, x, top(x, z) - .02, z, .3, jitter(rgb(kind === 'moss' ? '#7c946a' : '#5f9a48'), r, .12), r() * 6, r() * 6, r() * 6); }
+          if (kind === 'vine' || kind === 'bloom' || kind === 'moss') for (let k = 0; k < 9; k++) { const t2 = r(), x = ax + (ex - ax) * t2 + nx * .05, z = az + (ez - az) * t2 + nz * .05; leaf(L, x, top(x, z) - .05, z, .14 + r() * .1, jitter(rgb(kind === 'moss' ? '#86a074' : kind === 'bloom' && r() < .3 ? '#ffc4dc' : '#68a650'), r, .1), r); }
           if (kind === 'ice') for (let k = 0; k < 3; k++) { const t2 = r(), x = ax + (ex - ax) * t2, z = az + (ez - az) * t2; blobG(solid, ICO, x, top(x, z) - .01, z, .09, .04, .09, rgb('#f4f8fc')); }
         }
         if (r() < .5) glows.push([(ax + ex) / 2 + nx * .9, -1.4 - r(), (az + ez) / 2 + nz * .9, rgb('#c8c0ea'), 2.6, .09]);
@@ -1044,8 +1056,10 @@ const world = (() => {
     if (!any && !dash.length) return null;
     const grp = new THREE.Group();
     const add = m => { if (m) grp.add(m); };
-    add(terr.mesh(MAT.terrain)); add(wall.mesh(MAT.wall)); add(solid.mesh(MAT.solid)); add(water.mesh(MAT.water)); add(falls.mesh(MAT.fall));
-    for (const k of Object.keys(L)) add(inst(k === 'palm' ? PALMCARD : CARD, LEAF[k], L[k]));
+    const tm = terr.mesh(MAT.terrain), wm = wall.mesh(MAT.wall), sm = solid.mesh(MAT.solid), wa = water.mesh(MAT.water);
+    if (tm) tm.receiveShadow = true; if (wm) wm.receiveShadow = true; if (sm) { sm.castShadow = true; sm.receiveShadow = true; } if (wa) wa.receiveShadow = true;
+    add(tm); add(wm); add(sm); add(wa); add(falls.mesh(MAT.fall));
+    const lv = inst(CUBE, LEAFM, L.cube); if (lv) { lv.castShadow = true; lv.receiveShadow = true; } add(lv);
     add(inst(GRASSCARD, GRASS, grass)); add(inst(GRASSCARD, FLOWER, flowers)); add(inst(FLAT, MAT.shadow, shadows));
     for (const k of Object.keys(hangs)) add(inst(HANGCARD, HANGM[k], hangs[k]));
     add(glowPoints(glows));
@@ -1058,21 +1072,21 @@ const world = (() => {
   const MOTHER_TOP = [.55, .75, 1.65, 4.0];
   function buildMother(st) {
     if (mother) { scene.remove(mother); disposeGroup(mother); }
-    const gb = new GB(), L = { broad: [], needle: [], bamboo: [], palm: [] }, glows = [], r = mulberry(99), x = .5, z = .5, y = heightAt(x, z), sh = [];
-    if (st === 0) { tube(gb, V(x, y - .05, z), V(x, y + .45, z), .025, .015, rgb('#4f7d2a'), 5); crown(L, 0, x, y, z, [[0, .5, 0, .14]], rgb('#7cc050'), .14, 300, r); glows.push([x, y + .45, z, rgb('#d8ffb0'), .8, .45]); }
-    else if (st === 1) crown(L, 0, x, y, z, [[0, .36, 0, .36], [.26, .28, .1, .26], [-.24, .3, -.1, .26]], rgb('#5aa046'), .2, 120, r);
+    const gb = new GB(), L = { cube: [] }, glows = [], r = mulberry(99), x = .5, z = .5, y = heightAt(x, z), sh = [];
+    if (st === 0) { tube(gb, V(x, y - .05, z), V(x, y + .45, z), .025, .015, rgb('#4f7d2a'), 5); crown(L, x, y, z, [[0, .5, 0, .16]], rgb('#86c858'), .09, 300, r); glows.push([x, y + .45, z, rgb('#d8ffb0'), .8, .45]); }
+    else if (st === 1) crown(L, x, y, z, [[0, .36, 0, .36], [.26, .28, .1, .26], [-.24, .3, -.1, .26]], rgb('#66ac4e'), .15, 90, r);
     else if (st === 2) TREE.oak({ x, z, s: .7 }, gb, L, r, y);
     else {
       const s = 1.6; branches(gb, x, y, z, s, 1.3 * s, 6, r);
       for (const a of [0, 2.1, 4.2]) tube(gb, V(x, y + .1, z), V(x + Math.cos(a) * .6, y - .05, z + Math.sin(a) * .6), .12, .05, BARK2, 6);
       const cl = [[0, 1.7, 0, .75], [.55, 1.5, .2, .55], [-.5, 1.55, -.25, .55], [.2, 1.45, -.55, .5], [-.25, 1.5, .55, .5], [0, 2.05, .05, .5]].map(q => q.map(v => v * s));
-      crown(L, 0, x, y, z, cl, rgb('#4c8a40'), .36 * s, 70, r);
+      crown(L, x, y, z, cl, rgb('#58964a'), .21 * s, 52, r);
       for (let k = 0; k < 14; k++) { const [cx, cy, cz, cr] = cl[k % cl.length], a = r() * 6.28, u = r() * 2 - 1, q = Math.sqrt(1 - u * u); const px = x + cx + Math.cos(a) * q * cr, py = y + cy + u * cr * .8, pz = z + cz + Math.sin(a) * q * cr; blobG(gb, ICO, px, py, pz, .06, .06, .06, rgb('#ffe39a')); glows.push([px, py, pz, rgb('#ffe9a0'), .45, .7]); }
       glows.push([x, y + 3, z, rgb('#fff0b8'), 6, .14]);
     }
     card(sh, x, y + .03, z, [.6, 1.2, 2, 3.6][st], [1, 1, 1], 0, 0, 0);
     mother = new THREE.Group();
-    [gb.mesh(MAT.solid), inst(CARD, LEAF.broad, L.broad), inst(FLAT, MAT.shadow, sh), glowPoints(glows)].forEach(m => m && mother.add(m));
+    [gb.mesh(MAT.solid), inst(CUBE, LEAFM, L.cube), inst(FLAT, MAT.shadow, sh), glowPoints(glows)].forEach(m => { if (m) { if (m.isMesh && m.material !== MAT.shadow) { m.castShadow = true; m.receiveShadow = true; } mother.add(m); } });
     mother.userData.born = performance.now(); scene.add(mother); motherStage = st;
   }
   function disposeGroup(g) { g.traverse(n => { if (n.geometry && n.geometry !== CARD && n.geometry !== PALMCARD && n.geometry !== HANGCARD && n.geometry !== GRASSCARD && n.geometry !== FLAT) n.geometry.dispose(); }); }
@@ -1123,7 +1137,9 @@ const world = (() => {
     scene.add(sp); clouds.push(sp);
   }
   scene.add(new THREE.HemisphereLight(0xe4dcff, 0x6a5a5e, .95));
-  const sun = new THREE.DirectionalLight(0xffe6c8, .85); scene.add(sun); scene.add(sun.target);
+  const sun = new THREE.DirectionalLight(0xffe6c8, .9); scene.add(sun); scene.add(sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(innerWidth < 700 ? 1024 : 2048, innerWidth < 700 ? 1024 : 2048); sun.shadow.bias = -.0008; sun.shadow.normalBias = .03;
+  Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 1, far: 80 }); sun.shadow.camera.updateProjectionMatrix();
   const rim = new THREE.DirectionalLight(0xf0b0d0, .25); scene.add(rim);
 
   /* ---------- drifting particles near the focus: motes, cherry petals, fireflies ---------- */
@@ -1240,7 +1256,7 @@ const world = (() => {
       a.o.pose(a, m.type === 'cling');
       a.o.g.position.set(x, y, z); a.o.g.rotation.y = -a.yawS; a.o.g.scale.setScalar(Math.max(.0001, s)); a.o.g.visible = pop > 0;
       const gy = m.type === 'swim' ? WATER_Y + .01 : heightAt(x, z) + .025, big = { camel: 1.4, reindeer: 1.2, roe: 1.1, panda: 1.1, heron: .8, eagle: 1 }[a.id] || .6;
-      a.sh.position.set(x, gy, z); a.sh.scale.setScalar(big * pop * clamp(1 - a.lift / 4, .3, 1)); a.sh.visible = m.type !== 'crawl' && pop > 0;
+      a.sh.position.set(x, gy, z); a.sh.scale.setScalar(big * pop * clamp(1 - a.lift / 4, .3, 1)); a.sh.visible = false; // real shadows now
     }
   }
 
@@ -1307,9 +1323,9 @@ const world = (() => {
     U.uFocus.value.set(cur.fx, cur.fz); U.uTime.value = reduceMotion ? 0 : t;
     U.uFadeNear.value = cur.dist * .5; U.uFadeW.value = cur.dist * .16;
     GLOWM.uniforms.scale.value = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
-    scene.fog.near = cur.dist * .9; scene.fog.far = cur.dist + 28;
+    scene.fog.near = cur.dist * 1.05; scene.fog.far = cur.dist + 34;
     dome.position.copy(camera.position); stars.position.copy(camera.position); moon.position.copy(camera.position).addScaledVector(MOON, 120);
-    sun.position.set(cur.fx, 0, cur.fz).addScaledVector(MOON, 30); sun.target.position.set(cur.fx, 0, cur.fz); rim.position.set(cur.fx, 8, cur.fz).addScaledVector(MOON, -20);
+    sun.position.set(cur.fx, 0, cur.fz).addScaledVector(MOON, 40); sun.target.position.set(cur.fx, 0, cur.fz); rim.position.set(cur.fx, 8, cur.fz).addScaledVector(MOON, -20);
     stars.material.opacity = .55 + .2 * Math.sin(t * 1.3);
     for (const cl of clouds) { const u = cl.userData; if (!reduceMotion) u.a += dt * u.v; cl.position.set(cur.fx + Math.cos(u.a) * u.r, u.y, cur.fz + Math.sin(u.a) * u.r); }
     // land
