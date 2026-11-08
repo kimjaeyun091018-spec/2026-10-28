@@ -243,8 +243,8 @@ const SPR = {
 };
 
 /* ---------- 카드: 속성 + 숫자 ----------
-   숫자 1~6: 그 눈의 주사위 1개로 발동
-   숫자 7~12: 주사위 2개의 합이 그 수면 발동 */
+   숫자 1~6: 그 수 이상인 주사위 1개로 발동
+   숫자 7~12: 주사위 2개의 합이 그 수 이상이면 발동 */
 const SUITS = {
   fire:  { n: "불",   eff: (n, two) => ({ k: "atk",    v: two ? n + 2 : n + 3, t: "피해" }) },
   water: { n: "물",   eff: (n, two) => ({ k: "def",    v: two ? n + 2 : n + 4, t: "방어" }) },
@@ -384,9 +384,9 @@ function lockDice() {
 const full = c => c.fill.length === (isTwo(c.n) ? 2 : 1);
 function canTake(card, v) {
   if (full(card)) return false;
-  if (!isTwo(card.n)) return v === card.n;
-  if (!card.fill.length) { const r = card.n - v; return r >= 1 && r <= 6; }
-  return card.fill[0].v + v === card.n;
+  if (!isTwo(card.n)) return v >= card.n;
+  if (!card.fill.length) return v + 6 >= card.n;
+  return card.fill[0].v + v >= card.n;
 }
 function tapCard(cid, el) {
   if (S.busy) return;
@@ -401,11 +401,11 @@ function tapCard(cid, el) {
   }
   const d = S.dice.find(x => x.id === S.sel);
   if (!canTake(card, d.v)) {
-    say(isTwo(card.n) ? `두 주사위 합이 ${card.n}이어야 해요` : `눈 ${card.n}만 넣을 수 있어요`);
+    say(isTwo(card.n) ? `두 주사위 합이 ${card.n} 이상이어야 해요` : `눈 ${card.n} 이상만 넣을 수 있어요`);
     nudge(el); return;
   }
   d.used = true; S.sel = null; card.fill.push({ id: d.id, v: d.v });
-  say(full(card) ? "준비 완료. 다른 카드도 채우거나 발동하세요" : `합 ${card.n}: 주사위 하나 더`);
+  say(full(card) ? "준비 완료. 다른 카드도 채우거나 발동하세요" : `합 ${card.n} 이상: 주사위 하나 더`);
   render();
 }
 function nudge(el) { if (!el) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
@@ -505,7 +505,7 @@ function showHelp(first) {
     <ul class="rules">
       <li>매 턴 주사위 5개를 굴리고 카드 5장을 뽑아요.</li>
       <li>요트처럼 남길 주사위를 눌러 고정하고, 다시 굴림을 2번까지 할 수 있어요.</li>
-      <li>굴림을 확정하면 주사위를 카드에 넣어요. 숫자 1~6 카드는 같은 눈 1개, 7~12 카드는 두 주사위의 합으로 발동해요.</li>
+      <li>굴림을 확정하면 주사위를 카드에 넣어요. 숫자 1~6 카드는 그 숫자 이상인 눈 1개, 7~12 카드는 합이 그 숫자 이상인 주사위 2개로 발동해요.</li>
       <li>발동하면 채운 카드의 효과와 족보 보너스가 한꺼번에 터져요.</li>
     </ul>
     <h3>주사위 족보 (요트)</h3>
@@ -541,9 +541,9 @@ function cardHTML(c, cls = "") {
   const k = two ? 2 : 1;
   const slots = Array.from({ length: k }, (_, i) => c.fill[i]
     ? `<div class="slot full">${c.fill[i].v}</div>`
-    : `<div class="slot">${two ? "?" : c.n}</div>`).join("");
+    : `<div class="slot">${two ? "?" : c.n + "+"}</div>`).join("");
   return `<button type="button" class="card ${c.suit} ${cls}" data-uid="${c.uid}">
-    <span class="top"><span class="suit">${SUITS[c.suit].n}</span><span class="num">${two ? "<small>합</small>" : ""}${c.n}</span></span>
+    <span class="top"><span class="suit">${SUITS[c.suit].n}</span><span class="num">${two ? "<small>합</small>" : ""}${c.n}+</span></span>
     <div class="slots">${slots}</div><span class="cd">${e.t} ${e.v}</span></button>`;
 }
 function intentOf(f) {
