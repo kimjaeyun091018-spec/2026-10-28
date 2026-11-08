@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Nanum+Gothic:wght@400;700;800&family=Silkscreen:wght@400;700&display=swap">
 <style>
-/* 레이아웃: 휴대폰 한 손 화면. 전장(캔버스) → 상태 → 주사위 5개 → 족보 → 카드 5장 → 버튼. 던전 색감으로 고정한 단일 테마. */
+/* 레이아웃: 휴대폰 한 손 화면. 전장(캔버스) → 상태 → 주사위 5개 → 필드 5칸 → 족보 → 손패 → 버튼. 던전 색감으로 고정한 단일 테마. */
 :root {
   color-scheme: dark;
   --bg: #1b1824;
@@ -21,12 +21,15 @@
   --die: #f4ecdb;
   --die-ink: #2a2230;
   --hp: #d4574e;
+  --unit-hp: #6cc04a;
   --block: #5b9fd6;
   --poison: #7cbf57;
   --fire: #d9533c;
   --water: #3f86d1;
   --leaf: #4f9e3b;
   --bolt: #c99a12;
+  --item: #6d5a8f;
+  --sup: #8f5a6d;
   --font-display: "Do Hyeon", "Nanum Gothic", system-ui, sans-serif;
   --font-body: "Nanum Gothic", system-ui, sans-serif;
   --font-num: "Silkscreen", ui-monospace, monospace;
@@ -35,9 +38,7 @@
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
 body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-body);
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 12px 24px;
@@ -45,13 +46,13 @@ body {
 }
 .wrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-h1 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0; letter-spacing: 0.02em; color: var(--gold); }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0; color: var(--gold); }
 .floor { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
-.floor b { color: var(--ink); font-weight: 700; }
-.help { font-family: var(--font-body); font-size: 12px; font-weight: 800; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 4px; }
+.floor b { color: var(--ink); }
+.help { font-size: 12px; font-weight: 800; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 4px; font-family: var(--font-body); }
 
-.stage { position: relative; background: var(--panel); clip-path: var(--notch); }
-canvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; image-rendering: pixelated; image-rendering: crisp-edges; }
+.stage { background: var(--panel); clip-path: var(--notch); }
+canvas#cv { display: block; width: 100%; height: auto; aspect-ratio: 12 / 5; image-rendering: pixelated; image-rendering: crisp-edges; }
 
 .status { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .unit { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -62,30 +63,26 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; image-r
 .unit.foe .bar i { inset: 0 0 0 auto; }
 .nums { font-family: var(--font-num); font-size: 11px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .unit.foe .nums { justify-content: flex-end; }
-.nums .hp { color: var(--ink); }
-.nums .blk { color: var(--block); }
-.nums .psn { color: var(--poison); }
+.nums .hp { color: var(--ink); } .nums .blk { color: var(--block); } .nums .psn { color: var(--poison); }
 .intent { font-size: 13px; font-weight: 800; padding: 3px 8px; background: #3a2230; color: #f3b3aa; clip-path: var(--notch); white-space: nowrap; }
 .intent.block { background: #1f3045; color: #a9cff0; }
 .intent.poison { background: #22361c; color: #b6e29a; }
 .intent.curse { background: #35233f; color: #d5b2f0; }
 
 .tray { display: flex; flex-direction: column; gap: 8px; background: var(--panel); padding: 10px; clip-path: var(--notch); }
-.dice { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; min-height: 52px; }
+.dice { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; min-height: 48px; }
 .die {
-  width: 100%; max-width: 52px; aspect-ratio: 1; padding: 7px; border: 0; cursor: pointer; justify-self: center;
+  width: 100%; max-width: 50px; aspect-ratio: 1; padding: 7px; border: 0; cursor: pointer; justify-self: center;
   background: var(--die); color: var(--die-ink);
   display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); place-items: center;
-  clip-path: var(--notch); box-shadow: inset -3px -3px 0 #c9bca1;
-  transition: transform .08s steps(2);
+  clip-path: var(--notch); box-shadow: inset -3px -3px 0 #c9bca1; transition: transform .08s steps(2);
 }
-.die span { width: 7px; height: 7px; background: var(--die-ink); visibility: hidden; }
+.die span { width: 6px; height: 6px; background: var(--die-ink); visibility: hidden; }
 .die span.on { visibility: visible; }
 .die.held { background: #bcd6ee; box-shadow: inset -3px -3px 0 #7da6cc, inset 0 0 0 3px var(--block); }
 .die.sel { background: var(--gold); box-shadow: inset -3px -3px 0 #b07d22; transform: translateY(-4px); }
 .die.used { opacity: .18; cursor: default; }
 .die.rolling { animation: wobble .1s steps(2) infinite; }
-.die:focus-visible, .btn:focus-visible, .card:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 @keyframes wobble { 0% { transform: rotate(-8deg); } 100% { transform: rotate(8deg); } }
 .trayRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .phase { font-size: 12.5px; font-weight: 800; color: var(--muted); }
@@ -97,71 +94,88 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; image-r
 }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.main { background: var(--gold); color: #2b1d08; }
+.die:focus-visible, .btn:focus-visible, .card:focus-visible, .slotBox:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
-.combos { display: flex; flex-direction: column; gap: 4px; min-height: 22px; }
-.combo { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.label { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: .06em; }
+.field { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.slotBox {
+  border: 0; font: inherit; cursor: pointer; min-width: 0; text-align: center;
+  min-height: 150px; padding: 5px 4px 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: #211c2a; color: var(--muted); clip-path: var(--notch);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.slotBox.empty { justify-content: center; font-size: 11px; font-weight: 800; }
+.slotBox.target { box-shadow: inset 0 0 0 2px var(--hp); }
+.slotBox .tgt { font-size: 10px; font-weight: 800; color: #ff8d80; min-height: 12px; }
+.slotBox.drop { box-shadow: inset 0 0 0 3px var(--gold); color: var(--gold); }
+.slotBox.u { background: var(--parch); color: var(--parch-ink); }
+.slotBox.u.fire { box-shadow: inset 0 4px 0 var(--fire); }
+.slotBox.u.water { box-shadow: inset 0 4px 0 var(--water); }
+.slotBox.u.leaf { box-shadow: inset 0 4px 0 var(--leaf); }
+.slotBox.u.bolt { box-shadow: inset 0 4px 0 var(--bolt); }
+.slotBox.u.target { box-shadow: inset 0 4px 0 var(--hp), inset 0 0 0 2px var(--hp); }
+.slotBox.u.fit { box-shadow: inset 0 0 0 3px var(--gold); transform: translateY(-3px); }
+.slotBox.u.nofit { opacity: .5; }
+.slotBox.u.ready { box-shadow: inset 0 0 0 3px var(--gold); }
+.slotBox.shake { animation: shake .24s steps(3); }
+.slotBox img { width: 32px; height: 32px; image-rendering: pixelated; }
+.un { font-family: var(--font-display); font-size: 13px; line-height: 1.05; word-break: keep-all; }
+.lv { font-family: var(--font-num); font-size: 9px; color: #6e5c3a; }
+.mini { width: 100%; height: 5px; background: #4a3d2c; position: relative; }
+.mini i { position: absolute; inset: 0 auto 0 0; background: var(--unit-hp); }
+.uhp { font-family: var(--font-num); font-size: 9px; }
+.dslots { display: flex; gap: 3px; width: 100%; }
+.ds { flex: 1; min-width: 0; height: 22px; border: 2px dashed #8a7650; display: flex; align-items: center; justify-content: center; font-family: var(--font-num); font-size: 10px; color: #8a7650; }
+.ds.full { border: 0; background: var(--die-ink); color: var(--die); font-size: 12px; }
+.ue { font-size: 10.5px; font-weight: 800; line-height: 1.2; }
+
+.combos { display: flex; flex-direction: column; gap: 4px; }
+.combo { display: flex; align-items: baseline; gap: 6px; font-size: 13px; flex-wrap: wrap; }
 .combo .src { font-size: 10.5px; font-weight: 800; padding: 1px 6px; background: var(--line); color: var(--muted); }
 .combo .src.d { background: #f4ecdb; color: var(--die-ink); }
 .combo b { font-family: var(--font-display); font-weight: 400; font-size: 16px; color: var(--gold); }
-.combo .fx { color: var(--ink); font-weight: 700; }
+.combo .fx { font-weight: 700; }
 .combo.dim { opacity: .55; }
 .total { font-family: var(--font-num); font-size: 11px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
 .total .a { color: #ff9a8e; } .total .b { color: var(--block); } .total .p { color: var(--poison); }
-
 .msg { font-size: 13px; color: var(--muted); min-height: 1.4em; text-align: center; }
 
-.hand { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.hand { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .card {
-  border: 0; cursor: pointer; text-align: left; font: inherit; min-width: 0;
+  flex: 0 0 96px; border: 0; cursor: pointer; text-align: left; font: inherit;
   background: var(--parch); color: var(--parch-ink); padding: 0 0 7px;
-  display: flex; flex-direction: column; gap: 5px; clip-path: var(--notch);
-  box-shadow: inset -3px -3px 0 var(--parch-dim);
-  transition: transform .08s steps(2);
+  display: flex; flex-direction: column; gap: 4px; clip-path: var(--notch);
+  box-shadow: inset -3px -3px 0 var(--parch-dim); transition: transform .08s steps(2);
 }
-.card .top { display: flex; align-items: center; justify-content: space-between; gap: 2px; padding: 4px 6px; color: #fff; }
-.card .suit { font-size: 11px; font-weight: 800; }
-.card .num { font-family: var(--font-num); font-size: 15px; font-weight: 700; line-height: 1; }
-.card .num small { font-family: var(--font-body); font-size: 10px; font-weight: 800; margin-right: 1px; }
-.card.fire .top { background: var(--fire); }
-.card.water .top { background: var(--water); }
-.card.leaf .top { background: var(--leaf); }
-.card.bolt .top { background: var(--bolt); }
-.card .cd { font-size: 11.5px; line-height: 1.25; font-weight: 800; padding: 0 6px; }
-.slots { display: flex; gap: 3px; padding: 0 6px; }
-.slot {
-  flex: 1; min-width: 0; height: 26px; border: 2px dashed #8a7650;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-num); font-size: 12px; color: #8a7650;
-}
-.slot.full { border: 0; background: var(--die-ink); color: var(--die); font-size: 14px; }
-.card.ready { box-shadow: inset -3px -3px 0 var(--parch-dim), inset 0 0 0 3px var(--gold); }
-.card.ready::after { content: "발동"; align-self: center; font-size: 10.5px; font-weight: 800; color: #8a5a00; margin-top: -2px; }
-.card.fit { transform: translateY(-4px); box-shadow: inset -3px -3px 0 var(--parch-dim), inset 0 0 0 3px var(--gold); }
-.card.nofit { opacity: .45; }
+.card .top { display: flex; justify-content: space-between; align-items: center; padding: 3px 6px; color: #fff; font-size: 10.5px; font-weight: 800; }
+.card.fire .top { background: var(--fire); } .card.water .top { background: var(--water); }
+.card.leaf .top { background: var(--leaf); } .card.bolt .top { background: var(--bolt); }
+.card.item .top { background: var(--item); } .card.sup .top { background: var(--sup); }
+.card .cn { font-family: var(--font-display); font-size: 16px; line-height: 1.05; padding: 0 6px; }
+.card .cd { font-size: 11px; line-height: 1.3; font-weight: 700; padding: 0 6px; }
+.card .cd b { font-family: var(--font-num); font-weight: 700; }
+.card.picked { transform: translateY(-4px); box-shadow: inset -3px -3px 0 var(--parch-dim), inset 0 0 0 3px var(--gold); }
+.card.off { opacity: .45; }
 .card.shake { animation: shake .24s steps(3); }
 @keyframes shake { 0%,100% { transform: translateX(0); } 33% { transform: translateX(-4px); } 66% { transform: translateX(4px); } }
 
 footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .pile { font-family: var(--font-num); font-size: 11px; color: var(--muted); }
 
-.overlay { position: fixed; inset: 0; background: rgba(12,10,16,.84); display: flex; align-items: center; justify-content: center; z-index: 20; overflow-y: auto;
+.overlay { position: fixed; inset: 0; background: rgba(12,10,16,.84); display: flex; z-index: 20; overflow-y: auto;
   padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 .box { background: var(--panel); clip-path: var(--notch); padding: 20px 16px; width: min(440px, 100%); display: flex; flex-direction: column; gap: 14px; text-align: center; margin: auto; }
 .box h2 { font-family: var(--font-display); font-weight: 400; font-size: 28px; margin: 0; color: var(--gold); text-wrap: balance; }
-.box h3 { font-family: var(--font-display); font-weight: 400; font-size: 18px; margin: 0; color: var(--ink); text-align: left; }
+.box h3 { font-family: var(--font-display); font-weight: 400; font-size: 18px; margin: 0; text-align: left; }
 .box p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.box .hand { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.rules { text-align: left; font-size: 13px; line-height: 1.6; color: var(--ink); margin: 0; padding-left: 18px; }
+.box .hand { justify-content: center; flex-wrap: wrap; overflow: visible; }
+.rules { text-align: left; font-size: 13px; line-height: 1.6; margin: 0; padding-left: 18px; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; }
 .tbl td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .tbl td:first-child { font-family: var(--font-display); font-size: 15px; color: var(--gold); white-space: nowrap; }
 
-@media (max-width: 380px) {
-  .card .cd { font-size: 10.5px; }
-  .card .suit { font-size: 10px; }
-}
 @media (prefers-reduced-motion: reduce) {
-  .die.rolling, .card.shake { animation: none; }
+  .die.rolling, .card.shake, .slotBox.shake { animation: none; }
   .die, .card, .bar i { transition: none; }
 }
 </style>
@@ -169,10 +183,10 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 <div class="wrap">
   <header>
     <h1>주사위 던전</h1>
-    <div><button class="help" id="helpBtn" type="button">족보 보기</button> <span class="floor">FLOOR <b id="floorNo">1</b>/5</span></div>
+    <div><button class="help" id="helpBtn" type="button">규칙·족보</button> <span class="floor">FLOOR <b id="floorNo">1</b>/5</span></div>
   </header>
 
-  <div class="stage"><canvas id="cv" width="240" height="120"></canvas></div>
+  <div class="stage"><canvas id="cv" width="240" height="100"></canvas></div>
 
   <div class="status">
     <div class="unit">
@@ -196,9 +210,13 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
     </div>
   </div>
 
+  <div class="label">필드</div>
+  <div class="field" id="field"></div>
   <div class="combos" id="combos"></div>
   <div class="total" id="total"></div>
   <div class="msg" id="msg"></div>
+
+  <div class="label">손패</div>
   <div class="hand" id="hand"></div>
 
   <footer>
@@ -239,69 +257,96 @@ const SPR = {
   boss: { pal: { h: "#8a3d9e", k: "#15131c", w: "#f4ecdb", r: "#d4302f" }, rows: [
     ".h............h.", ".hh..........hh.", "..hh........hh..", "..kkkkkkkkkkkk..", "..kwwwwwwwwwwk..",
     "..kwrrwwwwrrwk..", "..kwrrwwwwrrwk..", "..kwwwwwwwwwwk..", "..kwwwwrrwwwwk..", "..kwwwwrrwwwwk..",
-    "..kwrwrwrwrwwk..", "..kwwrwrwrwwwk..", "..kwwwwwwwwwwk..", "..kkkkkkkkkkkk.."] }
+    "..kwrwrwrwrwwk..", "..kwwrwrwrwwwk..", "..kwwwwwwwwwwk..", "..kkkkkkkkkkkk.."] },
+  fire: { pal: { d: "#5a1e14", r: "#e0623e", y: "#ffd36a", k: "#15131c" }, rows: [
+    "..........dd....", ".........drrd...", "........drkrrd..", ".......drrrrrd..", "..ddd.drrrrdd...",
+    ".dyrrdrrrrrd....", "..ddrrrrrrrd....", "....drrrrrd.....", "....dd.d.dd....."] },
+  water: { pal: { d: "#1c3a66", b: "#4a8fd6", l: "#a9d4ff", k: "#15131c" }, rows: [
+    ".......dd.......", "......dbbd......", ".....dbbbbd.....", "....dbblbbbd....", "...dbblbbbbbd...",
+    "...dbbkbbkbbd...", "...dbbbbbbbbd...", "....dbbbbbbd....", ".....dddddd....."] },
+  leaf: { pal: { g: "#4f9e3b", l: "#9ad66e", d: "#2a4a1c", b: "#c9a46a", k: "#15131c" }, rows: [
+    "....gg....gg....", "...gllg..gllg...", "....ggg..ggg....", "......dggd......", ".......dd.......",
+    ".....dbbbbd.....", "....dbkbbkbd....", "....dbbbbbbd....", ".....dbbbbd.....", "......dddd......"] },
+  bolt: { pal: { y: "#f2cc3a", o: "#e8873a", d: "#5a4410", k: "#15131c" }, rows: [
+    ".......ddd......", "......dyyyd.....", ".....dykyyod....", "..d..dyyyyd.....", ".dyd.dyyyd......",
+    ".dyyddyyyyd.....", "..dyyyyyyyd.....", "...ddyyyyd......", ".....d..d......."] }
 };
 
-/* ---------- 카드: 속성 + 숫자 ----------
-   숫자 1~6: 그 수 이상인 주사위 1개로 발동
-   숫자 7~12: 주사위 2개의 합이 그 수 이상이면 발동 */
-const SUITS = {
-  fire:  { n: "불",   eff: (n, two) => ({ k: "atk",    v: two ? n + 2 : n + 3, t: "피해" }) },
-  water: { n: "물",   eff: (n, two) => ({ k: "def",    v: two ? n + 2 : n + 4, t: "방어" }) },
-  leaf:  { n: "풀",   eff: (n, two) => ({ k: "psn",    v: two ? n - 4 : n + 1, t: "독" }) },
-  bolt:  { n: "번개", eff: (n, two) => ({ k: "pierce", v: two ? n : n + 1,     t: "관통" }) }
+/* ---------- 카드 ----------
+   동료: 레벨이 곧 발동 숫자. 레벨 1~6은 그 수 이상인 주사위 1개, 7~12는 주사위 2개 합이 그 수 이상이면 기술 발동.
+   아이템: 턴에 몇 장이든. 서포트: 턴에 1장. 둘 다 주사위 없이 사용. */
+const SUIT = { fire: "불", water: "물", leaf: "풀", bolt: "번개" };
+const EFF = { atk: "피해", pierce: "관통", def: "방어", heal: "회복", team: "모두 회복", psn: "독" };
+const CARD = {
+  lizard:  { type: "unit", n: "불도마뱀", suit: "fire",  lv: 2,  hp: 20, eff: ["atk", 6] },
+  bear:    { type: "unit", n: "불곰",     suit: "fire",  lv: 4,  hp: 30, eff: ["atk", 11] },
+  dragon:  { type: "unit", n: "화염룡",   suit: "fire",  lv: 9,  hp: 40, eff: ["atk", 24] },
+  drop:    { type: "unit", n: "물방울",   suit: "water", lv: 1,  hp: 18, eff: ["def", 5] },
+  turtle:  { type: "unit", n: "바위거북", suit: "water", lv: 3,  hp: 36, eff: ["def", 10] },
+  seahorse:{ type: "unit", n: "해마",     suit: "water", lv: 5,  hp: 22, eff: ["heal", 12] },
+  sprout:  { type: "unit", n: "새싹",     suit: "leaf",  lv: 2,  hp: 18, eff: ["psn", 3] },
+  vine:    { type: "unit", n: "덩굴뱀",   suit: "leaf",  lv: 4,  hp: 24, eff: ["psn", 6] },
+  oak:     { type: "unit", n: "고목",     suit: "leaf",  lv: 8,  hp: 46, eff: ["team", 7] },
+  sparrow: { type: "unit", n: "번개새",   suit: "bolt",  lv: 3,  hp: 20, eff: ["pierce", 6] },
+  beast:   { type: "unit", n: "뇌수",     suit: "bolt",  lv: 6,  hp: 26, eff: ["pierce", 15] },
+  giant:   { type: "unit", n: "천둥거인", suit: "bolt",  lv: 11, hp: 52, eff: ["pierce", 30] },
+  potion:  { type: "item", n: "회복약",     d: "가장 다친 동료 회복 15" },
+  whet:    { type: "item", n: "숫돌",       d: "고른 주사위 눈 +1" },
+  coin:    { type: "item", n: "행운 동전",  d: "다시 굴림 +1" },
+  shield:  { type: "item", n: "나무 방패",  d: "방어 +8" },
+  mage:    { type: "sup",  n: "견습 마법사", d: "카드 2장 뽑기" },
+  smith:   { type: "sup",  n: "대장장이",    d: "주사위 1개 추가" },
+  healer:  { type: "sup",  n: "치유사",      d: "모든 동료 회복 10" }
 };
+const STARTER = ["lizard", "bear", "dragon", "drop", "turtle", "sprout", "sparrow",
+  "potion", "potion", "whet", "whet", "coin", "shield", "mage", "mage", "healer"];
 const FLUSH = {
-  fire:  { t: "피해 +8",      fx: e => e.atk += 8 },
-  water: { t: "회복 8",       fx: e => e.heal += 8 },
-  leaf:  { t: "독 +5",        fx: e => e.psn += 5 },
-  bolt:  { t: "관통 피해 +6", fx: e => e.pierce += 6 }
+  fire:  { t: "피해 +6",      fx: e => e.atk += 6 },
+  water: { t: "방어 +6",      fx: e => e.def += 6 },
+  leaf:  { t: "독 +4",        fx: e => e.psn += 4 },
+  bolt:  { t: "관통 피해 +5", fx: e => e.pierce += 5 }
 };
-const STARTER = [
-  ["fire", 2], ["fire", 4], ["fire", 6], ["water", 1], ["water", 3], ["water", 5],
-  ["leaf", 2], ["leaf", 5], ["bolt", 3], ["bolt", 6], ["fire", 8], ["water", 10]
-];
-const isTwo = n => n > 6;
-const effOf = c => SUITS[c.suit].eff(c.n, isTwo(c.n));
+const isTwo = lv => lv > 6;
 
 /* ---------- 적 ---------- */
 const FOES = {
-  slime:  { n: "슬라임",      hp: 30,  spr: "slime",  pat: [["atk", 6], ["block", 6], ["atk", 8]] },
-  bat:    { n: "박쥐",        hp: 26,  spr: "bat",    pat: [["atk", 3, 3], ["atk", 7], ["atk", 4, 2]] },
-  shroom: { n: "독버섯",      hp: 38,  spr: "shroom", pat: [["poison", 4], ["atk", 8], ["atk", 9]] },
-  skel:   { n: "해골 병사",   hp: 46,  spr: "skel",   pat: [["atk", 11], ["block", 12], ["atk", 6, 2]] },
-  golem:  { n: "돌 골렘",     hp: 60,  spr: "golem",  pat: [["block", 15], ["atk", 20], ["atk", 9]] },
-  boss:   { n: "주사위 마왕", hp: 110, spr: "boss",   pat: [["atk", 12], ["curse"], ["atk", 6, 3], ["block", 18], ["atk", 24]], scale: 4 }
+  slime:  { n: "슬라임",      hp: 40,  spr: "slime",  pat: [["atk", 8], ["block", 8], ["atk", 10]] },
+  bat:    { n: "박쥐",        hp: 34,  spr: "bat",    pat: [["atk", 4, 3], ["atk", 9], ["atk", 5, 2]] },
+  shroom: { n: "독버섯",      hp: 50,  spr: "shroom", pat: [["poison", 4], ["atk", 10], ["atk", 11]] },
+  skel:   { n: "해골 병사",   hp: 64,  spr: "skel",   pat: [["atk", 14], ["block", 14], ["atk", 8, 2]] },
+  golem:  { n: "돌 골렘",     hp: 80,  spr: "golem",  pat: [["block", 18], ["atk", 26], ["atk", 12]] },
+  boss:   { n: "주사위 마왕", hp: 150, spr: "boss",   pat: [["atk", 16], ["curse"], ["atk", 8, 3], ["block", 22], ["atk", 30]], scale: 4 }
 };
 const FLOORS = [["slime", "bat"], ["bat", "shroom"], ["shroom", "skel"], ["skel", "golem"], ["boss"]];
 
-/* ---------- 족보 판정 ---------- */
+/* ---------- 족보 ---------- */
 function yachtOf(vals) {
   if (vals.length < 4) return null;
   const cnt = {}; vals.forEach(v => cnt[v] = (cnt[v] || 0) + 1);
   const cs = Object.values(cnt).sort((a, b) => b - a);
   const has = s => s.every(v => cnt[v]);
-  if (cs[0] === 5) return { n: "요트", t: "모든 피해 2배", fx: e => e.mult = 2 };
+  if (cs[0] >= 5) return { n: "요트", t: "모든 피해 2배", fx: e => e.mult = 2 };
   if (has([1, 2, 3, 4, 5]) || has([2, 3, 4, 5, 6])) return { n: "라지 스트레이트", t: "피해 +8", fx: e => e.atk += 8 };
   if (cs[0] === 4) return { n: "포카드", t: "피해 +10", fx: e => e.atk += 10 };
-  if (cs[0] === 3 && cs[1] === 2) return { n: "풀하우스", t: "방어 +10", fx: e => e.def += 10 };
+  if (cs[0] === 3 && cs[1] >= 2) return { n: "풀하우스", t: "방어 +10", fx: e => e.def += 10 };
   if (has([1, 2, 3, 4]) || has([2, 3, 4, 5]) || has([3, 4, 5, 6])) return { n: "스몰 스트레이트", t: "피해 +4", fx: e => e.atk += 4 };
   return null;
 }
-function pokerOf(cards) {
+// 필드에 놓인 동료끼리 (레벨 = 숫자, 속성 = 모양)
+function pokerOf(units) {
   const out = [];
-  if (!cards.length) return out;
-  const cnt = {}; cards.forEach(c => cnt[c.n] = (cnt[c.n] || 0) + 1);
+  if (!units.length) return out;
+  const cnt = {}; units.forEach(u => cnt[u.lv] = (cnt[u.lv] || 0) + 1);
   const cs = Object.values(cnt).sort((a, b) => b - a);
-  if (cs[0] >= 3) out.push({ n: "트리플", t: "관통 피해 +6", fx: e => e.pierce += 6 });
+  if (cs[0] >= 3) out.push({ n: "트리플", t: "피해 +8", fx: e => e.atk += 8 });
   else if (cs[0] === 2 && cs[1] === 2) out.push({ n: "투페어", t: "피해 +6", fx: e => e.atk += 6 });
   else if (cs[0] === 2) out.push({ n: "원페어", t: "피해 +3", fx: e => e.atk += 3 });
-  const nums = [...new Set(cards.map(c => c.n))].sort((a, b) => a - b);
+  const nums = [...new Set(units.map(u => u.lv))].sort((a, b) => a - b);
   let run = 1, best = 1;
   for (let i = 1; i < nums.length; i++) { run = nums[i] === nums[i - 1] + 1 ? run + 1 : 1; best = Math.max(best, run); }
-  if (best >= 3) out.push({ n: "스트레이트", t: "다음 턴 다시 굴림 +1", fx: e => e.reroll += 1 });
-  const sc = {}; cards.forEach(c => sc[c.suit] = (sc[c.suit] || 0) + 1);
-  Object.keys(sc).forEach(s => { if (sc[s] >= 3) out.push({ n: SUITS[s].n + " 플러시", t: FLUSH[s].t, fx: FLUSH[s].fx }); });
+  if (best >= 3) out.push({ n: "스트레이트", t: "다시 굴림 +1", straight: true, fx: () => {} });
+  const sc = {}; units.forEach(u => sc[u.suit] = (sc[u.suit] || 0) + 1);
+  Object.keys(sc).forEach(s => { if (sc[s] >= 3) out.push({ n: SUIT[s] + " 플러시", t: FLUSH[s].t, fx: FLUSH[s].fx }); });
   return out;
 }
 
@@ -313,44 +358,55 @@ const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.f
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const roll = () => 1 + Math.floor(Math.random() * 6);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const unitsOnField = () => S.field.filter(Boolean).map(f => ({ ...CARD[f.key], ...f }));
 
 function newRun() {
-  S = { hp: 50, max: 50, block: 0, poison: 0, curse: 0, bonusReroll: 0,
-        deck: STARTER.map(([suit, n]) => ({ suit, n })), draw: [], discard: [],
-        hand: [], dice: [], sel: null, rerolls: 2, phase: "roll", floor: 1, foe: null, busy: false };
+  S = { lp: 30, max: 30, block: 0, poison: 0, curse: 0, deck: STARTER.slice(), floor: 1, foe: null };
   startFloor();
 }
 function startFloor() {
   const key = pick(FLOORS[S.floor - 1]), f = FOES[key];
-  S.foe = { key, n: f.n, hp: f.hp, max: f.hp, block: 0, poison: 0, step: 0, pat: f.pat, spr: f.spr, scale: f.scale || 3 };
-  S.draw = shuffle(S.deck.slice()); S.discard = []; S.hand = [];
-  S.block = 0; S.poison = 0; S.curse = 0; S.bonusReroll = 0;
+  S.foe = { key, n: f.n, hp: f.hp, max: f.hp, block: 0, poison: 0, step: 0, pat: f.pat, spr: f.spr, scale: f.scale || 3, target: 0 };
+  Object.assign(S, { draw: shuffle(S.deck.slice()), discard: [], hand: [], field: [null, null, null, null, null],
+    dice: [], sel: null, picked: null, rollsUsed: 0, extraRolls: 0, supUsed: false, phase: "roll",
+    block: 0, poison: 0, curse: 0, turn: 0, busy: false });
+  // 첫 손패: 동료 2장은 꼭 들어오게
+  for (let k = 0; k < 2; k++) {
+    const i = S.draw.findIndex(c => CARD[c].type === "unit");
+    if (i >= 0) S.hand.push({ uid: ++uid, key: S.draw.splice(i, 1)[0] });
+  }
+  drawCards(3);
   anim.foeDead = 0;
   startTurn();
 }
-async function startTurn() {
-  S.busy = true; S.block = 0;
-  if (S.poison > 0) {
-    hurtPlayer(S.poison, true); S.poison--; render(); await sleep(450);
-    if (S.hp <= 0) return showEnd(false);
-  }
-  const n = 5 - S.curse; S.curse = 0;
-  S.dice = Array.from({ length: n }, () => ({ id: ++uid, v: roll(), held: false, used: false }));
-  S.sel = null; S.phase = "roll"; S.rerolls = 2 + S.bonusReroll; S.bonusReroll = 0;
-  drawCards(5);
-  await rollAnim(S.dice.map(d => d.id));
-  S.busy = false;
-  say("남길 주사위를 눌러 고정하고 다시 굴리세요");
-  render();
-}
 function drawCards(n) {
   for (let i = 0; i < n; i++) {
+    if (S.hand.length >= 8) break;
     if (!S.draw.length) { S.draw = shuffle(S.discard); S.discard = []; }
     if (!S.draw.length) break;
-    const t = S.draw.pop();
-    S.hand.push({ uid: ++uid, suit: t.suit, n: t.n, fill: [] });
+    S.hand.push({ uid: ++uid, key: S.draw.pop() });
   }
-  S.hand.sort((a, b) => a.n - b.n);
+}
+function chooseTarget() {
+  const occ = S.field.map((f, i) => f ? i : -1).filter(i => i >= 0);
+  S.foe.target = occ.length ? pick(occ) : Math.floor(Math.random() * 5);
+}
+async function startTurn() {
+  S.busy = true; S.block = 0; S.turn++;
+  if (S.poison > 0) {
+    hurtLP(S.poison, true); S.poison--; render(); await sleep(450);
+    if (S.lp <= 0) return showEnd(false);
+  }
+  if (S.turn > 1) drawCards(2);
+  const n = 5 - S.curse; S.curse = 0;
+  S.dice = Array.from({ length: n }, () => ({ id: ++uid, v: roll(), held: false, used: false }));
+  S.field.forEach(f => f && (f.fill = []));
+  S.sel = null; S.picked = null; S.phase = "roll"; S.rollsUsed = 0; S.extraRolls = 0; S.supUsed = false;
+  chooseTarget();
+  await rollAnim(S.dice.map(d => d.id));
+  S.busy = false;
+  say("동료를 필드에 내고, 남길 주사위를 고정해 다시 굴리세요");
+  render();
 }
 async function rollAnim(ids) {
   rolling = new Set(ids); render();
@@ -358,88 +414,155 @@ async function rollAnim(ids) {
   await sleep(reduced ? 0 : 420);
   clearInterval(t); rolling = new Set(); render();
 }
+function rollsLeft() {
+  const straight = pokerOf(unitsOnField()).some(p => p.straight) ? 1 : 0;
+  return 2 + straight + S.extraRolls - S.rollsUsed;
+}
 
-/* ---------- 조작 ---------- */
+/* ---------- 조작: 주사위 ---------- */
 function tapDie(id) {
   if (S.busy) return;
   const d = S.dice.find(x => x.id === id); if (!d || d.used) return;
+  S.picked = null;
   if (S.phase === "roll") { d.held = !d.held; render(); return; }
   S.sel = S.sel === id ? null : id;
-  say(S.sel ? "이 눈을 넣을 카드를 누르세요" : "주사위를 고른 뒤 카드를 누르세요");
+  say(S.sel ? "이 눈을 쓸 동료를 누르세요" : "주사위를 고른 뒤 동료를 누르세요");
   render();
 }
 async function doReroll() {
-  if (S.busy || S.phase !== "roll" || S.rerolls < 1) return;
+  if (S.busy || S.phase !== "roll" || rollsLeft() < 1) return;
   const free = S.dice.filter(d => !d.held);
   if (!free.length) { say("고정을 풀어야 다시 굴릴 수 있어요"); return; }
-  S.rerolls--; free.forEach(d => d.v = roll());
+  S.rollsUsed++; free.forEach(d => d.v = roll());
   S.busy = true; await rollAnim(free.map(d => d.id)); S.busy = false;
-  if (S.rerolls < 1) lockDice(); else render();
-}
-function lockDice() {
-  S.phase = "assign"; S.dice.forEach(d => d.held = false);
-  say("주사위를 고른 뒤 카드를 누르세요. 다 넣었으면 발동!");
   render();
 }
-const full = c => c.fill.length === (isTwo(c.n) ? 2 : 1);
-function canTake(card, v) {
-  if (full(card)) return false;
-  if (!isTwo(card.n)) return v >= card.n;
-  if (!card.fill.length) return v + 6 >= card.n;
-  return card.fill[0].v + v >= card.n;
+function lockDice() {
+  if (S.busy || S.phase !== "roll") return;
+  S.phase = "assign"; S.dice.forEach(d => d.held = false); S.picked = null;
+  say("주사위를 고른 뒤 동료를 누르세요. 다 넣었으면 발동!");
+  render();
 }
-function tapCard(cid, el) {
+
+/* ---------- 조작: 필드 ---------- */
+const full = f => f.fill.length === (isTwo(CARD[f.key].lv) ? 2 : 1);
+function canTake(f, v) {
+  const lv = CARD[f.key].lv;
+  if (full(f)) return false;
+  if (!isTwo(lv)) return v >= lv;
+  if (!f.fill.length) return v + 6 >= lv;
+  return f.fill[0].v + v >= lv;
+}
+function tapSlot(i, el) {
   if (S.busy) return;
-  const card = S.hand.find(c => c.uid === cid); if (!card) return;
+  const f = S.field[i];
+  if (S.picked != null) { // 손패의 동료를 이 칸에 소환
+    if (f) { say("빈 칸을 골라 주세요"); nudge(el); return; }
+    const hc = S.hand.find(c => c.uid === S.picked);
+    S.hand = S.hand.filter(c => c !== hc); S.picked = null;
+    S.field[i] = { uid: ++uid, key: hc.key, hp: CARD[hc.key].hp, max: CARD[hc.key].hp, fill: [] };
+    say(`${CARD[hc.key].n} 소환!`); render(); return;
+  }
+  if (!f) { say("손패에서 동료 카드를 고르면 이 칸에 낼 수 있어요"); return; }
   if (S.phase === "roll") { say("먼저 굴림을 확정하세요"); nudge(el); return; }
+  const def = CARD[f.key];
   if (S.sel == null) {
-    if (card.fill.length) {
-      card.fill.forEach(x => { const d = S.dice.find(y => y.id === x.id); if (d) d.used = false; });
-      card.fill = []; say("주사위를 되돌렸어요"); render();
+    if (f.fill.length) {
+      f.fill.forEach(x => { const d = S.dice.find(y => y.id === x.id); if (d) d.used = false; });
+      f.fill = []; say("주사위를 되돌렸어요"); render();
     } else { say("먼저 주사위를 고르세요"); nudge(el); }
     return;
   }
   const d = S.dice.find(x => x.id === S.sel);
-  if (!canTake(card, d.v)) {
-    say(isTwo(card.n) ? `두 주사위 합이 ${card.n} 이상이어야 해요` : `눈 ${card.n} 이상만 넣을 수 있어요`);
+  if (!canTake(f, d.v)) {
+    say(isTwo(def.lv) ? `${def.n}: 두 주사위 합 ${def.lv} 이상` : `${def.n}: 눈 ${def.lv} 이상`);
     nudge(el); return;
   }
-  d.used = true; S.sel = null; card.fill.push({ id: d.id, v: d.v });
-  say(full(card) ? "준비 완료. 다른 카드도 채우거나 발동하세요" : `합 ${card.n} 이상: 주사위 하나 더`);
+  d.used = true; S.sel = null; f.fill.push({ id: d.id, v: d.v });
+  say(full(f) ? `${def.n} 준비 완료` : `${def.n}: 주사위 하나 더`);
   render();
 }
 function nudge(el) { if (!el) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
 
+/* ---------- 조작: 손패 ---------- */
+function mostHurt() {
+  let best = null;
+  S.field.forEach(f => { if (f && f.hp < f.max && (!best || f.max - f.hp > best.max - best.hp)) best = f; });
+  return best;
+}
+function healUnit(f, n) { if (!f) return 0; const h = Math.min(n, f.max - f.hp); f.hp += h; return h; }
+function tapHand(cid, el) {
+  if (S.busy) return;
+  const c = S.hand.find(x => x.uid === cid); if (!c) return;
+  const def = CARD[c.key];
+  if (def.type === "unit") {
+    if (!S.field.includes(null)) { say("필드가 가득 찼어요"); nudge(el); return; }
+    S.picked = S.picked === cid ? null : cid; S.sel = null;
+    say(S.picked ? "동료를 놓을 빈 칸을 누르세요" : "");
+    render(); return;
+  }
+  if (def.type === "sup" && S.supUsed) { say("서포트는 턴에 1장만 쓸 수 있어요"); nudge(el); return; }
+  let ok = true;
+  switch (c.key) {
+    case "potion": { const f = mostHurt(); if (!f) { ok = false; say("다친 동료가 없어요"); } else float(60, 44, "+" + healUnit(f, 15), "#b6e29a"); break; }
+    case "whet": {
+      const d = S.phase === "assign" && S.sel != null ? S.dice.find(x => x.id === S.sel) : null;
+      if (!d) { ok = false; say("굴림을 확정하고 주사위를 고른 뒤 쓰세요"); }
+      else if (d.v >= 6) { ok = false; say("이미 6이에요"); }
+      else { d.v++; float(120, 44, "눈+1", "#f0b54a"); }
+      break;
+    }
+    case "coin": if (S.phase !== "roll") { ok = false; say("굴리는 중에만 쓸 수 있어요"); } else S.extraRolls++; break;
+    case "shield": S.block += 8; float(60, 44, "방어+8", "#a9cff0"); break;
+    case "mage": S.hand = S.hand.filter(x => x !== c); drawCards(2); S.discard.push(c.key); S.supUsed = true; say("카드 2장을 뽑았어요"); render(); return;
+    case "smith": {
+      const d = { id: ++uid, v: roll(), held: false, used: false }; S.dice.push(d); break;
+    }
+    case "healer": S.field.forEach(f => f && healUnit(f, 10)); float(60, 44, "모두+10", "#b6e29a"); break;
+  }
+  if (!ok) { nudge(el); return; }
+  S.hand = S.hand.filter(x => x !== c); S.discard.push(c.key);
+  if (def.type === "sup") S.supUsed = true;
+  if (!["whet", "coin"].includes(c.key) || ok) say(`${def.n} 사용`);
+  render();
+}
+
 /* ---------- 이번 턴 계산 ---------- */
 function evaluate() {
-  const act = S.hand.filter(full);
-  const e = { atk: 0, pierce: 0, def: 0, heal: 0, psn: 0, mult: 1, reroll: 0 };
-  act.forEach(c => { const x = effOf(c); e[x.k] += x.v; });
+  const units = unitsOnField(), act = units.filter(u => u.fill.length === (isTwo(u.lv) ? 2 : 1));
+  const e = { atk: 0, pierce: 0, def: 0, heal: [], team: 0, psn: 0, mult: 1 };
+  act.forEach(u => { const [k, v] = u.eff; if (k === "heal") e.heal.push(v); else e[k] += v; });
   const tags = [];
-  pokerOf(act).forEach(p => { p.fx(e); tags.push({ src: "카드", ...p }); });
-  const y = yachtOf(S.dice.map(d => d.v));
-  if (y) { y.fx(e); tags.push({ src: "주사위", ...y }); }
+  pokerOf(units).forEach(p => {
+    if (!p.straight && !act.length) { tags.push({ src: "필드", ...p, idle: true }); return; }
+    p.fx(e); tags.push({ src: "필드", ...p });
+  });
+  if (S.phase === "assign" || S.dice.length) {
+    const y = yachtOf(S.dice.map(d => d.v));
+    if (y) { y.fx(e); tags.push({ src: "주사위", ...y }); }
+  }
   e.tags = tags; e.count = act.length;
   return e;
 }
 async function resolve() {
   if (S.busy || S.phase !== "assign") return;
-  S.busy = true;
+  S.busy = true; S.picked = null; S.sel = null;
   const e = evaluate(), f = S.foe;
-  if (e.def) { S.block += e.def; float(60, 46, "방어+" + e.def, "#a9cff0"); }
-  if (e.heal) { const h = Math.min(e.heal, S.max - S.hp); S.hp += h; float(60, 58, "+" + h, "#b6e29a"); }
-  if (e.psn) { f.poison += e.psn; float(170, 36, "독+" + e.psn, "#b6e29a"); }
-  render(); await sleep(e.def || e.heal || e.psn ? 350 : 0);
+  if (e.def) { S.block += e.def; float(60, 40, "방어+" + e.def, "#a9cff0"); }
+  e.heal.forEach(v => { const u = mostHurt(); const h = healUnit(u, v); if (h) float(60, 52, "+" + h, "#b6e29a"); });
+  if (e.team) S.field.forEach(u => u && healUnit(u, e.team));
+  if (e.psn) { f.poison += e.psn; float(180, 32, "독+" + e.psn, "#b6e29a"); }
+  render(); await sleep(e.def || e.heal.length || e.team || e.psn ? 350 : 0);
   const dmg = e.atk * e.mult, prc = e.pierce * e.mult;
   if (dmg || prc) {
     anim.lunge = 1; await sleep(130);
     const hit = Math.max(0, dmg - f.block); f.block = Math.max(0, f.block - dmg);
     const total = hit + prc; f.hp = Math.max(0, f.hp - total); anim.foeHit = 1;
-    float(170, 50, total ? "-" + total : "막힘", total ? "#ff7a6e" : "#a9cff0");
+    float(180, 44, total ? "-" + total : "막힘", total ? "#ff7a6e" : "#a9cff0");
     render(); await sleep(450);
   }
-  S.bonusReroll = e.reroll;
-  S.hand.forEach(c => S.discard.push({ suit: c.suit, n: c.n })); S.hand = []; S.dice = []; S.sel = null;
+  S.field.forEach(u => u && (u.fill = []));
+  S.dice = [];
   if (f.hp <= 0) return foeDefeated();
   foeTurn();
 }
@@ -448,54 +571,59 @@ async function foeTurn() {
   await sleep(350);
   f.block = 0;
   if (f.poison > 0) {
-    f.hp = Math.max(0, f.hp - f.poison); anim.foeHit = 1; float(170, 50, "-" + f.poison, "#b6e29a");
+    f.hp = Math.max(0, f.hp - f.poison); anim.foeHit = 1; float(180, 44, "-" + f.poison, "#b6e29a");
     f.poison--; render(); await sleep(450);
     if (f.hp <= 0) return foeDefeated();
   }
   const [type, n, times] = f.pat[f.step % f.pat.length];
   if (type === "atk") {
     for (let i = 0; i < (times || 1); i++) {
-      anim.foeLunge = 1; await sleep(120); hurtPlayer(n); render(); await sleep(330);
-      if (S.hp <= 0) return showEnd(false);
+      anim.foeLunge = 1; await sleep(120); hitSlot(f.target, n); render(); await sleep(330);
+      if (S.lp <= 0) return showEnd(false);
     }
-  } else if (type === "block") { f.block += n; float(170, 50, "+" + n, "#a9cff0"); }
-  else if (type === "poison") { S.poison += n; float(60, 40, "독+" + n, "#b6e29a"); }
-  else if (type === "curse") { S.curse = 1; float(60, 40, "저주", "#d5b2f0"); }
+  } else if (type === "block") { f.block += n; float(180, 44, "+" + n, "#a9cff0"); }
+  else if (type === "poison") { S.poison += n; float(60, 36, "독+" + n, "#b6e29a"); }
+  else if (type === "curse") { S.curse = 1; float(60, 36, "저주", "#d5b2f0"); }
   f.step++; render(); await sleep(400);
   startTurn();
 }
-function hurtPlayer(n, pierce) {
-  const hit = pierce ? n : Math.max(0, n - S.block);
-  if (!pierce) S.block = Math.max(0, S.block - n);
-  S.hp = Math.max(0, S.hp - hit); anim.pHit = 1;
-  float(60, 50, hit ? "-" + hit : "막힘", hit ? (pierce ? "#b6e29a" : "#ff7a6e") : "#a9cff0");
+// 적 공격: 방어 → 노린 칸의 동료 → (칸이 비었으면) 기사
+function hitSlot(i, n) {
+  const absorbed = Math.min(S.block, n); S.block -= absorbed; n -= absorbed;
+  if (!n) { float(60, 44, "막힘", "#a9cff0"); return; }
+  const u = S.field[i];
+  if (u) {
+    u.hp = Math.max(0, u.hp - n); anim.slotHit = i;
+    say(`${CARD[u.key].n}이(가) ${n} 피해를 받았어요`);
+    if (u.hp <= 0) { S.field[i] = null; S.discard.push(u.key); say(`${CARD[u.key].n}이(가) 쓰러졌어요`); }
+  } else hurtLP(n, false);
+}
+function hurtLP(n, poison) {
+  S.lp = Math.max(0, S.lp - n); anim.pHit = 1;
+  float(60, 44, "-" + n, poison ? "#b6e29a" : "#ff7a6e");
 }
 
 /* ---------- 층 이동 / 끝 ---------- */
-function randomCard() {
-  const suit = pick(Object.keys(SUITS));
-  const n = Math.random() < 0.35 ? 7 + Math.floor(Math.random() * 6) : roll();
-  return { suit, n };
-}
 async function foeDefeated() {
   S.busy = true; anim.foeDead = 0.001; render(); await sleep(700);
   if (S.floor >= 5) return showEnd(true);
-  const pool = [randomCard(), randomCard(), randomCard()];
-  overlay(`<h2>${S.foe.n} 처치!</h2><p>카드 한 장을 덱에 넣으세요. 다음 층으로 가면서 체력 10을 회복해요.</p>
-    <div class="hand">${pool.map((c, i) => cardHTML({ ...c, fill: [], uid: i })).join("")}</div>
+  const keys = Object.keys(CARD);
+  const pool = []; while (pool.length < 3) { const k = pick(keys); if (!pool.includes(k)) pool.push(k); }
+  overlay(`<h2>${S.foe.n} 처치!</h2><p>카드 한 장을 덱에 넣으세요. 다음 층에서는 기사 체력 8을 회복하고, 필드는 새로 시작해요.</p>
+    <div class="hand">${pool.map((k, i) => handHTML({ key: k, uid: i })).join("")}</div>
     <button class="btn" id="skipBtn" type="button">넘어가기</button>`);
   $("ovBox").querySelectorAll(".card").forEach(el => el.onclick = () => nextFloor(pool[+el.dataset.uid]));
   $("skipBtn").onclick = () => nextFloor(null);
 }
-function nextFloor(card) {
-  if (card) S.deck.push(card);
-  S.hp = Math.min(S.max, S.hp + 10); S.floor++;
+function nextFloor(key) {
+  if (key) S.deck.push(key);
+  S.lp = Math.min(S.max, S.lp + 8); S.floor++;
   $("ov").hidden = true; startFloor();
 }
 function showEnd(win) {
   S.busy = true;
   overlay(win
-    ? `<h2>던전 정복</h2><p>주사위 마왕을 쓰러뜨렸어요. 남은 체력 ${S.hp}, 덱 ${S.deck.length}장.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`
+    ? `<h2>던전 정복</h2><p>주사위 마왕을 쓰러뜨렸어요. 남은 체력 ${S.lp}, 덱 ${S.deck.length}장.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`
     : `<h2>쓰러졌어요</h2><p>지하 ${S.floor}층, ${S.foe.n}에게 졌어요.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`);
   $("againBtn").onclick = () => { $("ov").hidden = true; newRun(); };
 }
@@ -503,27 +631,28 @@ function overlay(html) { $("ovBox").innerHTML = html; $("ov").hidden = false; }
 function showHelp(first) {
   overlay(`<h2>주사위 던전</h2>
     <ul class="rules">
-      <li>매 턴 주사위 5개를 굴리고 카드 5장을 뽑아요.</li>
-      <li>요트처럼 남길 주사위를 눌러 고정하고, 다시 굴림을 2번까지 할 수 있어요.</li>
-      <li>굴림을 확정하면 주사위를 카드에 넣어요. 숫자 1~6 카드는 그 숫자 이상인 눈 1개, 7~12 카드는 합이 그 숫자 이상인 주사위 2개로 발동해요.</li>
-      <li>발동하면 채운 카드의 효과와 족보 보너스가 한꺼번에 터져요.</li>
+      <li>손패의 <b>동료</b> 카드를 골라 필드 5칸 중 빈 칸에 내요. 동료는 쓰러질 때까지 필드에 남아요.</li>
+      <li>매 턴 주사위 5개를 굴려요. 남길 주사위를 눌러 고정하고 다시 굴림 2번.</li>
+      <li>굴림을 확정하면 주사위를 동료에게 넣어요. 동료의 <b>레벨 이상</b>인 눈 1개면 기술이 발동하고, 레벨 7 이상은 주사위 2개 합이 레벨 이상이어야 해요.</li>
+      <li><b>아이템</b>은 턴에 몇 장이든, <b>서포트</b>는 턴에 1장. 둘 다 주사위 없이 써요.</li>
+      <li>적은 필드의 한 칸을 노려요. 그 칸이 비어 있으면 기사가 직접 맞아요.</li>
     </ul>
     <h3>주사위 족보 (요트)</h3>
     <table class="tbl">
-      <tr><td>요트</td><td>5개 모두 같은 눈 · 모든 피해 2배</td></tr>
+      <tr><td>요트</td><td>5개 같은 눈 · 모든 피해 2배</td></tr>
       <tr><td>포카드</td><td>같은 눈 4개 · 피해 +10</td></tr>
       <tr><td>풀하우스</td><td>3개 + 2개 · 방어 +10</td></tr>
       <tr><td>라지 스트레이트</td><td>5개 연속 · 피해 +8</td></tr>
       <tr><td>스몰 스트레이트</td><td>4개 연속 · 피해 +4</td></tr>
     </table>
-    <h3>카드 족보 (포커, 발동한 카드끼리)</h3>
+    <h3>필드 족보 (포커, 필드의 동료끼리)</h3>
     <table class="tbl">
-      <tr><td>원페어 · 투페어</td><td>같은 숫자 2장 · 피해 +3, 두 쌍이면 +6</td></tr>
-      <tr><td>트리플</td><td>같은 숫자 3장 · 관통 피해 +6</td></tr>
-      <tr><td>스트레이트</td><td>숫자 3장 연속 · 다음 턴 다시 굴림 +1</td></tr>
-      <tr><td>플러시</td><td>같은 속성 3장 · 불 피해 +8, 물 회복 8, 풀 독 +5, 번개 관통 +6</td></tr>
+      <tr><td>원페어 · 투페어</td><td>같은 레벨 2마리 · 피해 +3, 두 쌍이면 +6</td></tr>
+      <tr><td>트리플</td><td>같은 레벨 3마리 · 피해 +8</td></tr>
+      <tr><td>스트레이트</td><td>레벨 3개 연속 · 매 턴 다시 굴림 +1</td></tr>
+      <tr><td>플러시</td><td>같은 속성 3마리 · 불 피해 +6, 물 방어 +6, 풀 독 +4, 번개 관통 +5</td></tr>
     </table>
-    <p>관통 피해는 적의 방어를 무시해요.</p>
+    <p>피해 보너스는 그 턴에 기술을 하나 이상 쓰면 붙어요. 관통 피해는 적의 방어를 무시해요.</p>
     <button class="btn main" id="closeBtn" type="button">${first ? "던전 입장" : "닫기"}</button>`);
   $("closeBtn").onclick = () => { $("ov").hidden = true; if (first) newRun(); };
 }
@@ -531,24 +660,54 @@ function showHelp(first) {
 /* ---------- 화면 그리기 ---------- */
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 function setPips(el, v) { el.querySelectorAll("span").forEach((s, i) => s.classList.toggle("on", PIPS[v].includes(i))); }
+const IMG = {};
+function spriteURL(key) {
+  if (IMG[key]) return IMG[key];
+  const spr = SPR[key], c = document.createElement("canvas"); c.width = 16; c.height = 16;
+  const x = c.getContext("2d"), off = 16 - spr.rows.length;
+  spr.rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== ".") { x.fillStyle = spr.pal[ch]; x.fillRect(i, j + off, 1, 1); } }));
+  return IMG[key] = c.toDataURL();
+}
+const needText = lv => isTwo(lv) ? `합${lv}+` : `${lv}+`;
+const effText = ([k, v]) => `${EFF[k]} ${v}`;
 function dieHTML(d) {
   const cls = ["die", d.held && "held", S.sel === d.id && "sel", d.used && "used", rolling.has(d.id) && "rolling"].filter(Boolean).join(" ");
   return `<button type="button" class="${cls}" data-id="${d.id}" aria-label="주사위 ${d.v}${d.held ? ", 고정" : ""}">${
     Array.from({ length: 9 }, (_, i) => `<span class="${PIPS[d.v].includes(i) ? "on" : ""}"></span>`).join("")}</button>`;
 }
-function cardHTML(c, cls = "") {
-  const two = isTwo(c.n), e = effOf(c);
-  const k = two ? 2 : 1;
-  const slots = Array.from({ length: k }, (_, i) => c.fill[i]
-    ? `<div class="slot full">${c.fill[i].v}</div>`
-    : `<div class="slot">${two ? "?" : c.n + "+"}</div>`).join("");
-  return `<button type="button" class="card ${c.suit} ${cls}" data-uid="${c.uid}">
-    <span class="top"><span class="suit">${SUITS[c.suit].n}</span><span class="num">${two ? "<small>합</small>" : ""}${c.n}+</span></span>
-    <div class="slots">${slots}</div><span class="cd">${e.t} ${e.v}</span></button>`;
+function slotHTML(f, i, sel) {
+  const tgt = S.foe && S.foe.target === i && !S.busy && foeAttacks();
+  if (!f) {
+    const cls = ["slotBox", "empty", tgt && "target", S.picked != null && "drop"].filter(Boolean).join(" ");
+    return `<button type="button" class="${cls}" data-i="${i}"><span class="tgt">${tgt ? "▼ 노림" : ""}</span>${S.picked != null ? "여기에 내기" : "빈 칸"}</button>`;
+  }
+  const def = CARD[f.key], two = isTwo(def.lv);
+  const state = full(f) ? "ready" : sel ? (canTake(f, sel.v) ? "fit" : "nofit") : "";
+  const ds = Array.from({ length: two ? 2 : 1 }, (_, k) => f.fill[k]
+    ? `<div class="ds full">${f.fill[k].v}</div>` : `<div class="ds">${k === 0 ? needText(def.lv) : "+"}</div>`).join("");
+  return `<button type="button" class="slotBox u ${def.suit} ${tgt ? "target" : ""} ${state}" data-i="${i}">
+    <span class="tgt">${tgt ? "▼ 노림" : ""}</span>
+    <img src="${spriteURL(def.suit)}" alt="">
+    <span class="un">${def.n}</span><span class="lv">LV${def.lv}</span>
+    <span class="mini"><i style="width:${f.hp / f.max * 100}%"></i></span><span class="uhp">${f.hp}/${f.max}</span>
+    <div class="dslots">${ds}</div><span class="ue">${effText(def.eff)}</span></button>`;
 }
+function handHTML(c, cls = "") {
+  const def = CARD[c.key];
+  if (def.type === "unit") {
+    return `<button type="button" class="card ${def.suit} ${cls}" data-uid="${c.uid}">
+      <span class="top"><span>동료 · ${SUIT[def.suit]}</span><span>LV${def.lv}</span></span>
+      <span class="cn">${def.n}</span>
+      <span class="cd">HP <b>${def.hp}</b><br>${needText(def.lv)} → ${effText(def.eff)}</span></button>`;
+  }
+  return `<button type="button" class="card ${def.type} ${cls}" data-uid="${c.uid}">
+    <span class="top"><span>${def.type === "item" ? "아이템" : "서포트"}</span></span>
+    <span class="cn">${def.n}</span><span class="cd">${def.d}</span></button>`;
+}
+const foeAttacks = () => S.foe.pat[S.foe.step % S.foe.pat.length][0] === "atk";
 function intentOf(f) {
   const [type, n, times] = f.pat[f.step % f.pat.length];
-  if (type === "atk") return ["", `공격 ${n}${times > 1 ? "×" + times : ""}`];
+  if (type === "atk") return ["", `공격 ${n}${times > 1 ? "×" + times : ""} → ${f.target + 1}번 칸`];
   if (type === "block") return ["block", `방어 ${n}`];
   if (type === "poison") return ["poison", `독 ${n}`];
   return ["curse", "저주: 주사위 −1"];
@@ -557,8 +716,8 @@ function say(t) { $("msg").textContent = t; }
 function render() {
   const f = S.foe;
   $("floorNo").textContent = S.floor;
-  $("pBar").style.width = (S.hp / S.max * 100) + "%";
-  $("pHp").textContent = `HP ${S.hp}/${S.max}`;
+  $("pBar").style.width = (S.lp / S.max * 100) + "%";
+  $("pHp").textContent = `HP ${S.lp}/${S.max}`;
   $("pBlk").textContent = S.block ? `방어 ${S.block}` : "";
   $("pPsn").textContent = S.poison ? `독 ${S.poison}` : "";
   $("eName").textContent = f.n;
@@ -571,26 +730,34 @@ function render() {
   $("dice").innerHTML = S.dice.map(dieHTML).join("");
   $("dice").querySelectorAll(".die").forEach(el => el.onclick = () => tapDie(+el.dataset.id));
   const rollPh = S.phase === "roll";
-  $("phase").textContent = !S.dice.length ? "" : rollPh ? `굴리기 · 남은 다시 굴림 ${S.rerolls}` : "배치 · 주사위를 카드에";
+  $("phase").textContent = !S.dice.length ? "" : rollPh ? `굴리기 · 남은 다시 굴림 ${rollsLeft()}` : "배치 · 주사위를 동료에게";
   $("rerollBtn").hidden = !rollPh;
-  $("rerollBtn").disabled = S.busy || S.rerolls < 1;
+  $("rerollBtn").disabled = S.busy || rollsLeft() < 1 || !S.dice.length;
 
   const sel = S.sel != null ? S.dice.find(d => d.id === S.sel) : null;
-  $("hand").innerHTML = S.hand.map(c => cardHTML(c, full(c) ? "ready" : sel ? (canTake(c, sel.v) ? "fit" : "nofit") : "")).join("");
-  $("hand").querySelectorAll(".card").forEach(el => el.onclick = () => tapCard(+el.dataset.uid, el));
+  $("field").innerHTML = S.field.map((u, i) => slotHTML(u, i, sel)).join("");
+  $("field").querySelectorAll(".slotBox").forEach(el => el.onclick = () => tapSlot(+el.dataset.i, el));
+
+  $("hand").innerHTML = S.hand.length ? S.hand.map(c => {
+    const def = CARD[c.key];
+    const off = def.type === "sup" && S.supUsed;
+    return handHTML(c, S.picked === c.uid ? "picked" : off ? "off" : "");
+  }).join("") : `<span class="msg">손패 없음</span>`;
+  $("hand").querySelectorAll(".card").forEach(el => el.onclick = () => tapHand(+el.dataset.uid, el));
 
   if (S.dice.length) {
     const e = evaluate();
     $("combos").innerHTML = e.tags.length
-      ? e.tags.map(t => `<div class="combo${rollPh && t.src === "주사위" ? "" : ""}"><span class="src${t.src === "주사위" ? " d" : ""}">${t.src}</span><b>${t.n}</b><span class="fx">${t.t}</span></div>`).join("")
+      ? e.tags.map(t => `<div class="combo${t.idle ? " dim" : ""}"><span class="src${t.src === "주사위" ? " d" : ""}">${t.src}</span><b>${t.n}</b><span class="fx">${t.t}</span></div>`).join("")
       : `<div class="combo dim"><span class="src">족보</span><span class="fx">아직 없음</span></div>`;
-    const parts = [];
-    const dmg = e.atk * e.mult + e.pierce * e.mult;
-    if (dmg) parts.push(`<span class="a">피해 ${dmg}</span>`);
-    if (e.def) parts.push(`<span class="b">방어 ${e.def}</span>`);
-    if (e.heal) parts.push(`<span class="p">회복 ${e.heal}</span>`);
-    if (e.psn) parts.push(`<span class="p">독 ${e.psn}</span>`);
-    $("total").innerHTML = rollPh ? "" : (parts.length ? "이번 턴 " + parts.join("") : "");
+    const parts = [], dmg = (e.atk + e.pierce) * e.mult;
+    if (e.count) {
+      if (dmg) parts.push(`<span class="a">피해 ${dmg}</span>`);
+      if (e.def) parts.push(`<span class="b">방어 ${e.def}</span>`);
+      if (e.heal.length || e.team) parts.push(`<span class="p">회복</span>`);
+      if (e.psn) parts.push(`<span class="p">독 ${e.psn}</span>`);
+    }
+    $("total").innerHTML = !rollPh && parts.length ? "이번 턴 " + parts.join("") : "";
   } else { $("combos").innerHTML = ""; $("total").innerHTML = ""; }
 
   $("pile").textContent = `덱 ${S.draw.length} · 버림 ${S.discard.length}`;
@@ -602,7 +769,7 @@ function render() {
 /* ---------- 캔버스 (전장) ---------- */
 const cv = $("cv"), ctx = cv.getContext("2d");
 ctx.imageSmoothingEnabled = false;
-const anim = { lunge: 0, foeLunge: 0, pHit: 0, foeHit: 0, foeDead: 0, floats: [] };
+const anim = { lunge: 0, foeLunge: 0, pHit: 0, foeHit: 0, foeDead: 0, slotHit: -1, floats: [] };
 function float(x, y, text, color) { anim.floats.push({ x, y, text, color, t: 0 }); }
 function drawSprite(spr, cx, by, s, flash, alpha = 1) {
   const rows = spr.rows, top = by - rows.length * s, left = Math.round(cx - 8 * s);
@@ -615,35 +782,40 @@ function drawSprite(spr, cx, by, s, flash, alpha = 1) {
   ctx.globalAlpha = 1;
 }
 function drawRoom(t) {
-  ctx.fillStyle = "#2b2533"; ctx.fillRect(0, 0, 240, 120);
+  ctx.fillStyle = "#2b2533"; ctx.fillRect(0, 0, 240, 100);
   ctx.fillStyle = "#231e2b";
-  for (let y = 0; y < 88; y += 8) for (let x = (y / 8) % 2 ? -8 : 0; x < 240; x += 16) ctx.fillRect(x, y, 15, 7);
-  ctx.fillStyle = "#1a1620"; ctx.fillRect(0, 88, 240, 32);
+  for (let y = 0; y < 72; y += 8) for (let x = (y / 8) % 2 ? -8 : 0; x < 240; x += 16) ctx.fillRect(x, y, 15, 7);
+  ctx.fillStyle = "#1a1620"; ctx.fillRect(0, 72, 240, 28);
   ctx.fillStyle = "#211c28";
-  for (let x = 0; x < 240; x += 12) ctx.fillRect(x, 92 + ((x / 12) % 2) * 6, 10, 2);
+  for (let x = 0; x < 240; x += 12) ctx.fillRect(x, 76 + ((x / 12) % 2) * 6, 10, 2);
   [24, 216].forEach((x, k) => {
-    ctx.fillStyle = "#4a3b2c"; ctx.fillRect(x - 1, 30, 3, 10);
+    ctx.fillStyle = "#4a3b2c"; ctx.fillRect(x - 1, 24, 3, 10);
     const fl = Math.floor(t / 120 + k) % 3;
-    ctx.fillStyle = "#f08a3a"; ctx.fillRect(x - 2, 25 - fl, 5, 5 + fl);
-    ctx.fillStyle = "#ffd36a"; ctx.fillRect(x - 1, 27 - fl, 3, 3);
+    ctx.fillStyle = "#f08a3a"; ctx.fillRect(x - 2, 19 - fl, 5, 5 + fl);
+    ctx.fillStyle = "#ffd36a"; ctx.fillRect(x - 1, 21 - fl, 3, 3);
   });
 }
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(50, now - last); last = now;
   drawRoom(now);
-  if (S) {
+  if (S && S.foe) {
     const bob = reduced ? 0 : Math.round(Math.sin(now / 300));
-    const px = 60 + (anim.lunge > 0 ? Math.round(Math.sin(anim.lunge * Math.PI) * 14) : 0)
+    // 필드의 동료들 (작게, 기사 뒤에 줄지어)
+    S.field.forEach((u, i) => {
+      if (!u) return;
+      const shake = anim.slotHit === i && anim.foeHit === 0 && anim.pHit === 0 ? 0 : 0;
+      drawSprite(SPR[CARD[u.key].suit], 18 + i * 17, 80 + ((i + Math.floor(now / 400)) % 2 && !reduced ? 1 : 0) + shake, 1);
+    });
+    const px = 70 + (anim.lunge > 0 ? Math.round(Math.sin(anim.lunge * Math.PI) * 14) : 0)
                   + (anim.pHit > 0 ? Math.round(Math.sin(anim.pHit * 30) * 2) : 0);
-    drawSprite(SPR.knight, px, 96 + bob, 3, anim.pHit > 0.5);
+    drawSprite(SPR.knight, px, 80 + bob, 3, anim.pHit > 0.5);
     const f = S.foe, s = f.scale;
-    const fx = 172 - (anim.foeLunge > 0 ? Math.round(Math.sin(anim.foeLunge * Math.PI) * 14) : 0)
+    const fx = 182 - (anim.foeLunge > 0 ? Math.round(Math.sin(anim.foeLunge * Math.PI) * 14) : 0)
                    + (anim.foeHit > 0 ? Math.round(Math.sin(anim.foeHit * 30) * 2) : 0);
-    const flying = f.spr === "bat" ? -24 + Math.round(Math.sin(now / 180) * 3) : 0;
+    const flying = f.spr === "bat" ? -20 + Math.round(Math.sin(now / 180) * 3) : 0;
     const alpha = anim.foeDead > 0 ? Math.max(0, 1 - anim.foeDead) : 1;
-    if (alpha > 0) drawSprite(SPR[f.spr], fx, 96 - bob + flying, s, anim.foeHit > 0.5, alpha);
-    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(px - 14, 96, 28, 3); ctx.fillRect(172 - 8 * s + 4, 96, 16 * s - 8, 3);
+    if (alpha > 0) drawSprite(SPR[f.spr], fx, 80 - bob + flying, s, anim.foeHit > 0.5, alpha);
   }
   ["lunge", "foeLunge", "pHit", "foeHit"].forEach(k => { if (anim[k] > 0) anim[k] = Math.max(0, anim[k] - dt / 260); });
   if (anim.foeDead > 0 && anim.foeDead < 1) anim.foeDead = Math.min(1, anim.foeDead + dt / 600);
@@ -659,9 +831,8 @@ function frame(now) {
 
 /* ---------- 시작 ---------- */
 $("rerollBtn").onclick = doReroll;
-$("mainBtn").onclick = () => S && (S.phase === "roll" ? (!S.busy && lockDice()) : resolve());
+$("mainBtn").onclick = () => S && (S.phase === "roll" ? lockDice() : resolve());
 $("helpBtn").onclick = () => { if (S) showHelp(false); };
-window.__test = { yachtOf, pokerOf };
 showHelp(true);
 requestAnimationFrame(frame);
 })();
