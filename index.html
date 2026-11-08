@@ -60,6 +60,7 @@ canvas#cv { display: block; width: 100%; height: auto; aspect-ratio: 12 / 5; ima
 .uname { font-family: var(--font-display); font-size: 18px; line-height: 1; }
 .bar { width: 100%; height: 10px; background: #120f18; position: relative; clip-path: var(--notch); }
 .bar i { position: absolute; inset: 0 auto 0 0; background: var(--hp); transition: width .25s steps(6); }
+.bar.team i { background: var(--unit-hp); }
 .unit.foe .bar i { inset: 0 0 0 auto; }
 .nums { font-family: var(--font-num); font-size: 11px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .unit.foe .nums { justify-content: flex-end; }
@@ -190,8 +191,8 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 
   <div class="status">
     <div class="unit">
-      <div class="uname">기사</div>
-      <div class="bar"><i id="pBar"></i></div>
+      <div class="uname">우리 편</div>
+      <div class="bar team"><i id="pBar"></i></div>
       <div class="nums"><span class="hp" id="pHp"></span><span class="blk" id="pBlk"></span><span class="psn" id="pPsn"></span></div>
     </div>
     <div class="unit foe">
@@ -233,10 +234,6 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 
 /* ---------- 도트 그림 (16칸 격자, '.'은 빈칸) ---------- */
 const SPR = {
-  knight: { pal: { d: "#3b3f52", g: "#a7acc0", k: "#15131c", b: "#4f78c4", y: "#f0b54a", w: "#e8ecf4" }, rows: [
-    "................", ".....dddd.......", "....dggggd......", "....dgkkgd....w.", "....dggggd....w.",
-    ".....dddd.....w.", "....bbbbbb...yw.", "...bbybbybb..y..", "...bbbbbbbbdd...", "...dbbbbbbd.....",
-    "....bbbbbb......", "....bb..bb......", "....dd..dd......", "...ddd..ddd....."] },
   slime: { pal: { d: "#2d5a2a", g: "#6cc04a", l: "#b4ec8a", w: "#ffffff", k: "#15131c" }, rows: [
     "......dddd......", "....ddggggdd....", "...dgglggggd....", "..dgglggggggd...", "..dggwkggwkgd...",
     ".dgggggggggggd..", ".dggggddgggggd..", ".dgggggggggggd..", "..ddddddddddd..."] },
@@ -361,7 +358,7 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const unitsOnField = () => S.field.filter(Boolean).map(f => ({ ...CARD[f.key], ...f }));
 
 function newRun() {
-  S = { lp: 30, max: 30, block: 0, poison: 0, curse: 0, deck: STARTER.slice(), floor: 1, foe: null };
+  S = { block: 0, curse: 0, deck: STARTER.slice(), floor: 1, foe: null };
   startFloor();
 }
 function startFloor() {
@@ -369,7 +366,7 @@ function startFloor() {
   S.foe = { key, n: f.n, hp: f.hp, max: f.hp, block: 0, poison: 0, step: 0, pat: f.pat, spr: f.spr, scale: f.scale || 3, target: 0 };
   Object.assign(S, { draw: shuffle(S.deck.slice()), discard: [], hand: [], field: [null, null, null, null, null],
     dice: [], sel: null, picked: null, rollsUsed: 0, extraRolls: 0, supUsed: false, phase: "roll",
-    block: 0, poison: 0, curse: 0, turn: 0, busy: false });
+    block: 0, curse: 0, turn: 0, busy: false });
   // 첫 손패: 동료 2장은 꼭 들어오게
   for (let k = 0; k < 2; k++) {
     const i = S.draw.findIndex(c => CARD[c].type === "unit");
@@ -389,14 +386,17 @@ function drawCards(n) {
 }
 function chooseTarget() {
   const occ = S.field.map((f, i) => f ? i : -1).filter(i => i >= 0);
-  S.foe.target = occ.length ? pick(occ) : Math.floor(Math.random() * 5);
+  S.foe.target = occ.length ? pick(occ) : -1;
 }
 async function startTurn() {
   S.busy = true; S.block = 0; S.turn++;
-  if (S.poison > 0) {
-    hurtLP(S.poison, true); S.poison--; render(); await sleep(450);
-    if (S.lp <= 0) return showEnd(false);
-  }
+  let ticked = false;
+  S.field.forEach((u, i) => {
+    if (!u || !u.psn) return;
+    u.hp = Math.max(0, u.hp - u.psn); float(unitX(i), 40, "-" + u.psn, "#b6e29a"); anim.uHit[i] = 1; u.psn--; ticked = true;
+    if (u.hp <= 0) { S.field[i] = null; S.discard.push(u.key); }
+  });
+  if (ticked) { render(); await sleep(450); }
   if (S.turn > 1) drawCards(2);
   const n = 5 - S.curse; S.curse = 0;
   S.dice = Array.from({ length: n }, () => ({ id: ++uid, v: roll(), held: false, used: false }));
@@ -460,7 +460,7 @@ function tapSlot(i, el) {
     if (f) { say("빈 칸을 골라 주세요"); nudge(el); return; }
     const hc = S.hand.find(c => c.uid === S.picked);
     S.hand = S.hand.filter(c => c !== hc); S.picked = null;
-    S.field[i] = { uid: ++uid, key: hc.key, hp: CARD[hc.key].hp, max: CARD[hc.key].hp, fill: [] };
+    S.field[i] = { uid: ++uid, key: hc.key, hp: CARD[hc.key].hp, max: CARD[hc.key].hp, fill: [], psn: 0 };
     say(`${CARD[hc.key].n} 소환!`); render(); return;
   }
   if (!f) { say("손패에서 동료 카드를 고르면 이 칸에 낼 수 있어요"); return; }
@@ -504,7 +504,7 @@ function tapHand(cid, el) {
   if (def.type === "sup" && S.supUsed) { say("서포트는 턴에 1장만 쓸 수 있어요"); nudge(el); return; }
   let ok = true;
   switch (c.key) {
-    case "potion": { const f = mostHurt(); if (!f) { ok = false; say("다친 동료가 없어요"); } else float(60, 44, "+" + healUnit(f, 15), "#b6e29a"); break; }
+    case "potion": { const f = mostHurt(); if (!f) { ok = false; say("다친 동료가 없어요"); } else float(unitX(S.field.indexOf(f)), 44, "+" + healUnit(f, 15), "#b6e29a"); break; }
     case "whet": {
       const d = S.phase === "assign" && S.sel != null ? S.dice.find(x => x.id === S.sel) : null;
       if (!d) { ok = false; say("굴림을 확정하고 주사위를 고른 뒤 쓰세요"); }
@@ -513,12 +513,12 @@ function tapHand(cid, el) {
       break;
     }
     case "coin": if (S.phase !== "roll") { ok = false; say("굴리는 중에만 쓸 수 있어요"); } else S.extraRolls++; break;
-    case "shield": S.block += 8; float(60, 44, "방어+8", "#a9cff0"); break;
+    case "shield": S.block += 8; float(64, 30, "방어+8", "#a9cff0"); break;
     case "mage": S.hand = S.hand.filter(x => x !== c); drawCards(2); S.discard.push(c.key); S.supUsed = true; say("카드 2장을 뽑았어요"); render(); return;
     case "smith": {
       const d = { id: ++uid, v: roll(), held: false, used: false }; S.dice.push(d); break;
     }
-    case "healer": S.field.forEach(f => f && healUnit(f, 10)); float(60, 44, "모두+10", "#b6e29a"); break;
+    case "healer": S.field.forEach(f => f && healUnit(f, 10)); float(64, 30, "모두+10", "#b6e29a"); break;
   }
   if (!ok) { nudge(el); return; }
   S.hand = S.hand.filter(x => x !== c); S.discard.push(c.key);
@@ -548,17 +548,17 @@ async function resolve() {
   if (S.busy || S.phase !== "assign") return;
   S.busy = true; S.picked = null; S.sel = null;
   const e = evaluate(), f = S.foe;
-  if (e.def) { S.block += e.def; float(60, 40, "방어+" + e.def, "#a9cff0"); }
-  e.heal.forEach(v => { const u = mostHurt(); const h = healUnit(u, v); if (h) float(60, 52, "+" + h, "#b6e29a"); });
+  if (e.def) { S.block += e.def; float(64, 30, "방어+" + e.def, "#a9cff0"); }
+  e.heal.forEach(v => { const u = mostHurt(); const h = healUnit(u, v); if (h) float(unitX(S.field.indexOf(u)), 44, "+" + h, "#b6e29a"); });
   if (e.team) S.field.forEach(u => u && healUnit(u, e.team));
-  if (e.psn) { f.poison += e.psn; float(180, 32, "독+" + e.psn, "#b6e29a"); }
+  if (e.psn) { f.poison += e.psn; float(196, 32, "독+" + e.psn, "#b6e29a"); }
   render(); await sleep(e.def || e.heal.length || e.team || e.psn ? 350 : 0);
   const dmg = e.atk * e.mult, prc = e.pierce * e.mult;
   if (dmg || prc) {
     anim.lunge = 1; await sleep(130);
     const hit = Math.max(0, dmg - f.block); f.block = Math.max(0, f.block - dmg);
     const total = hit + prc; f.hp = Math.max(0, f.hp - total); anim.foeHit = 1;
-    float(180, 44, total ? "-" + total : "막힘", total ? "#ff7a6e" : "#a9cff0");
+    float(196, 44, total ? "-" + total : "막힘", total ? "#ff7a6e" : "#a9cff0");
     render(); await sleep(450);
   }
   S.field.forEach(u => u && (u.fill = []));
@@ -571,36 +571,43 @@ async function foeTurn() {
   await sleep(350);
   f.block = 0;
   if (f.poison > 0) {
-    f.hp = Math.max(0, f.hp - f.poison); anim.foeHit = 1; float(180, 44, "-" + f.poison, "#b6e29a");
+    f.hp = Math.max(0, f.hp - f.poison); anim.foeHit = 1; float(196, 44, "-" + f.poison, "#b6e29a");
     f.poison--; render(); await sleep(450);
     if (f.hp <= 0) return foeDefeated();
   }
   const [type, n, times] = f.pat[f.step % f.pat.length];
   if (type === "atk") {
     for (let i = 0; i < (times || 1); i++) {
+      if (!S.field.some(Boolean)) return showEnd(false);
       anim.foeLunge = 1; await sleep(120); hitSlot(f.target, n); render(); await sleep(330);
-      if (S.lp <= 0) return showEnd(false);
     }
-  } else if (type === "block") { f.block += n; float(180, 44, "+" + n, "#a9cff0"); }
-  else if (type === "poison") { S.poison += n; float(60, 36, "독+" + n, "#b6e29a"); }
-  else if (type === "curse") { S.curse = 1; float(60, 36, "저주", "#d5b2f0"); }
+    if (!S.field.some(Boolean)) return showEnd(false);
+  } else if (type === "block") { f.block += n; float(196, 44, "+" + n, "#a9cff0"); }
+  else if (type === "poison") {
+    const i = liveTarget(f.target);
+    if (i < 0) return showEnd(false);
+    S.field[i].psn += n; float(unitX(i), 36, "독+" + n, "#b6e29a");
+  }
+  else if (type === "curse") { S.curse = 1; float(64, 30, "저주", "#d5b2f0"); }
   f.step++; render(); await sleep(400);
   startTurn();
 }
-// 적 공격: 방어 → 노린 칸의 동료 → (칸이 비었으면) 기사
-function hitSlot(i, n) {
-  const absorbed = Math.min(S.block, n); S.block -= absorbed; n -= absorbed;
-  if (!n) { float(60, 44, "막힘", "#a9cff0"); return; }
-  const u = S.field[i];
-  if (u) {
-    u.hp = Math.max(0, u.hp - n); anim.slotHit = i;
-    say(`${CARD[u.key].n}이(가) ${n} 피해를 받았어요`);
-    if (u.hp <= 0) { S.field[i] = null; S.discard.push(u.key); say(`${CARD[u.key].n}이(가) 쓰러졌어요`); }
-  } else hurtLP(n, false);
+// 노린 칸이 비었으면 남은 동료 중 하나를 대신 노림
+function liveTarget(i) {
+  if (i >= 0 && S.field[i]) return i;
+  const occ = S.field.map((f, k) => f ? k : -1).filter(k => k >= 0);
+  return occ.length ? pick(occ) : -1;
 }
-function hurtLP(n, poison) {
-  S.lp = Math.max(0, S.lp - n); anim.pHit = 1;
-  float(60, 44, "-" + n, poison ? "#b6e29a" : "#ff7a6e");
+// 적 공격: 우리 편 방어 → 노린 칸의 동료
+function hitSlot(t, n) {
+  const i = liveTarget(t); if (i < 0) return;
+  const absorbed = Math.min(S.block, n); S.block -= absorbed; n -= absorbed;
+  if (!n) { float(unitX(i), 44, "막힘", "#a9cff0"); return; }
+  const u = S.field[i];
+  u.hp = Math.max(0, u.hp - n); anim.uHit[i] = 1;
+  float(unitX(i), 44, "-" + n, "#ff7a6e");
+  say(`${CARD[u.key].n}이(가) ${n} 피해를 받았어요`);
+  if (u.hp <= 0) { S.field[i] = null; S.discard.push(u.key); say(`${CARD[u.key].n}이(가) 쓰러졌어요`); }
 }
 
 /* ---------- 층 이동 / 끝 ---------- */
@@ -609,7 +616,7 @@ async function foeDefeated() {
   if (S.floor >= 5) return showEnd(true);
   const keys = Object.keys(CARD);
   const pool = []; while (pool.length < 3) { const k = pick(keys); if (!pool.includes(k)) pool.push(k); }
-  overlay(`<h2>${S.foe.n} 처치!</h2><p>카드 한 장을 덱에 넣으세요. 다음 층에서는 기사 체력 8을 회복하고, 필드는 새로 시작해요.</p>
+  overlay(`<h2>${S.foe.n} 처치!</h2><p>카드 한 장을 덱에 넣으세요. 다음 층에서는 필드를 새로 시작해요.</p>
     <div class="hand">${pool.map((k, i) => handHTML({ key: k, uid: i })).join("")}</div>
     <button class="btn" id="skipBtn" type="button">넘어가기</button>`);
   $("ovBox").querySelectorAll(".card").forEach(el => el.onclick = () => nextFloor(pool[+el.dataset.uid]));
@@ -617,14 +624,14 @@ async function foeDefeated() {
 }
 function nextFloor(key) {
   if (key) S.deck.push(key);
-  S.lp = Math.min(S.max, S.lp + 8); S.floor++;
+  S.floor++;
   $("ov").hidden = true; startFloor();
 }
 function showEnd(win) {
   S.busy = true;
   overlay(win
-    ? `<h2>던전 정복</h2><p>주사위 마왕을 쓰러뜨렸어요. 남은 체력 ${S.lp}, 덱 ${S.deck.length}장.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`
-    : `<h2>쓰러졌어요</h2><p>지하 ${S.floor}층, ${S.foe.n}에게 졌어요.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`);
+    ? `<h2>던전 정복</h2><p>주사위 마왕을 쓰러뜨렸어요. 덱 ${S.deck.length}장으로 정복했어요.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`
+    : `<h2>쓰러졌어요</h2><p>지하 ${S.floor}층, ${S.foe.n} 앞에서 필드의 동료가 모두 쓰러졌어요.</p><button class="btn main" id="againBtn" type="button">다시 도전</button>`);
   $("againBtn").onclick = () => { $("ov").hidden = true; newRun(); };
 }
 function overlay(html) { $("ovBox").innerHTML = html; $("ov").hidden = false; }
@@ -635,7 +642,8 @@ function showHelp(first) {
       <li>매 턴 주사위 5개를 굴려요. 남길 주사위를 눌러 고정하고 다시 굴림 2번.</li>
       <li>굴림을 확정하면 주사위를 동료에게 넣어요. 동료의 <b>레벨 이상</b>인 눈 1개면 기술이 발동하고, 레벨 7 이상은 주사위 2개 합이 레벨 이상이어야 해요.</li>
       <li><b>아이템</b>은 턴에 몇 장이든, <b>서포트</b>는 턴에 1장. 둘 다 주사위 없이 써요.</li>
-      <li>적은 필드의 한 칸을 노려요. 그 칸이 비어 있으면 기사가 직접 맞아요.</li>
+      <li>적은 필드의 동료 하나를 노려요(빨간 칸). 공격을 받을 때 필드에 동료가 하나도 없으면 패배예요.</li>
+      <li>방어는 우리 편 전체를 지키는 방패예요. 턴이 시작되면 사라져요.</li>
     </ul>
     <h3>주사위 족보 (요트)</h3>
     <table class="tbl">
@@ -689,7 +697,7 @@ function slotHTML(f, i, sel) {
     <span class="tgt">${tgt ? "▼ 노림" : ""}</span>
     <img src="${spriteURL(def.suit)}" alt="">
     <span class="un">${def.n}</span><span class="lv">LV${def.lv}</span>
-    <span class="mini"><i style="width:${f.hp / f.max * 100}%"></i></span><span class="uhp">${f.hp}/${f.max}</span>
+    <span class="mini"><i style="width:${f.hp / f.max * 100}%"></i></span><span class="uhp">${f.hp}/${f.max}${f.psn ? ` <span style="color:var(--leaf)">독${f.psn}</span>` : ""}</span>
     <div class="dslots">${ds}</div><span class="ue">${effText(def.eff)}</span></button>`;
 }
 function handHTML(c, cls = "") {
@@ -704,22 +712,24 @@ function handHTML(c, cls = "") {
     <span class="top"><span>${def.type === "item" ? "아이템" : "서포트"}</span></span>
     <span class="cn">${def.n}</span><span class="cd">${def.d}</span></button>`;
 }
-const foeAttacks = () => S.foe.pat[S.foe.step % S.foe.pat.length][0] === "atk";
+const foeAttacks = () => ["atk", "poison"].includes(S.foe.pat[S.foe.step % S.foe.pat.length][0]);
 function intentOf(f) {
   const [type, n, times] = f.pat[f.step % f.pat.length];
-  if (type === "atk") return ["", `공격 ${n}${times > 1 ? "×" + times : ""} → ${f.target + 1}번 칸`];
+  const where = f.target >= 0 ? `${f.target + 1}번 칸` : "아무 동료";
+  if (type === "atk") return ["", `공격 ${n}${times > 1 ? "×" + times : ""} → ${where}`];
   if (type === "block") return ["block", `방어 ${n}`];
-  if (type === "poison") return ["poison", `독 ${n}`];
+  if (type === "poison") return ["poison", `독 ${n} → ${where}`];
   return ["curse", "저주: 주사위 −1"];
 }
 function say(t) { $("msg").textContent = t; }
 function render() {
   const f = S.foe;
   $("floorNo").textContent = S.floor;
-  $("pBar").style.width = (S.lp / S.max * 100) + "%";
-  $("pHp").textContent = `HP ${S.lp}/${S.max}`;
+  const us = S.field.filter(Boolean), hp = us.reduce((a, u) => a + u.hp, 0), mx = us.reduce((a, u) => a + u.max, 0);
+  $("pBar").style.width = (mx ? hp / mx * 100 : 0) + "%";
+  $("pHp").textContent = `동료 ${us.length}/5`;
   $("pBlk").textContent = S.block ? `방어 ${S.block}` : "";
-  $("pPsn").textContent = S.poison ? `독 ${S.poison}` : "";
+  $("pPsn").textContent = "";
   $("eName").textContent = f.n;
   $("eBar").style.width = (f.hp / f.max * 100) + "%";
   $("eHp").textContent = `HP ${f.hp}/${f.max}`;
@@ -769,7 +779,8 @@ function render() {
 /* ---------- 캔버스 (전장) ---------- */
 const cv = $("cv"), ctx = cv.getContext("2d");
 ctx.imageSmoothingEnabled = false;
-const anim = { lunge: 0, foeLunge: 0, pHit: 0, foeHit: 0, foeDead: 0, slotHit: -1, floats: [] };
+const anim = { lunge: 0, foeLunge: 0, foeHit: 0, foeDead: 0, uHit: [0, 0, 0, 0, 0], floats: [] };
+const unitX = i => 22 + Math.max(0, i) * 27;
 function float(x, y, text, color) { anim.floats.push({ x, y, text, color, t: 0 }); }
 function drawSprite(spr, cx, by, s, flash, alpha = 1) {
   const rows = spr.rows, top = by - rows.length * s, left = Math.round(cx - 8 * s);
@@ -801,23 +812,23 @@ function frame(now) {
   drawRoom(now);
   if (S && S.foe) {
     const bob = reduced ? 0 : Math.round(Math.sin(now / 300));
-    // 필드의 동료들 (작게, 기사 뒤에 줄지어)
+    // 필드의 동료들 (왼쪽에 다섯 칸, 앞뒤로 엇갈리게)
+    const push = anim.lunge > 0 ? Math.round(Math.sin(anim.lunge * Math.PI) * 10) : 0;
     S.field.forEach((u, i) => {
       if (!u) return;
-      const shake = anim.slotHit === i && anim.foeHit === 0 && anim.pHit === 0 ? 0 : 0;
-      drawSprite(SPR[CARD[u.key].suit], 18 + i * 17, 80 + ((i + Math.floor(now / 400)) % 2 && !reduced ? 1 : 0) + shake, 1);
+      const h = anim.uHit[i], sx = h > 0 ? Math.round(Math.sin(h * 30) * 2) : 0;
+      const y = 82 - (i % 2) * 10 + (reduced ? 0 : Math.round(Math.sin(now / 300 + i)));
+      drawSprite(SPR[CARD[u.key].suit], unitX(i) + push + sx, y, 2, h > 0.5);
     });
-    const px = 70 + (anim.lunge > 0 ? Math.round(Math.sin(anim.lunge * Math.PI) * 14) : 0)
-                  + (anim.pHit > 0 ? Math.round(Math.sin(anim.pHit * 30) * 2) : 0);
-    drawSprite(SPR.knight, px, 80 + bob, 3, anim.pHit > 0.5);
     const f = S.foe, s = f.scale;
-    const fx = 182 - (anim.foeLunge > 0 ? Math.round(Math.sin(anim.foeLunge * Math.PI) * 14) : 0)
+    const fx = 196 - (anim.foeLunge > 0 ? Math.round(Math.sin(anim.foeLunge * Math.PI) * 14) : 0)
                    + (anim.foeHit > 0 ? Math.round(Math.sin(anim.foeHit * 30) * 2) : 0);
     const flying = f.spr === "bat" ? -20 + Math.round(Math.sin(now / 180) * 3) : 0;
     const alpha = anim.foeDead > 0 ? Math.max(0, 1 - anim.foeDead) : 1;
     if (alpha > 0) drawSprite(SPR[f.spr], fx, 80 - bob + flying, s, anim.foeHit > 0.5, alpha);
   }
-  ["lunge", "foeLunge", "pHit", "foeHit"].forEach(k => { if (anim[k] > 0) anim[k] = Math.max(0, anim[k] - dt / 260); });
+  ["lunge", "foeLunge", "foeHit"].forEach(k => { if (anim[k] > 0) anim[k] = Math.max(0, anim[k] - dt / 260); });
+  anim.uHit = anim.uHit.map(h => Math.max(0, h - dt / 260));
   if (anim.foeDead > 0 && anim.foeDead < 1) anim.foeDead = Math.min(1, anim.foeDead + dt / 600);
   ctx.font = "8px Silkscreen, monospace"; ctx.textAlign = "center";
   anim.floats = anim.floats.filter(fl => (fl.t += dt) < 900);
