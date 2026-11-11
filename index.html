@@ -37,6 +37,8 @@ canvas:focus-visible { outline-color: var(--moss); }
 }
 #overlay h1 { margin: 0; font-size: clamp(22px, 4vw, 38px); font-weight: 800; letter-spacing: 0.04em; color: var(--sap); text-wrap: balance; }
 #overlay p { margin: 0; color: var(--ink-dim); max-width: 34ch; line-height: 1.6; }
+#overlay[hidden] { display: none !important; }
+#err { color: #e9a08a; font-size: 12px; max-width: 40ch; word-break: break-all; }
 #overlay button {
   font: inherit; font-weight: 800; padding: 10px 22px; border: 2px solid var(--moss); background: var(--moss-dim); color: var(--ink); cursor: pointer;
 }
@@ -52,7 +54,8 @@ canvas:focus-visible { outline-color: var(--moss); }
   <div id="overlay">
     <h1>뿌리 아래로</h1>
     <p>식물이 삼킨 도시. 덩굴과 씨앗으로 길을 열어, 온실 깊은 곳의 세계수 씨앗까지 가세요.</p>
-    <button id="start" type="button">시작</button>
+    <button id="start" type="button">시작 (Enter)</button>
+    <p id="err" hidden></p>
   </div>
 </div>
 <div id="keys">
@@ -173,7 +176,8 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (['w', ' ', 'arrowup'].includes(k) && !keys[k]) jumpPressed = true;
   if (['e', 'shift'].includes(k) && !keys[k]) seedPressed = true;
-  if (k === 'r' && state === 'clear') restart();
+  if (k === 'r' && state === 'clear') start();
+  if ((k === 'enter' || (k === ' ' && state === 'title')) && state !== 'play') { start(); e.preventDefault(); return; }
   keys[k] = true;
   if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
 });
@@ -223,8 +227,20 @@ function restart() {
   cam = { x: P.x - VW / 2, y: P.y - VH / 2 };
   timeRun = 0; zoneName = null;
   state = 'play';
-  overlay.hidden = true;
 }
+function showError(msg) {
+  const el = document.getElementById('err');
+  if (el) { el.textContent = '오류: ' + msg; el.hidden = false; }
+  overlay.hidden = false; overlay.style.display = '';
+}
+function start() {
+  if (state === 'play') return;
+  overlay.hidden = true;
+  overlay.style.display = 'none';
+  try { restart(); cv.focus({ preventScroll: true }); }
+  catch (err) { state = 'title'; showError(err && err.message || String(err)); }
+}
+window.addEventListener('error', ev => showError(ev.message || '알 수 없는 오류'));
 function die() {
   burst(P.x + 4, P.y + 6, '#79b85d', 24, 140);
   P.hp = 5; P.inv = 1.2; seed = null; hook = null; bullets = [];
@@ -457,8 +473,8 @@ function clear() {
   state = 'clear';
   const s = timeRun.toFixed(1);
   overlay.innerHTML = `<h1>세계수 씨앗을 찾았어요</h1><p>걸린 시간 ${s}초. 다음 구역(균류 동굴, 세계수 뿌리 핵)은 아직 준비 중이에요.</p><button id="again" type="button">다시 하기 (R)</button>`;
-  overlay.hidden = false;
-  document.getElementById('again').onclick = restart;
+  overlay.hidden = false; overlay.style.display = '';
+  document.getElementById('again').addEventListener('click', start);
 }
 
 // ---------- 그리기 ----------
@@ -638,19 +654,20 @@ let last = performance.now(), acc = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   timeNow += dt;
+  requestAnimationFrame(frame);
   if (state === 'play') {
     acc += dt;
     while (acc >= 1 / 60) { update(1 / 60); acc -= 1 / 60; }
   }
   draw();
-  requestAnimationFrame(frame);
 }
 buildMap();
 P = { x: 0, y: 0, w: 8, h: 12, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, anim: 0, seedCd: 0 };
 checkpoint = CHECKS[0]; placePlayerAt(checkpoint); spawnEnemies();
 bullets = []; parts = []; seed = null; hook = null; shake = 0; activeChecks = new Set([0]);
 cam = { x: Math.max(0, P.x - VW / 2), y: Math.min(H * T - VH, P.y - VH / 2) };
-startBtn.onclick = () => { restart(); cv.focus(); };
+startBtn.addEventListener('click', start);
+startBtn.addEventListener('pointerup', e => { if (state !== 'play') { e.preventDefault(); start(); } });
 requestAnimationFrame(frame);
 })();
 </script>
