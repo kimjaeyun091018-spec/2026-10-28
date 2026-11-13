@@ -25,8 +25,13 @@ body {
 }
 #wrap { position: relative; max-width: 100%; }
 #wrap:fullscreen { display: flex; align-items: center; justify-content: center; background: #000; max-width: none; }
-canvas { display: block; aspect-ratio: 16 / 9; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; max-width: 100%; outline: 2px solid var(--moss-dim); }
-canvas:focus-visible { outline-color: var(--moss); }
+canvas { display: block; aspect-ratio: 16 / 9; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; max-width: 100%; }
+#stage { position: relative; outline: 2px solid var(--moss-dim); }
+#c { position: relative; }
+/* 3D 배경 캔버스: 게임 캔버스 바로 뒤에 같은 크기로 겹침 */
+#c3 { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#stage:focus-within { outline-color: var(--moss); }
+canvas:focus-visible { outline: none; }
 #banner {
   position: absolute; left: 0; right: 0; top: 14%; text-align: center; pointer-events: none;
   font-weight: 800; letter-spacing: 0.08em; color: var(--ink); text-shadow: 0 2px 0 #000;
@@ -51,7 +56,10 @@ canvas:focus-visible { outline-color: var(--moss); }
 </style>
 
 <div id="wrap">
-  <canvas id="c" width="640" height="360" tabindex="0" aria-label="게임 화면"></canvas>
+  <div id="stage">
+    <canvas id="c3" width="640" height="360" aria-hidden="true"></canvas>
+    <canvas id="c" width="640" height="360" tabindex="0" aria-label="게임 화면"></canvas>
+  </div>
   <div id="banner"></div>
   <div id="overlay">
     <h1>뿌리 아래로</h1>
@@ -552,17 +560,28 @@ function drawBackground(cx, cy) {
   }
 }
 
+// ---------- HD-2D 3D 배경 (world3d.js, Three.js) ----------
+// 1구역(지하철)과 환기구(x 타일 0~47)는 3D로, 그 오른쪽(2·3구역)은 아직 2D 그림. 3D를 못 쓰면 전부 2D
+const MAX_TX_3D = 47;   // 장면(소품·조명)은 환기구 오른쪽 벽까지. 블록은 맵 전체를 3D로 세움
+let w3 = null;
+function init3D() {
+  if (w3 || !window.WebGLRenderingContext) return;
+  import('./world3d.js').then(m => {
+    w3 = m.createWorld3D({ canvas: document.getElementById('c3'), tileAt, W, H, T, VW, VH, RS,
+      tilesImg, backdropImg: ZONE_BGS[0].img, maxTx: W - 1 });
+  }).catch(err => { console.warn('3D 배경을 못 불러와 2D로 그립니다:', err); });
+}
 // 세계 도트 (tools/art/make_world.py가 만듦). 게임 1px = 도트 2px (RS=2)
 const tilesImg = new Image(), fxImg = new Image();
 let tilesReady = false, fxReady = false;
-tilesImg.onload = () => { tilesReady = true; };
+tilesImg.onload = () => { tilesReady = true; init3D(); };
 fxImg.onload = () => { fxReady = true; };
 tilesImg.src = 'assets/world/tiles.png';
 fxImg.src = 'assets/world/fx.png';
 // tiles.png: 구역(줄)마다 0~2 돌 블록, 3 안쪽 블록, 4 이끼 윗면, 5~6 늘어진 덩굴, 7 가시덤불 (32×32 칸)
 const tileSpr = (col, zi, x, y, h = 32) => ctx.drawImage(tilesImg, col * 32, zi * 32, 32, h, x, y, 16, h / 2);
-function drawTilesArt(cx, cy) {
-  const x0 = Math.floor(cx / T), y0 = Math.floor(cy / T);
+function drawTilesArt(cx, cy, minTx = 0) {
+  const x0 = Math.max(minTx, Math.floor(cx / T)), y0 = Math.floor(cy / T);
   const over = [];
   for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
     const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
@@ -578,8 +597,8 @@ function drawTilesArt(cx, cy) {
   for (const [col, zi, x, y, h] of over) tileSpr(col, zi, x, y, h);   // 이끼·덩굴은 블록 위에 덮어 그림
 }
 
-function drawTiles(cx, cy) {
-  if (tilesReady) { drawTilesArt(cx, cy); return; }
+function drawTiles(cx, cy, minTx = 0) {
+  if (tilesReady) { drawTilesArt(cx, cy, minTx); return; }
   const x0 = Math.floor(cx / T), y0 = Math.floor(cy / T);
   for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
     const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
@@ -718,16 +737,19 @@ const ZONE_BGS = [
 for (const z of ZONE_BGS) { z.img = new Image(); z.img.onload = () => { z.ready = true; }; z.img.src = z.src; }
 function drawChapterBg(cx, cy) {
   const centerTile = (cx + VW / 2) / T;
+  let cover = 0;
   for (const z of ZONE_BGS) {
-    if (!z.ready) continue;
+    if (!z.ready || (w3 && z === ZONE_BGS[0])) continue;
     const a = clamp((centerTile - z.from) / z.fade + 0.5, 0, 1) * clamp((z.to - centerTile) / z.fade + 0.5, 0, 1);
     if (a <= 0) continue;
+    cover = Math.max(cover, a);
     ctx.globalAlpha = a;
     ctx.fillStyle = '#141a28'; ctx.fillRect(0, 0, VW, VH);
     ctx.drawImage(z.img, Math.round(z.ix(cx)), Math.round(z.iy(cy)), 426, 240);
     ctx.fillStyle = 'rgba(11, 21, 23, 0.16)'; ctx.fillRect(0, 0, VW, VH);
     ctx.globalAlpha = 1;
   }
+  return cover;
 }
 
 let timeNow = 0;
@@ -736,9 +758,17 @@ function draw() {
   ctx.imageSmoothingEnabled = false;
   const sh = shake > 0 ? (Math.random() - 0.5) * shake : 0;
   const cx = Math.round(cam.x + sh), cy = Math.round(cam.y + sh);
-  drawBackground(cx, cy);
-  drawChapterBg(cx, cy);
-  drawTiles(cx, cy);
+  if (w3) {
+    // 3D 배경을 뒤 캔버스에 그리고, 이 캔버스는 투명하게 비운 뒤 2·3구역 그림·캐릭터만 그림
+    ctx.clearRect(0, 0, VW, VH);
+    w3.render(cx, cy, timeNow);
+    const cover = drawChapterBg(cx, cy);
+    if (cover > 0) drawTiles(cx, cy);   // 2·3구역 2D 그림이 3D를 덮을 때만 칸도 2D로 (아니면 3D 블록이 보임)
+  } else {
+    drawBackground(cx, cy);
+    drawChapterBg(cx, cy);
+    drawTiles(cx, cy);
+  }
   // 체크포인트 새싹
   CHECKS.forEach((c, i) => {
     const x = c.x * T + 8 - cx, y = (c.y + 1) * T - cy, on = checkpoint === c;
