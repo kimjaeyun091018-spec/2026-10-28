@@ -1,0 +1,40 @@
+{
+  "frame_w": 96,
+  "frame_h": 80,
+  "anchor": [
+    43,
+    77
+  ],
+  "anims": {
+    "idle": {
+      "row": 0,
+      "frames": 4,
+      "ms": 280,
+      "loop": true
+    },
+    "walk": {
+      "row": 1,
+      "frames": 6,
+      "ms": 110,
+      "loop": true
+    },
+    "jump": {
+      "row": 2,
+      "frames": 6,
+      "ms": 100,
+      "loop": false
+    },
+    "grapple": {
+      "row": 3,
+      "frames": 6,
+      "ms": 80,
+      "loop": false
+    },
+    "whip": {
+      "row": 4,
+      "frames": 5,
+      "ms": 70,
+      "loop": false
+    }
+  }
+}
