@@ -6,7 +6,7 @@
                                  5~6 늘어진 덩굴(변형 2개), 7 가시덤불
        assets/world/fx.png      적 씨앗탄 4프레임(16x16) · 주인공 씨앗(날아감·싹·깜빡) · 체크포인트(꺼짐·켜짐 24x32) ·
                                  세계수 씨앗 2프레임(32x32)  — 좌표는 assets/world/world.json
-       assets/ch1-bg-2x.png     1구역 배경 원본을 852x480(2배)으로 줄이고 주인공 색감(탁한 올리브)에 맞춰 채도·밝기 조정
+       assets/ch{1,2,3}-bg-2x.png  구역 배경 원본(ch*-bg-original.png)을 852x480(2배)으로 줄이고 주인공 색감(탁한 올리브)에 맞춰 채도·밝기 조정
 """
 import colorsys
 import json
@@ -271,11 +271,12 @@ def main():
     (OUT / 'world.json').write_text(json.dumps({'tiles': {'cell': 32, 'cols': ['stone0', 'stone1', 'stone2', 'inner', 'mossTop', 'vine0', 'vine1', 'thorns']},
                                                  'fx': layout}, indent=1))
 
-    src = Image.open(ROOT / 'assets' / 'ch1-bg-original.png').convert('RGB').resize((852, 480), Image.BOX)
-    src = ImageEnhance.Color(src).enhance(0.72)
-    src = Image.blend(src, Image.new('RGB', src.size, (70, 72, 52)), 0.12)
-    src = ImageEnhance.Brightness(src).enhance(0.86)
-    src.save(ROOT / 'assets' / 'ch1-bg-2x.png')
+    for ch in (1, 2, 3):                                     # 구역 배경 원본 → 2배 해상도 + 같은 색감 조정
+        src = Image.open(ROOT / 'assets' / f'ch{ch}-bg-original.png').convert('RGB').resize((852, 480), Image.BOX)
+        src = ImageEnhance.Color(src).enhance(0.72)
+        src = Image.blend(src, Image.new('RGB', src.size, (70, 72, 52)), 0.12)
+        src = ImageEnhance.Brightness(src).enhance(0.86)
+        src.save(ROOT / 'assets' / f'ch{ch}-bg-2x.png')
     print('ok')
 
 

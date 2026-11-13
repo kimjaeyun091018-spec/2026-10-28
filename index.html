@@ -235,6 +235,9 @@ function restart() {
   P = { x: 0, y: 0, w: 10, h: 26, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, coyote: 0, buffer: 0, slashCd: 0, seedCd: 0, anim: 0, onGround: false, safe: null, act: null, walkT: 0, landT: 0 };
   checkpoint = CHECKS[0]; activeChecks = new Set([0]);
   placePlayerAt(checkpoint);
+  // 개발용: 주소 끝에 ?at=타일x,타일y 를 붙이면 그 칸에서 시작 (예: ?at=50,16)
+  const at = new URLSearchParams(location.search).get('at');
+  if (at) { const [ax, ay] = at.split(',').map(Number); if (ax >= 0 && ay >= 0) placePlayerAt({ x: ax, y: ay }); }
   spawnEnemies();
   bullets = []; parts = []; seed = null; hook = null; slashFx = null; shake = 0;
   cam = { x: P.x - VW / 2, y: P.y - VH / 2 };
@@ -698,24 +701,33 @@ function drawHUD() {
   rect(mx - 4, my, 3, 1, c); rect(mx + 2, my, 3, 1, c); rect(mx, my - 4, 1, 3, c); rect(mx, my + 2, 1, 3, c);
 }
 
-// 챕터 1 배경 그림 (assets/ch1-bg-2x.png, 852×480을 426×240 크기로 그림 = 2배 해상도, 탁한 올리브 색감으로 조정). 1구역에 있을 때만 보이고, 환기구로 넘어가면 서서히 사라짐
-const ch1Bg = new Image();
-let ch1Ready = false;
-ch1Bg.onload = () => { ch1Ready = true; };
-ch1Bg.src = 'assets/ch1-bg-2x.png';
+// 구역 배경 그림 (assets/ch{1,2,3}-bg-2x.png: 852×480을 426×240 크기로 그림 = 2배 해상도, 탁한 올리브 색감으로 조정)
+// 화면 가운데 타일이 from~to 구역에 있을 때 보이고, 경계에서 fade 타일에 걸쳐 서서히 섞임. ix·iy는 카메라에 따른 그림 위치(패럴랙스)
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const ZONE_BGS = [
+  // 1 이끼 덮인 지하철: 가로 0.25배, 그림 속 승강장을 게임 바닥에 맞춤
+  { src: 'assets/ch1-bg-2x.png', from: -99, to: 35, fade: 5,
+    ix: cx => -Math.min(cx * 0.25, 426 - VW), iy: cy => -59 - (cy - (H * T - VH)) * 0.25 },
+  // 2 가시덤불 도심 (윗길, 바닥 y=288): 가로로 천천히, 그림 속 돌 바닥(y≈184)을 게임 바닥에 맞춤
+  { src: 'assets/ch2-bg-2x.png', from: 47, to: 79, fade: 4,
+    ix: cx => -clamp((cx - 700) * 0.3, 0, 426 - VW), iy: cy => 103 - 184 - (cy - 185) * 0.25 },
+  // 3 식충식물 온실 (세로 갱도): 내려가는 동안 그림이 위로 천천히 올라감
+  { src: 'assets/ch3-bg-2x.png', from: 81, to: 999, fade: 3,
+    ix: cx => -clamp((cx - 1100) * 0.3, 0, 426 - VW), iy: cy => -clamp((cy - 150) / (H * T - VH - 150) * 60, 0, 60) },
+];
+for (const z of ZONE_BGS) { z.img = new Image(); z.img.onload = () => { z.ready = true; }; z.img.src = z.src; }
 function drawChapterBg(cx, cy) {
-  if (!ch1Ready) return;
   const centerTile = (cx + VW / 2) / T;
-  const a = Math.max(0, Math.min(1, (38 - centerTile) / 5));
-  if (a <= 0) return;
-  // 가로 패럴랙스 0.25, 그림 속 승강장 높이를 게임 바닥에 맞춤
-  const ix = -Math.round(Math.min(cx * 0.25, 426 - VW));
-  const iy = Math.round(-59 - (cy - (H * T - VH)) * 0.25);
-  ctx.globalAlpha = a;
-  ctx.fillStyle = '#141a28'; ctx.fillRect(0, 0, VW, VH);
-  ctx.drawImage(ch1Bg, ix, iy, 426, 240);
-  ctx.fillStyle = 'rgba(11, 21, 23, 0.16)'; ctx.fillRect(0, 0, VW, VH);
-  ctx.globalAlpha = 1;
+  for (const z of ZONE_BGS) {
+    if (!z.ready) continue;
+    const a = clamp((centerTile - z.from) / z.fade + 0.5, 0, 1) * clamp((z.to - centerTile) / z.fade + 0.5, 0, 1);
+    if (a <= 0) continue;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#141a28'; ctx.fillRect(0, 0, VW, VH);
+    ctx.drawImage(z.img, Math.round(z.ix(cx)), Math.round(z.iy(cy)), 426, 240);
+    ctx.fillStyle = 'rgba(11, 21, 23, 0.16)'; ctx.fillRect(0, 0, VW, VH);
+    ctx.globalAlpha = 1;
+  }
 }
 
 let timeNow = 0;
