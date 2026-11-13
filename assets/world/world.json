@@ -1,0 +1,45 @@
+{
+ "tiles": {
+  "cell": 32,
+  "cols": [
+   "stone0",
+   "stone1",
+   "stone2",
+   "inner",
+   "mossTop",
+   "vine0",
+   "vine1",
+   "thorns"
+  ]
+ },
+ "fx": {
+  "enemySeed": {
+   "x": 0,
+   "y": 0,
+   "w": 16,
+   "h": 16,
+   "frames": 4
+  },
+  "heroSeed": {
+   "x": 64,
+   "y": 0,
+   "w": 12,
+   "h": 12,
+   "frames": 3
+  },
+  "checkpoint": {
+   "x": 0,
+   "y": 16,
+   "w": 24,
+   "h": 32,
+   "frames": 2
+  },
+  "goal": {
+   "x": 48,
+   "y": 16,
+   "w": 32,
+   "h": 32,
+   "frames": 2
+  }
+ }
+}

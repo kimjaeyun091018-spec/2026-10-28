@@ -219,8 +219,8 @@ let P, enemies, bullets, parts, seed, hook, cam, checkpoint, activeChecks, timeR
 function spawnEnemies() {
   enemies = SPAWNS.map(s => {
     const e = s.t === 'blob'
-      ? { t: 'blob', w: 12, h: 10, hp: 3, vx: 32 * (hash(s.x, s.y) < 0.5 ? -1 : 1), vy: 0 }
-      : { t: 'flower', w: 10, h: 14, hp: 2, vx: 0, vy: 0, cd: 1 + hash(s.x, 1) * 1.5, open: 0 };
+      ? { t: 'blob', w: 14, h: 15, hp: 3, vx: 32 * (hash(s.x, s.y) < 0.5 ? -1 : 1), vy: 0, atkCd: 1, atkT: 9, face: 1 }
+      : { t: 'flower', w: 14, h: 20, hp: 2, vx: 0, vy: 0, cd: 1 + hash(s.x, 1) * 1.5, open: 0, atkT: 9, face: -1 };
     e.x = s.x * T + (T - e.w) / 2; e.y = (s.y + 1) * T - e.h - 0.01;
     e.flash = 0; e.stun = 0;
     return e;
@@ -419,7 +419,14 @@ function update(dt) {
   // 적
   for (const e of enemies) {
     e.flash -= dt; e.stun -= dt;
+    e.atkT += dt;
     if (e.t === 'blob') {
+      e.atkCd -= dt;
+      const pdx = P.x + P.w / 2 - (e.x + e.w / 2), pdy = P.y + P.h - (e.y + e.h);
+      if (e.onGround && e.stun <= 0 && e.atkCd <= 0 && Math.abs(pdx) < 46 && Math.abs(pdy) < 24) {
+        e.atkCd = 1.8; e.atkT = 0; e.stun = 0.45;                 // 덤벼들기 (웅크림 → 도약)
+        e.vx = Math.sign(pdx) * 120; e.vy = -150; e.face = Math.sign(pdx) || 1;
+      }
       if (e.stun <= 0) {
         const dirE = Math.sign(e.vx) || 1;
         const fx = dirE > 0 ? e.x + e.w + 1 : e.x - 1;
@@ -430,14 +437,16 @@ function update(dt) {
       e.vy = Math.min(e.vy + 900 * dt, 400);
       move(e, dt);
       if (e.hitWall) e.vx = -e.hitWall * 32;
+      if (e.atkT > 0.4 && Math.abs(e.vx) > 1) e.face = Math.sign(e.vx);
     } else {
       e.open = Math.max(0, e.open - dt * 3);
-      const dx = P.x + P.w / 2 - (e.x + 5), dy = P.y + P.h / 2 - (e.y + 3);
+      const dx = P.x + P.w / 2 - (e.x + e.w / 2), dy = P.y + P.h / 2 - (e.y + 5);
+      e.face = dx >= 0 ? 1 : -1;
       e.cd -= dt;
       if (e.cd <= 0 && Math.hypot(dx, dy) < 160 && e.stun <= 0) {
-        e.cd = 1.9; e.open = 1;
+        e.cd = 1.9; e.open = 1; e.atkT = 0;
         const d = Math.hypot(dx, dy) || 1;
-        bullets.push({ x: e.x + 5, y: e.y + 3, vx: dx / d * 105, vy: dy / d * 105, life: 3 });
+        bullets.push({ x: e.x + e.w / 2, y: e.y + 5, vx: dx / d * 105, vy: dy / d * 105, life: 3 });
       }
     }
     if (e.hp > 0 && P.x < e.x + e.w && P.x + P.w > e.x && P.y < e.y + e.h && P.y + P.h > e.y) hurt(e.x + e.w / 2);
@@ -540,7 +549,34 @@ function drawBackground(cx, cy) {
   }
 }
 
+// 세계 도트 (tools/art/make_world.py가 만듦). 게임 1px = 도트 2px (RS=2)
+const tilesImg = new Image(), fxImg = new Image();
+let tilesReady = false, fxReady = false;
+tilesImg.onload = () => { tilesReady = true; };
+fxImg.onload = () => { fxReady = true; };
+tilesImg.src = 'assets/world/tiles.png';
+fxImg.src = 'assets/world/fx.png';
+// tiles.png: 구역(줄)마다 0~2 돌 블록, 3 안쪽 블록, 4 이끼 윗면, 5~6 늘어진 덩굴, 7 가시덤불 (32×32 칸)
+const tileSpr = (col, zi, x, y, h = 32) => ctx.drawImage(tilesImg, col * 32, zi * 32, 32, h, x, y, 16, h / 2);
+function drawTilesArt(cx, cy) {
+  const x0 = Math.floor(cx / T), y0 = Math.floor(cy / T);
+  const over = [];
+  for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
+    const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
+    const zi = ZONES.indexOf(zoneOf(tx));
+    if (c === '#') {
+      const inner = solidT(tx - 1, ty) && solidT(tx + 1, ty) && solidT(tx, ty - 1) && solidT(tx, ty + 1);
+      tileSpr(inner ? 3 : Math.floor(hash(tx, ty) * 3), zi, sx, sy);
+      if (!solidT(tx, ty - 1)) over.push([4, zi, sx, sy - 3, 16]);
+      if (!solidT(tx, ty + 1) && tileAt(tx, ty + 1) !== '^' && hash(tx, ty + 99) < 0.35)
+        over.push([5 + (hash(tx, ty + 7) < 0.5 ? 0 : 1), zi, sx, sy + T, 32]);
+    } else if (c === '^') tileSpr(7, zi, sx, sy);
+  }
+  for (const [col, zi, x, y, h] of over) tileSpr(col, zi, x, y, h);   // 이끼·덩굴은 블록 위에 덮어 그림
+}
+
 function drawTiles(cx, cy) {
+  if (tilesReady) { drawTilesArt(cx, cy); return; }
   const x0 = Math.floor(cx / T), y0 = Math.floor(cy / T);
   for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
     const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
@@ -606,7 +642,27 @@ function drawPlayer(cx, cy) {
   ctx.restore();
 }
 
+// 적 도트 (tools/enemy-gen/anim_enemies.py가 만듦, 오른쪽을 보는 기준). 정보는 assets/enemies/enemies.json과 같음
+const ENEMY_ART = {
+  blob: { src: 'assets/enemies/blob.png', fw: 48, fh: 40, ax: 24, ay: 38, rows: { walk: [0, 4, 150], attack: [1, 4, 90], hurt: [2, 1, 120] } },
+  flower: { src: 'assets/enemies/flower.png', fw: 64, fh: 64, ax: 32, ay: 62, rows: { idle: [0, 4, 220], attack: [1, 4, 90], hurt: [2, 1, 120] } },
+};
+for (const k in ENEMY_ART) { const a = ENEMY_ART[k]; a.img = new Image(); a.img.onload = () => { a.ready = true; }; a.img.src = a.src; }
 function drawEnemy(e, cx, cy) {
+  const art = ENEMY_ART[e.t];
+  if (art && art.ready) {
+    let row = e.t === 'blob' ? 'walk' : 'idle', f;
+    if (e.flash > 0) row = 'hurt';
+    else if (e.atkT < art.rows.attack[1] * art.rows.attack[2] / 1000) row = 'attack';
+    const [r, n, ms] = art.rows[row];
+    f = row === 'attack' ? Math.min(n - 1, Math.floor(e.atkT * 1000 / ms)) : Math.floor((timeNow * 1000 + e.x * 7) / ms) % n;
+    const px = Math.round((e.x + e.w / 2 - cx) * RS), py = Math.round((e.y + e.h - cy) * RS);
+    ctx.save();
+    ctx.setTransform(e.face < 0 ? -1 : 1, 0, 0, 1, px, py);
+    ctx.drawImage(art.img, f * art.fw, r * art.fh, art.fw, art.fh, -art.ax, -art.ay, art.fw, art.fh);
+    ctx.restore();
+    return;
+  }
   const x = Math.round(e.x - cx), y = Math.round(e.y - cy), fl = e.flash > 0;
   if (e.t === 'blob') {
     const b = Math.floor(timeNow * 6 + e.x) % 2;
@@ -642,23 +698,23 @@ function drawHUD() {
   rect(mx - 4, my, 3, 1, c); rect(mx + 2, my, 3, 1, c); rect(mx, my - 4, 1, 3, c); rect(mx, my + 2, 1, 3, c);
 }
 
-// 챕터 1 배경 그림 (assets/ch1-bg.png, 426×240). 1구역에 있을 때만 보이고, 환기구로 넘어가면 서서히 사라짐
+// 챕터 1 배경 그림 (assets/ch1-bg-2x.png, 852×480을 426×240 크기로 그림 = 2배 해상도, 탁한 올리브 색감으로 조정). 1구역에 있을 때만 보이고, 환기구로 넘어가면 서서히 사라짐
 const ch1Bg = new Image();
 let ch1Ready = false;
 ch1Bg.onload = () => { ch1Ready = true; };
-ch1Bg.src = 'assets/ch1-bg.png';
+ch1Bg.src = 'assets/ch1-bg-2x.png';
 function drawChapterBg(cx, cy) {
   if (!ch1Ready) return;
   const centerTile = (cx + VW / 2) / T;
   const a = Math.max(0, Math.min(1, (38 - centerTile) / 5));
   if (a <= 0) return;
   // 가로 패럴랙스 0.25, 그림 속 승강장 높이를 게임 바닥에 맞춤
-  const ix = -Math.round(Math.min(cx * 0.25, ch1Bg.width - VW));
+  const ix = -Math.round(Math.min(cx * 0.25, 426 - VW));
   const iy = Math.round(-59 - (cy - (H * T - VH)) * 0.25);
   ctx.globalAlpha = a;
   ctx.fillStyle = '#141a28'; ctx.fillRect(0, 0, VW, VH);
-  ctx.drawImage(ch1Bg, ix, iy);
-  ctx.fillStyle = 'rgba(11, 21, 23, 0.22)'; ctx.fillRect(0, 0, VW, VH);
+  ctx.drawImage(ch1Bg, ix, iy, 426, 240);
+  ctx.fillStyle = 'rgba(11, 21, 23, 0.16)'; ctx.fillRect(0, 0, VW, VH);
   ctx.globalAlpha = 1;
 }
 
@@ -674,16 +730,22 @@ function draw() {
   // 체크포인트 새싹
   CHECKS.forEach((c, i) => {
     const x = c.x * T + 8 - cx, y = (c.y + 1) * T - cy, on = checkpoint === c;
-    rect(x - 1, y - 6, 2, 6, on ? '#79b85d' : '#3f6b40');
-    rect(x - 4, y - 8, 3, 2, on ? '#9fd27a' : '#3f6b40'); rect(x + 1, y - 9, 3, 2, on ? '#9fd27a' : '#3f6b40');
-    if (on) { ctx.globalAlpha = 0.25 + 0.15 * Math.sin(timeNow * 3); rect(x - 6, y - 12, 12, 12, '#e9d78a'); ctx.globalAlpha = 1; }
+    if (on) { ctx.globalAlpha = 0.18 + 0.12 * Math.sin(timeNow * 3); rect(x - 7, y - 15, 14, 15, '#e9d78a'); ctx.globalAlpha = 1; }
+    if (fxReady) ctx.drawImage(fxImg, on ? 24 : 0, 16, 24, 32, x - 6, y - 15, 12, 16);   // fx.png 새싹 (꺼짐·켜짐)
+    else {
+      rect(x - 1, y - 6, 2, 6, on ? '#79b85d' : '#3f6b40');
+      rect(x - 4, y - 8, 3, 2, on ? '#9fd27a' : '#3f6b40'); rect(x + 1, y - 9, 3, 2, on ? '#9fd27a' : '#3f6b40');
+    }
   });
   // 세계수 씨앗
   {
     const x = GOAL.x * T + 8 - cx, y = GOAL.y * T + 6 - cy + Math.round(Math.sin(timeNow * 2) * 2);
-    ctx.globalAlpha = 0.2 + 0.1 * Math.sin(timeNow * 4); rect(x - 10, y - 10, 20, 20, '#e9d78a'); ctx.globalAlpha = 1;
-    rect(x - 3, y - 2, 6, 7, '#b08a4a'); rect(x - 2, y - 3, 4, 1, '#b08a4a'); rect(x - 2, y + 5, 4, 1, '#8a6a36');
-    rect(x - 1, y - 7, 1, 4, '#79b85d'); rect(x, y - 8, 3, 2, '#9fd27a');
+    if (fxReady) ctx.drawImage(fxImg, 48 + (Math.floor(timeNow * 2.5) % 2) * 32, 16, 32, 32, x - 8, y - 9, 16, 16);   // fx.png 세계수 씨앗
+    else {
+      ctx.globalAlpha = 0.2 + 0.1 * Math.sin(timeNow * 4); rect(x - 10, y - 10, 20, 20, '#e9d78a'); ctx.globalAlpha = 1;
+      rect(x - 3, y - 2, 6, 7, '#b08a4a'); rect(x - 2, y - 3, 4, 1, '#b08a4a'); rect(x - 2, y + 5, 4, 1, '#8a6a36');
+      rect(x - 1, y - 7, 1, 4, '#79b85d'); rect(x, y - 8, 3, 2, '#9fd27a');
+    }
   }
   for (const e of enemies) drawEnemy(e, cx, cy);
   // 갈고리 덩굴
@@ -701,19 +763,31 @@ function draw() {
   drawPlayer(cx, cy);
   // 베기
   if (slashFx && !slashFx.vine) {
-    ctx.strokeStyle = '#e8f5c8'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 13, slashFx.ang - 1, slashFx.ang + 1); ctx.stroke();
-    ctx.strokeStyle = '#79b85d'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 10, slashFx.ang - 0.8, slashFx.ang + 0.8); ctx.stroke();
+    // 덩굴 채찍 궤적: 바깥은 밝은 청록빛, 안쪽은 이끼색 (주인공 방독면 강조색에 맞춤), 사라지며 옅어짐
+    const k = Math.max(0, slashFx.t / 0.12);
+    ctx.globalAlpha = 0.5 + 0.5 * k;
+    ctx.strokeStyle = '#c6f7d8'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 16, slashFx.ang - 1, slashFx.ang + 1); ctx.stroke();
+    ctx.strokeStyle = '#5fd39a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 13, slashFx.ang - 0.85, slashFx.ang + 0.85); ctx.stroke();
+    ctx.strokeStyle = '#3f7a3a'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 11, slashFx.ang - 0.6, slashFx.ang + 0.6); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
   // 씨앗
   if (seed) {
     const x = seed.x - cx, y = seed.y - cy;
-    rect(x - 1, y - 1, 3, 3, '#b08a4a');
-    if (seed.stuck || seed.enemy) { rect(x, y - 3, 1, 2, '#79b85d'); rect(x + 1, y - 4, 2, 1, '#9fd27a'); }
-    if (seed.life < 0.8 && Math.floor(seed.life * 10) % 2) rect(x - 1, y - 1, 3, 3, '#e9d78a');
+    const k = seed.life < 0.8 && Math.floor(seed.life * 10) % 2 ? 2 : (seed.stuck || seed.enemy ? 1 : 0);
+    if (fxReady) ctx.drawImage(fxImg, 64 + k * 12, 0, 12, 12, x - 3, y - 4, 6, 6);   // fx.png 주인공 씨앗 (날아감·싹·깜빡)
+    else {
+      rect(x - 1, y - 1, 3, 3, '#b08a4a');
+      if (k === 1) { rect(x, y - 3, 1, 2, '#79b85d'); rect(x + 1, y - 4, 2, 1, '#9fd27a'); }
+    }
   }
-  for (const b of bullets) { rect(b.x - cx - 1, b.y - cy - 1, 3, 3, '#e9d78a'); rect(b.x - cx, b.y - cy, 1, 1, '#c8454a'); }
+  for (const b of bullets) {
+    if (fxReady) ctx.drawImage(fxImg, (Math.floor(timeNow * 14) % 4) * 16, 0, 16, 16, b.x - cx - 4, b.y - cy - 4, 8, 8);   // fx.png 적 씨앗탄 (회전)
+    else { rect(b.x - cx - 1, b.y - cy - 1, 3, 3, '#e9d78a'); rect(b.x - cx, b.y - cy, 1, 1, '#c8454a'); }
+  }
   for (const p of parts) rect(p.x - cx, p.y - cy, 1, 1, p.col);
   drawHUD();
 }

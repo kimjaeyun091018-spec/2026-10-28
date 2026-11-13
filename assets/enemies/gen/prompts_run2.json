@@ -1,0 +1,6 @@
+{
+ "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, multiple plants, cropped, frame, border, scenery, human, person, hat, humanoid, creature, monster body, arms, legs, eyes, face",
+ "prompts": {
+  "flower": "pixel art, 16-bit video game sprite, single object, full view, strict side view facing left, muted earthy palette of olive green, moss green, dark brown, charcoal and dull crimson, crisp chunky pixels with dark outline, plain flat light gray background, no ground, no shadow, no text, a tall carnivorous plant like a giant venus flytrap growing out of a pile of cracked concrete rubble, one long curved thick green stem bending to the left, a big flytrap head with dark crimson inside and pale spiky teeth along the edges, mouth slightly open, two broad leaves on the stem, plant only, no eyes, no face, no arms, no legs"
+ }
+}
