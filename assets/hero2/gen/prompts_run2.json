@@ -1,0 +1,17 @@
+{
+ "negative": "3d render, realistic photo, blurry, text, watermark, signature, multiple characters, two characters, extra limbs, cropped, frame, scenery, white mask, horns, human face, hair, adult, armor, muscular, tall",
+ "runs": {
+  "A_hand": {
+   "prompt": "2D cartoon game sprite, hand-drawn, thick clean black outlines, flat colors, simple cel shading, muted earthy palette, smooth lines, vector-like, not pixel art, single character, full body from head to feet, side view facing right, standing, small cute chibi proportions about 2.5 heads tall, big head, tiny body, very clear readable silhouette, video game hero sprite, plain flat light gray background, no text, a tiny plant hunter wearing an oversized brown wide-brim hat, a black gas mask with one big round glowing cyan-green lens, a small dark olive green tattered trench coat, brown boots, holding a little terracotta flower pot with a sprouting plant",
+   "ip_adapter_scale": 0.2
+  },
+  "B_pixel": {
+   "prompt": "pixel art, 16-bit sprite, crisp chunky pixels with dark outline, muted earthy palette, single character, full body from head to feet, side view facing right, standing, small cute chibi proportions about 2.5 heads tall, big head, tiny body, very clear readable silhouette, video game hero sprite, plain flat light gray background, no text, a tiny round creature wearing a big brown acorn cap as a helmet, a small green leaf sprout growing on top of the cap, a dark shadowy face with two glowing green dot eyes, its body wrapped in one big dark green leaf like a cloak, tiny thin legs, holding a small curved sickle, original creature design, not a human",
+   "ip_adapter_scale": 0.0
+  },
+  "B_hand": {
+   "prompt": "2D cartoon game sprite, hand-drawn, thick clean black outlines, flat colors, simple cel shading, muted earthy palette, smooth lines, vector-like, not pixel art, single character, full body from head to feet, side view facing right, standing, small cute chibi proportions about 2.5 heads tall, big head, tiny body, very clear readable silhouette, video game hero sprite, plain flat light gray background, no text, a tiny round creature wearing a big brown acorn cap as a helmet, a small green leaf sprout growing on top of the cap, a dark shadowy face with two glowing green dot eyes, its body wrapped in one big dark green leaf like a cloak, tiny thin legs, holding a small curved sickle, original creature design, not a human",
+   "ip_adapter_scale": 0.0
+  }
+ }
+}
