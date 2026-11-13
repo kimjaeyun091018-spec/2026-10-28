@@ -298,10 +298,14 @@ function raycast(ox, oy, dx, dy, max) {
 function update(dt) {
   timeRun += dt;
   const a = aim();
-  P.face = a.x >= 0 ? 1 : -1;
 
   // 이동
   const dir = (held('d', 'arrowright') ? 1 : 0) - (held('a', 'arrowleft') ? 1 : 0);
+  // 바라보는 방향: 평소엔 이동 방향, 베기·갈고리·씨앗을 쓸 때와 갈고리에 매달린 동안엔 조준 방향
+  if (dir) P.face = dir;
+  if (mouse.leftPressed || mouse.rightPressed || seedPressed) P.face = a.x >= 0 ? 1 : -1;
+  if (hook) P.face = hook.x >= P.x + P.w / 2 ? 1 : -1;
+  if (P.act) P.face = P.act.face;
   const accel = P.onGround ? 900 : 520;
   if (!hook) {
     if (dir) P.vx += dir * accel * dt;
@@ -392,8 +396,8 @@ function update(dt) {
   }
 
   // 애니메이션 상태
-  if (mouse.leftPressed && P.slashCd > 0.27) P.act = { name: 'whip', t: 0, dur: 0.3 };
-  if (mouse.rightPressed) P.act = { name: 'grapple', t: 0, dur: 0.16 };
+  if (mouse.leftPressed && P.slashCd > 0.27) P.act = { name: 'whip', t: 0, dur: 0.3, face: a.x >= 0 ? 1 : -1 };
+  if (mouse.rightPressed) P.act = { name: 'grapple', t: 0, dur: 0.16, face: a.x >= 0 ? 1 : -1 };
   if (P.act) { P.act.t += dt; if (P.act.t >= P.act.dur) P.act = null; }
   const wasGround = P.onGround;
 
@@ -570,13 +574,13 @@ function drawTiles(cx, cy) {
 }
 
 // 주인공 도트 (assets/hero/hero_sheet.png). 프레임 96×80, 한 줄에 한 동작, 발 기준점 (43, 77).
-// 프레임 정보는 assets/hero/frames.json과 같음. 시트 원본 도트 1px = 게임 화면 0.5px (RS=2)
+// 프레임 정보는 assets/hero/frames.json과 같음 (tools/hero-anim/anim2.py가 만듦). 시트 원본 도트 1px = 게임 화면 0.5px (RS=2)
 const heroImg = new Image();
 let heroReady = false;
 heroImg.onload = () => { heroReady = true; };
 heroImg.src = 'assets/hero/hero_sheet.png';
-const HERO = { fw: 96, fh: 80, ax: 43, ay: 77, tipX: 12, tipY: -53,
-  rows: { idle: [0, 4], walk: [1, 6], jump: [2, 6], grapple: [3, 6], whip: [4, 5] } };
+const HERO = { fw: 96, fh: 80, ax: 43, ay: 77, tipX: 19, tipY: -63,
+  rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], grapple: [3, 6], whip: [4, 5] } };
 function heroFrame() {
   if (P.act) {
     const n = P.act.name === 'whip' ? 5 : 1;            // 갈고리는 화분을 드는 첫 프레임만 (덩굴은 게임이 조준 방향으로 그림)
@@ -585,7 +589,7 @@ function heroFrame() {
   if (hook) return ['jump', 3];
   if (!P.onGround) return ['jump', P.vy < -150 ? 1 : P.vy < -30 ? 2 : P.vy < 60 ? 3 : 4];
   if (P.landT > 0) return ['jump', 5];
-  if (Math.abs(P.vx) > 10) return ['walk', Math.floor(P.walkT / 0.11) % 6];
+  if (Math.abs(P.vx) > 10) return ['walk', Math.floor(P.walkT / 0.095) % 8];
   return ['idle', Math.floor(timeNow / 0.28) % 4];
 }
 // 덩굴이 나오는 화분 식물 위치 (게임 좌표)

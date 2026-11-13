@@ -5,6 +5,10 @@
     43,
     77
   ],
+  "plant_tip": [
+    62,
+    14
+  ],
   "anims": {
     "idle": {
       "row": 0,
@@ -14,8 +18,8 @@
     },
     "walk": {
       "row": 1,
-      "frames": 6,
-      "ms": 110,
+      "frames": 8,
+      "ms": 95,
       "loop": true
     },
     "jump": {
