@@ -52,22 +52,32 @@ canvas:focus-visible { outline: none; }
 #overlay button:hover { background: var(--moss); color: var(--night); }
 #overlay button:focus-visible { outline: 2px solid var(--sap); outline-offset: 3px; }
 #death {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  background: rgba(120, 14, 10, 0.5); text-align: center; animation: deathIn .6s ease-out;
+  --term: #7dfbc0; --term-dim: #3f9a78; --term-red: #ff6a5a;
+  position: absolute; inset: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+  padding: 4% 7%; box-sizing: border-box;
+  background: rgba(3, 9, 7, 0.93); color: var(--term);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", "Noto Sans KR", monospace;
+  font-size: clamp(11px, 1.55vw, 18px); line-height: 1.55; text-shadow: 0 0 6px rgba(125, 251, 192, 0.55);
+  animation: termOn .35s steps(6) both, termFlicker 4s infinite;
 }
 #death[hidden] { display: none !important; }
-#death h2 { margin: 0; font-size: clamp(28px, 6vw, 56px); font-weight: 800; color: #f2e6d8; text-shadow: 3px 3px 0 #3a0a08; letter-spacing: 0.06em; }
-#death p { margin: 0; color: #f0d0c4; text-shadow: 1px 1px 0 #3a0a08; }
-#death #deathStats { color: #e9d78a; font-size: 13px; }
-#death .row { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; width: min(300px, 70%); }
-#death button {
-  font: inherit; font-weight: 800; padding: 9px 14px; border: 2px solid #1a0a08; background: #6b6b63; color: #f4f0e6;
-  box-shadow: inset 0 2px 0 #8a8a80, inset 0 -3px 0 #45453f; cursor: pointer;
+/* CRT 주사선 + 가장자리 어둡게 */
+#death::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.28) 2px 3px),
+              radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%);
 }
-#death button:hover:not(:disabled) { background: #7d8a6a; }
-#death button:disabled { opacity: 0.45; cursor: default; }
-#death button:focus-visible { outline: 2px solid var(--sap); outline-offset: 2px; }
-@keyframes deathIn { from { background: rgba(120, 14, 10, 0); } }
+#term { margin: 0; white-space: pre-wrap; font: inherit; }
+#term .dim { color: var(--term-dim); text-shadow: none; }
+#term .lost { color: var(--term-red); text-shadow: 0 0 6px rgba(255, 106, 90, 0.6); animation: termBlink 0.9s steps(2) infinite; }
+#term .cur { animation: termBlink 1s steps(2) infinite; }
+#termCmds { display: flex; flex-wrap: wrap; gap: 0.4em 2em; margin-top: 0.6em; }
+#termCmds[hidden] { display: none; }
+.tbtn { font: inherit; color: var(--term); background: none; border: none; padding: 0.1em 0.3em; margin-left: -0.3em; cursor: pointer; text-shadow: inherit; }
+.tbtn:hover, .tbtn:focus-visible { background: var(--term); color: #031009; text-shadow: none; outline: none; }
+@keyframes termOn { from { transform: scaleY(0.02); filter: brightness(3); } to { transform: none; filter: none; } }
+@keyframes termFlicker { 0%, 96%, 100% { opacity: 1; } 97% { opacity: 0.85; } 98% { opacity: 1; } 99% { opacity: 0.9; } }
+@keyframes termBlink { to { visibility: hidden; } }
 #keys { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; color: var(--ink-dim); font-size: 13px; }
 #keys b { color: var(--ink); font-weight: 800; }
 </style>
@@ -84,14 +94,12 @@ canvas:focus-visible { outline: none; }
     <button id="start" type="button">시작 (Enter)</button>
     <p id="err" hidden></p>
   </div>
-  <!-- 쓰러졌을 때 화면: 붉게 물들고, 무엇에 당했는지와 기록, 1초 뒤 버튼이 켜짐 -->
-  <div id="death" hidden>
-    <h2>쓰러졌다</h2>
-    <p id="deathCause"></p>
-    <p id="deathStats"></p>
-    <div class="row">
-      <button id="respawn" type="button" disabled>다시 일어나기 (Enter)</button>
-      <button id="restartBtn" type="button" disabled>처음부터 (R)</button>
+  <!-- 쓰러졌을 때 화면: 방독 마을 관제 단말기(BANGDOK-OS)가 모스의 신호가 끊긴 것을 한 줄씩 기록 (CMD 화면 느낌) -->
+  <div id="death" hidden role="dialog" aria-label="쓰러짐 기록">
+    <pre id="term"></pre>
+    <div id="termCmds" hidden>
+      <button id="respawn" class="tbtn" type="button">[Enter] 다시 일어나기</button>
+      <button id="restartBtn" class="tbtn" type="button">[R] 처음부터</button>
     </div>
   </div>
 </div>
@@ -328,7 +336,7 @@ function restart() {
   spawnEnemies();
   bullets = []; parts = []; seed = null; hook = null; slashFx = null; shake = 0;
   bag = newBag(); pickups = PICKUPS.map(p => ({ ...p, taken: false })); pshots = [];
-  timeRun = 0; deaths = 0; kills = 0; if (deathEl) deathEl.hidden = true;
+  timeRun = 0; deaths = 0; kills = 0; if (deathEl) { deathEl.hidden = true; clearInterval(termTimer); }
   P.cds = {}; P.thornT = 0; P.swallowT = 0; P.swallowN = 0;
   cam = { x: P.x - VW / 2, y: P.y - VH / 2 };
   timeRun = 0; zoneName = null;
@@ -349,26 +357,61 @@ function start() {
 window.addEventListener('error', ev => showError(ev.message || '알 수 없는 오류'));
 // ---------- 쓰러짐 / 다시 일어나기 ----------
 const DEATH_TEXT = {
-  blob: '덩굴 뭉치에게 먹혔다', flower: '꽃 포탑의 씨앗에 꿰뚫렸다', bullet: '꽃 포탑의 씨앗에 꿰뚫렸다',
-  spike: '가시덤불에 찔렸다', unknown: '식물에게 삼켜졌다',
+  blob: '덩굴 뭉치에게 포식됨', flower: '꽃 포탑 씨앗탄 관통', bullet: '꽃 포탑 씨앗탄 관통',
+  spike: '가시덤불 열상', unknown: '식물에게 포식됨',
 };
-let deaths = 0, kills = 0, deathTimer = null;
-const deathEl = document.getElementById('death');
+let deaths = 0, kills = 0, deathReady = false, termTimer = null;
+const deathEl = document.getElementById('death'), termEl = document.getElementById('term'), termCmds = document.getElementById('termCmds');
+const esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+// 단말기 글: [줄, 꾸밈(class)] — 한 글자씩 찍힘
+function deathLines(cause) {
+  const z = zoneName || ZONES[0];
+  const where = z.name + (/구역$/.test(z.sub) ? ' / ' + z.sub : '');   // 게임 안 구역 표기 그대로 (환기구는 이름만)
+  const filter = Math.max(3, 64 - deaths * 7 - Math.floor(timeRun / 12));
+  const L = [
+    ['BANGDOK-OS v0.7  ::  방독 마을 관제 단말기', 'dim'],
+    ['(c) 녹변 7년. 모든 사냥꾼 신호를 기록합니다.', 'dim'],
+    ['', ''],
+    ['> 사냥꾼 신호 확인 중...', ''],
+    ['> ID: MOSS-07 ......................... ', '', '[ 신호 끊김 ]', 'lost'],
+    [`> 위치: ${where}`, ''],
+    [`> 원인: ${DEATH_TEXT[cause] || DEATH_TEXT.unknown}`, ''],
+    [`> 방독면 정화통: ${filter}%    포자 감염: 위험`, ''],
+    [`> 버틴 시간 ${timeRun.toFixed(1)}s | 쓰러뜨린 식물 ${kills} | 쓰러진 횟수 ${deaths}`, ''],
+  ];
+  if (deaths > 1) L.push([`> 재생성 기록 ${deaths - 1}회. 화분 식물 생체 신호: 안정`, 'dim']);
+  L.push(['', ''], ['> 마지막 새싹에서 재생성하시겠습니까?', '']);
+  return L;
+}
+function typeLines(lines) {
+  clearInterval(termTimer);
+  termEl.innerHTML = ''; termCmds.hidden = true; deathReady = false;
+  let li = 0, ci = 0, html = '';
+  const full = l => (l[1] ? `<span class="${l[1]}">${esc(l[0])}</span>` : esc(l[0])) + (l[2] ? `<span class="${l[3]}">${esc(l[2])}</span>` : '');
+  termTimer = setInterval(() => {
+    if (li >= lines.length) {
+      clearInterval(termTimer);
+      termEl.innerHTML = html + '<span class="cur">_</span>';
+      termCmds.hidden = false; deathReady = true;
+      document.getElementById('respawn').focus({ preventScroll: true });
+      return;
+    }
+    const l = lines[li], text = l[0] + (l[2] || '');
+    ci += 3;                                             // 한 번에 3글자씩
+    if (ci >= text.length) { html += full(l) + '\n'; li++; ci = 0; termEl.innerHTML = html; return; }
+    termEl.innerHTML = html + esc(text.slice(0, ci)) + '<span class="cur">_</span>';
+  }, 16);
+}
 function die(cause = 'unknown') {
   burst(P.x + P.w / 2, P.y + P.h / 2, '#79b85d', 24, 140);
   hook = null; seed = null; shake = 6; deaths++;
   state = 'dead';
-  document.getElementById('deathCause').textContent = `모스는 ${DEATH_TEXT[cause] || DEATH_TEXT.unknown}.`;
-  document.getElementById('deathStats').textContent = `버틴 시간 ${timeRun.toFixed(1)}초 · 쓰러뜨린 식물 ${kills} · 쓰러진 횟수 ${deaths}`;
-  const btns = [document.getElementById('respawn'), document.getElementById('restartBtn')];
-  btns.forEach(b => { b.disabled = true; });
   deathEl.hidden = false;
-  clearTimeout(deathTimer);
-  deathTimer = setTimeout(() => { btns.forEach(b => { b.disabled = false; }); btns[0].focus({ preventScroll: true }); }, 1000);
+  typeLines(deathLines(cause));
 }
 function respawn() {
-  if (state !== 'dead' || document.getElementById('respawn').disabled) return;
-  deathEl.hidden = true;
+  if (state !== 'dead' || !deathReady) return;
+  deathEl.hidden = true; clearInterval(termTimer);
   P.hp = P.hpLag = P.maxHp; P.inv = 1.2; P.thornT = 0; P.swallowT = 0; bullets = []; pshots = [];
   placePlayerAt(checkpoint);
   spawnEnemies();
@@ -376,8 +419,8 @@ function respawn() {
   state = 'play'; acc = 0; cv.focus({ preventScroll: true });
 }
 function restartFromDeath() {
-  if (state !== 'dead' || document.getElementById('restartBtn').disabled) return;
-  deathEl.hidden = true; deaths = 0; kills = 0;
+  if (state !== 'dead' || !deathReady) return;
+  deathEl.hidden = true; clearInterval(termTimer); deaths = 0; kills = 0;
   state = 'title'; start();
 }
 document.getElementById('respawn').addEventListener('click', respawn);
