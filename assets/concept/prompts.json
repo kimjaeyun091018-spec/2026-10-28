@@ -1,0 +1,8 @@
+{
+ "negative": "photo, realistic, 3d render plastic, blurry, text, watermark, signature, logo, frame, border, people, human, hands, lowres, jpeg artifacts",
+ "prompts": {
+  "bg_forest": "papercraft diorama, layered cut paper art, handmade origami paper texture, visible paper fibers, soft studio lighting, gentle drop shadows between paper layers, muted warm pastel palette, cream, sage green, dusty teal, terracotta, high detail, side view landscape for a 2d platformer game background, layered paper cut forest with folded paper trees, paper hills receding into distance, paper clouds on strings, flat ground strip along the bottom, empty foreground, no characters",
+  "bg_town": "papercraft diorama, layered cut paper art, handmade origami paper texture, visible paper fibers, soft studio lighting, gentle drop shadows between paper layers, muted warm pastel palette, cream, sage green, dusty teal, terracotta, high detail, side view landscape for a 2d platformer game background, a small village of folded paper houses with paper roofs, paper lanterns, paper bridge, layered paper mountains behind, flat ground strip along the bottom, empty foreground, no characters",
+  "hero": "papercraft diorama, layered cut paper art, handmade origami paper texture, visible paper fibers, soft studio lighting, gentle drop shadows between paper layers, muted warm pastel palette, cream, sage green, dusty teal, terracotta, high detail, character concept art, a small cute hero folded entirely from a single sheet of cream origami paper, visible crease lines and folded facets, simple triangle head, tiny dot eyes, holding a folded paper sword, full body, front three-quarter view, plain light gray background"
+ }
+}
