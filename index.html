@@ -561,14 +561,13 @@ function drawBackground(cx, cy) {
 }
 
 // ---------- HD-2D 3D 배경 (world3d.js, Three.js) ----------
-// 1구역(지하철)과 환기구(x 타일 0~47)는 3D로, 그 오른쪽(2·3구역)은 아직 2D 그림. 3D를 못 쓰면 전부 2D
-const MAX_TX_3D = 47;   // 장면(소품·조명)은 환기구 오른쪽 벽까지. 블록은 맵 전체를 3D로 세움
+// 모든 구역(지하철·환기구·가시덤불 도심·식충식물 온실)을 3D로. 3D를 못 쓰면 전부 2D
 let w3 = null;
 function init3D() {
   if (w3 || !window.WebGLRenderingContext) return;
   import('./world3d.js').then(m => {
     w3 = m.createWorld3D({ canvas: document.getElementById('c3'), tileAt, W, H, T, VW, VH, RS,
-      tilesImg, backdropImg: ZONE_BGS[0].img, maxTx: W - 1 });
+      tilesImg, backdropImg: ZONE_BGS[0].img, backdrop2Img: ZONE_BGS[1].img, backdrop3Img: ZONE_BGS[2].img, maxTx: W - 1 });
   }).catch(err => { console.warn('3D 배경을 못 불러와 2D로 그립니다:', err); });
 }
 // 세계 도트 (tools/art/make_world.py가 만듦). 게임 1px = 도트 2px (RS=2)
@@ -739,7 +738,7 @@ function drawChapterBg(cx, cy) {
   const centerTile = (cx + VW / 2) / T;
   let cover = 0;
   for (const z of ZONE_BGS) {
-    if (!z.ready || (w3 && z === ZONE_BGS[0])) continue;
+    if (!z.ready || w3) continue;   // 3D일 때는 모든 구역을 3D로 그림 (그림은 3D 장면의 먼 배경으로만 씀)
     const a = clamp((centerTile - z.from) / z.fade + 0.5, 0, 1) * clamp((z.to - centerTile) / z.fade + 0.5, 0, 1);
     if (a <= 0) continue;
     cover = Math.max(cover, a);
