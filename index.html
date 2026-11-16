@@ -71,9 +71,10 @@ canvas:focus-visible { outline: none; }
 <div id="keys">
   <span><b>A D</b> 이동</span>
   <span><b>W · Space</b> 점프</span>
-  <span><b>왼쪽 클릭</b> 베기 (아래로 베면 튀어오름)</span>
-  <span><b>오른쪽 클릭 누르기</b> 덩굴 갈고리</span>
-  <span><b>E · Shift</b> 씨앗 던지기 → 한 번 더 누르면 순간이동</span>
+  <span><b>왼쪽 클릭</b> 무기</span>
+  <span><b>오른쪽 클릭</b> 기술 1 (처음: 덩굴 갈고리)</span>
+  <span><b>E · Shift</b> 기술 2 (처음: 씨앗 순간이동)</span>
+  <span><b>Tab</b> 가방 (장착 바꾸기)</span>
   <span><b>F</b> 전체 화면</span>
 </div>
 
@@ -198,7 +199,13 @@ addEventListener('keydown', e => {
   if (['e', 'shift'].includes(k) && !keys[k]) seedPressed = true;
   if (k === 'r' && state === 'clear') start();
   if (k === 'f' && !e.repeat) toggleFullscreen();
-  if ((k === 'enter' || (k === ' ' && state === 'title')) && state !== 'play') { start(); e.preventDefault(); return; }
+  if (k === 'tab') { e.preventDefault(); if (state === 'play') openBag(); else if (state === 'bag') closeBag(); return; }
+  if (state === 'bag') {
+    if (k === 'escape') closeBag();
+    if (k === '1' || k === '2') bag.sel = Number(k) - 1;
+    return;
+  }
+  if ((k === 'enter' || (k === ' ' && state === 'title')) && (state === 'title' || state === 'clear')) { start(); e.preventDefault(); return; }
   keys[k] = true;
   if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
 });
@@ -212,6 +219,7 @@ function mousePos(e) {
 cv.addEventListener('mousemove', mousePos);
 cv.addEventListener('mousedown', e => {
   mousePos(e); cv.focus();
+  if (state === 'bag') { bagClick(mouse.x, mouse.y); e.preventDefault(); return; }
   if (e.button === 0) { mouse.left = true; mouse.leftPressed = true; }
   if (e.button === 2) { mouse.right = true; mouse.rightPressed = true; }
   e.preventDefault();
@@ -223,6 +231,45 @@ const held = (...ks) => ks.some(k => keys[k]);
 // ---------- 상태 ----------
 let state = 'title';
 let P, enemies, bullets, parts, seed, hook, cam, checkpoint, activeChecks, timeRun, zoneName, bannerT, slashFx, shake;
+let bag, pickups, pshots = [];
+
+// ---------- 가방(인벤토리): 무기 1 + 기술 2 장착 (STORY.md: 식물에게서 빼앗은 기술 + 방독 마을의 도구 무기) ----------
+const ITEMS = {
+  whip: { kind: 'weapon', name: '화분 채찍', desc: '화분 식물의 덩굴로 넓게 휘두름. 공중에서 아래로 맞히면 튀어오름.', from: '처음부터' },
+  sickle: { kind: 'weapon', name: '가지치기 낫', desc: '짧지만 빠름. 붙어서 연달아 베기 좋음.', from: '처음부터 (방독 마을의 도구)' },
+  shotgun: { kind: 'weapon', name: '씨앗 산탄총', desc: '씨앗 세 발을 흩뿌림. 쏠 때 반동으로 살짝 밀림.', from: '지하철에서 주움' },
+  hook: { kind: 'skill', name: '덩굴 갈고리', desc: '누르고 있으면 덩굴을 걸어 매달림. 적에게 쏘면 끌어당겨 피해.', from: '엉킴 어미 (1장)' },
+  seed: { kind: 'skill', name: '씨앗 순간이동', desc: '씨앗을 던지고, 한 번 더 누르면 싹튼 자리로 이동. 적에게 박히면 피해 2.', from: '화분 식물' },
+  thorn: { kind: 'skill', name: '가시 갑옷', desc: '1.2초 동안 가시를 둘러 무적, 닿은 적에게 피해. 재사용 4초.', from: '가시 왕관 (2장)' },
+  swallow: { kind: 'skill', name: '삼켜 뱉기', desc: '0.8초 동안 주변 적 탄을 화분이 삼켰다가 조준 방향으로 되쏨. 재사용 3초.', from: '여왕 파리지옥 (3장)' },
+};
+const WEAPON_LIST = ['whip', 'sickle', 'shotgun'], SKILL_LIST = ['hook', 'seed', 'thorn', 'swallow'];
+const WEAPONS = {
+  whip: { cd: 0.28, reach: 12, r: 16, knock: 120, anim: 0.3, pogo: true },
+  sickle: { cd: 0.15, reach: 8, r: 11, knock: 60, anim: 0.18 },
+  shotgun: { cd: 0.6, anim: 0.16 },
+};
+const SKILL_CD = { thorn: 4, swallow: 3 };
+// 줍는 아이템 (보스가 생기기 전까지 임시: 구역마다 하나)
+const PICKUPS = [{ id: 'shotgun', x: 21, y: 44 }, { id: 'thorn', x: 57, y: 12 }, { id: 'swallow', x: 89, y: 33 }];
+function newBag() { return { owned: new Set(['whip', 'sickle', 'hook', 'seed']), weapon: 'whip', skills: ['hook', 'seed'], sel: 0, hover: null }; }
+function openBag() { state = 'bag'; bag.hover = null; mouse.left = mouse.right = false; }
+function closeBag() { state = 'play'; acc = 0; }
+let bagHits = [];
+function bagClick(x, y) {
+  const h = bagHits.find(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h);
+  if (!h) return;
+  if (h.slot !== undefined) { bag.sel = h.slot; return; }
+  if (h.close) { closeBag(); return; }
+  const id = h.item;
+  if (!bag.owned.has(id)) return;
+  if (ITEMS[id].kind === 'weapon') { bag.weapon = id; return; }
+  const other = bag.skills.indexOf(id);
+  if (other >= 0 && other !== bag.sel) bag.skills[other] = bag.skills[bag.sel];   // 다른 칸에 있으면 서로 바꿈
+  bag.skills[bag.sel] = id;
+  if (!bag.skills.includes('hook')) hook = null;
+  if (!bag.skills.includes('seed')) seed = null;
+}
 
 function spawnEnemies() {
   enemies = SPAWNS.map(s => {
@@ -248,6 +295,8 @@ function restart() {
   if (at) { const [ax, ay] = at.split(',').map(Number); if (ax >= 0 && ay >= 0) placePlayerAt({ x: ax, y: ay }); }
   spawnEnemies();
   bullets = []; parts = []; seed = null; hook = null; slashFx = null; shake = 0;
+  bag = newBag(); pickups = PICKUPS.map(p => ({ ...p, taken: false })); pshots = [];
+  P.cds = {}; P.thornT = 0; P.swallowT = 0; P.swallowN = 0;
   cam = { x: P.x - VW / 2, y: P.y - VH / 2 };
   timeRun = 0; zoneName = null;
   state = 'play';
@@ -273,7 +322,7 @@ function die() {
   shake = 6;
 }
 function hurt(fromX, dmg = 1) {
-  if (P.inv > 0) return;
+  if (P.inv > 0 || P.thornT > 0) return;
   P.hp -= dmg; P.inv = 1; shake = 4;
   P.vx = (P.x + P.w / 2 < fromX ? -1 : 1) * 140; P.vy = -150;
   hook = null;
@@ -332,8 +381,14 @@ function update(dt) {
   if (P.buffer > 0 && P.coyote > 0) { P.vy = -285; P.buffer = 0; P.coyote = 0; }
   if (!held('w', ' ', 'arrowup') && P.vy < -100 && !hook) P.vy += 1400 * dt;
 
+  // 기술 (가방에서 장착한 두 칸: 기술 1 = 오른쪽 클릭, 기술 2 = E·Shift)
+  const slotIn = [{ press: mouse.rightPressed, hold: mouse.right }, { press: seedPressed, hold: held('e', 'shift') }];
+  const skillIn = id => { const i = bag.skills.indexOf(id); return i < 0 ? { press: false, hold: false } : slotIn[i]; };
+  for (const k in P.cds) P.cds[k] -= dt;
+
   // 덩굴 갈고리
-  if (mouse.rightPressed && !hook) {
+  const hk = skillIn('hook');
+  if (hk.press && !hook) {
     const r = raycast(P.x + P.w / 2, P.y + P.h * 0.4, a.x, a.y, 150);
     if (r && r.enemy) {
       const e = r.enemy;
@@ -348,7 +403,7 @@ function update(dt) {
       slashFx = { x1: P.x + P.w / 2, y1: P.y + P.h * 0.4, x2: P.x + P.w / 2 + a.x * 150, y2: P.y + P.h * 0.4 + a.y * 150, t: 0.12, vine: true };
     }
   }
-  if (hook && !mouse.right) hook = null;
+  if (hook && !hk.hold) hook = null;
   if (hook) {
     const dx = hook.x - (P.x + P.w / 2), dy = hook.y - (P.y + P.h * 0.4), d = Math.hypot(dx, dy) || 1;
     hook.rest = Math.max(18, hook.rest - 70 * dt);
@@ -360,9 +415,9 @@ function update(dt) {
     if (d > 190) hook = null;
   }
 
-  // 씨앗
+  // 씨앗 순간이동
   P.seedCd -= dt;
-  if (seedPressed) {
+  if (skillIn('seed').press) {
     if (seed) {
       teleportTo(seed.x, seed.y);
       if (seed.enemy) { seed.enemy.hp -= 2; seed.enemy.flash = 0.2; P.vy = -200; }
@@ -386,29 +441,58 @@ function update(dt) {
     if (seed.life <= 0) { burst(seed.x, seed.y, '#6b8f4a', 5, 30); seed = null; }
   }
 
-  // 베기
-  P.slashCd -= dt;
-  if (mouse.leftPressed && P.slashCd <= 0) {
-    P.slashCd = 0.28;
-    const cx = P.x + P.w / 2 + a.x * 12, cy = P.y + P.h / 2 + a.y * 12;
-    slashFx = { x: cx, y: cy, ang: Math.atan2(a.y, a.x), t: 0.12 };
-    let hit = false;
-    for (const e of enemies) {
-      const ex = e.x + e.w / 2, ey = e.y + e.h / 2;
-      if (Math.hypot(ex - cx, ey - cy) < 16) {
-        e.hp -= 1; e.flash = 0.15; e.stun = 0.3; hit = true;
-        if (e.t === 'blob') { e.vx = Math.sign(ex - P.x) * 120; e.vy = -90; }
-        burst(ex, ey, '#c9e58a', 6, 80);
+  // 가시 갑옷: 잠깐 무적 + 닿은 적에게 피해 (적 처리에서)
+  if (skillIn('thorn').press && !(P.cds.thorn > 0)) {
+    P.thornT = 1.2; P.cds.thorn = SKILL_CD.thorn; burst(P.x + P.w / 2, P.y + P.h / 2, '#a8553c', 14, 90);
+  }
+  P.thornT -= dt;
+  // 삼켜 뱉기: 주변 적 탄을 삼켰다가 끝날 때 조준 방향으로 되쏨
+  if (skillIn('swallow').press && !(P.cds.swallow > 0) && P.swallowT <= 0) { P.swallowT = 0.8; P.swallowN = 0; }
+  if (P.swallowT > 0) {
+    const mx = P.x + P.w / 2, my = P.y + P.h * 0.4;
+    bullets = bullets.filter(b => { if (Math.hypot(b.x - mx, b.y - my) < 30) { P.swallowN++; burst(b.x, b.y, '#9fd27a', 3, 40); return false; } return true; });
+    P.swallowT -= dt;
+    if (P.swallowT <= 0) {
+      for (let i = 0; i < P.swallowN; i++) {
+        const ang = Math.atan2(a.y, a.x) + (i - (P.swallowN - 1) / 2) * 0.12;
+        pshots.push({ x: mx, y: my, vx: Math.cos(ang) * 260, vy: Math.sin(ang) * 260, life: 0.9, dmg: 2, big: true });
       }
+      P.cds.swallow = SKILL_CD.swallow;
+      if (P.swallowN) { shake = 3; P.act = { name: 'grapple', t: 0, dur: 0.2, face: a.x >= 0 ? 1 : -1 }; }
     }
-    bullets = bullets.filter(b => { if (Math.hypot(b.x - cx, b.y - cy) < 16) { hit = true; burst(b.x, b.y, '#e9d78a', 4, 50); return false; } return true; });
-    if (hit && !P.onGround && a.y > 0.5) { P.vy = -230; hook = null; }
-    if (hit) shake = 2;
+  }
+
+  // 무기 (왼쪽 클릭, 가방에서 장착)
+  P.slashCd -= dt;
+  const wp = WEAPONS[bag.weapon];
+  if (mouse.leftPressed && P.slashCd <= 0) {
+    P.slashCd = wp.cd;
+    P.act = { name: bag.weapon === 'shotgun' ? 'grapple' : 'whip', t: 0, dur: wp.anim, face: a.x >= 0 ? 1 : -1 };
+    if (bag.weapon === 'shotgun') {
+      const mx = P.x + P.w / 2, my = P.y + P.h * 0.4, base = Math.atan2(a.y, a.x);
+      for (const off of [-0.18, 0, 0.18]) pshots.push({ x: mx, y: my, vx: Math.cos(base + off) * 300, vy: Math.sin(base + off) * 300, life: 0.32, dmg: 1 });
+      P.vx -= a.x * 70; if (!P.onGround) P.vy -= a.y * 60;
+      burst(mx + a.x * 8, my + a.y * 8, '#e9d78a', 5, 60); shake = 2;
+    } else {
+      const cx = P.x + P.w / 2 + a.x * wp.reach, cy = P.y + P.h / 2 + a.y * wp.reach;
+      slashFx = { x: cx, y: cy, ang: Math.atan2(a.y, a.x), t: 0.12, r: wp.r };
+      let hit = false;
+      for (const e of enemies) {
+        const ex = e.x + e.w / 2, ey = e.y + e.h / 2;
+        if (Math.hypot(ex - cx, ey - cy) < wp.r) {
+          e.hp -= 1; e.flash = 0.15; e.stun = 0.3; hit = true;
+          if (e.t === 'blob') { e.vx = Math.sign(ex - P.x) * wp.knock; e.vy = -90; }
+          burst(ex, ey, '#c9e58a', 6, 80);
+        }
+      }
+      bullets = bullets.filter(b => { if (Math.hypot(b.x - cx, b.y - cy) < wp.r) { hit = true; burst(b.x, b.y, '#e9d78a', 4, 50); return false; } return true; });
+      if (hit && wp.pogo && !P.onGround && a.y > 0.5) { P.vy = -230; hook = null; }
+      if (hit) shake = 2;
+    }
   }
 
   // 애니메이션 상태
-  if (mouse.leftPressed && P.slashCd > 0.27) P.act = { name: 'whip', t: 0, dur: 0.3, face: a.x >= 0 ? 1 : -1 };
-  if (mouse.rightPressed) P.act = { name: 'grapple', t: 0, dur: 0.16, face: a.x >= 0 ? 1 : -1 };
+  if (hk.press) P.act = { name: 'grapple', t: 0, dur: 0.16, face: a.x >= 0 ? 1 : -1 };
   if (P.act) { P.act.t += dt; if (P.act.t >= P.act.dur) P.act = null; }
   const wasGround = P.onGround;
 
@@ -460,10 +544,34 @@ function update(dt) {
         bullets.push({ x: e.x + e.w / 2, y: e.y + 5, vx: dx / d * 105, vy: dy / d * 105, life: 3 });
       }
     }
+    e.thornCd = (e.thornCd || 0) - dt;
+    if (P.thornT > 0 && e.thornCd <= 0 && P.x - 4 < e.x + e.w && P.x + P.w + 4 > e.x && P.y - 4 < e.y + e.h && P.y + P.h + 4 > e.y) {
+      e.hp -= 1; e.flash = 0.15; e.thornCd = 0.35; e.stun = 0.3;
+      e.vx = Math.sign(e.x - P.x) * 110; e.vy = -80; burst(e.x + e.w / 2, e.y + e.h / 2, '#a8553c', 6, 70);
+    }
     if (e.hp > 0 && P.x < e.x + e.w && P.x + P.w > e.x && P.y < e.y + e.h && P.y + P.h > e.y) hurt(e.x + e.w / 2);
   }
   for (const e of enemies) if (e.hp <= 0) { burst(e.x + e.w / 2, e.y + e.h / 2, e.t === 'blob' ? '#4f7d3a' : '#d65a5a', 14, 110); if (seed && seed.enemy === e) seed.enemy = null; }
   enemies = enemies.filter(e => e.hp > 0);
+
+  // 모스의 탄 (씨앗 산탄총·삼켜 뱉기)
+  for (const s of pshots) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    if (solidP(s.x, s.y)) { s.life = 0; burst(s.x, s.y, '#a07a48', 3, 30); }
+    for (const e of enemies) if (s.life > 0 && s.x > e.x && s.x < e.x + e.w && s.y > e.y && s.y < e.y + e.h) {
+      e.hp -= s.dmg; e.flash = 0.15; e.stun = 0.25; s.life = 0; burst(s.x, s.y, '#c9e58a', 5, 70);
+      if (e.t === 'blob') { e.vx = Math.sign(s.vx) * 90; e.vy = -70; }
+    }
+  }
+  pshots = pshots.filter(s => s.life > 0);
+  for (const p of pickups) {
+    if (p.taken) continue;
+    const px = p.x * T + 8, py = p.y * T + 8;
+    if (Math.abs(P.x + P.w / 2 - px) < 12 && Math.abs(P.y + P.h / 2 - py) < 16) {
+      p.taken = true; bag.owned.add(p.id); burst(px, py, '#e9d78a', 16, 90);
+      showBanner({ name: '가방에 넣었다 · ' + ITEMS[p.id].name, sub: 'Tab으로 장착' });
+    }
+  }
 
   // 적 씨앗탄
   for (const b of bullets) {
@@ -709,10 +817,15 @@ function drawHUD() {
     rect(x + 3, y, 3, 2, c); rect(x + 1, y + 2, 7, 3, c); rect(x + 2, y + 5, 5, 2, d); rect(x + 4, y + 7, 1, 2, d);
     rect(x + 4, y + 2, 1, 5, d);
   }
-  // 씨앗 상태
-  const sx = 6, sy = 18;
-  rect(sx, sy, 5, 5, seed ? '#c9e58a' : (P.seedCd > 0 ? '#3a3326' : '#a07a48'));
-  rect(sx + 2, sy - 2, 1, 2, '#79b85d');
+  // 장착 칸: 무기(왼쪽 클릭)·기술 1(오른쪽 클릭)·기술 2(E) + 재사용 대기
+  if (bag) [[bag.weapon, 'L', P.slashCd / WEAPONS[bag.weapon].cd], [bag.skills[0], 'R', 0], [bag.skills[1], 'E', 0]].forEach(([id, key, k], i) => {
+    const x = 6 + i * 17, y = VH - 20;
+    rect(x, y, 15, 15, '#162220'); rect(x, y, 15, 1, '#3f6b40'); rect(x, y + 14, 15, 1, '#3f6b40');
+    drawIcon(id, x + 1, y + 1);
+    const cdv = i === 0 ? k : (SKILL_CD[id] ? Math.max(0, (P.cds[id] || 0) / SKILL_CD[id]) : (id === 'seed' && seed ? 0 : 0));
+    if (cdv > 0) { ctx.globalAlpha = 0.6; rect(x, y + 15 - Math.ceil(15 * Math.min(1, cdv)), 15, Math.ceil(15 * Math.min(1, cdv)), '#000'); ctx.globalAlpha = 1; }
+    ctx.fillStyle = '#d8e4d4'; ctx.font = 'bold 5px sans-serif'; ctx.fillText(key, x + 11, y - 1);
+  });
   // 조준점
   const mx = Math.round(mouse.x), my = Math.round(mouse.y);
   const c = hook ? '#e9d78a' : '#d8e4d4';
@@ -808,11 +921,12 @@ function draw() {
     const k = Math.max(0, slashFx.t / 0.12);
     ctx.globalAlpha = 0.5 + 0.5 * k;
     ctx.strokeStyle = '#c6f7d8'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 16, slashFx.ang - 1, slashFx.ang + 1); ctx.stroke();
-    ctx.strokeStyle = '#5fd39a'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 13, slashFx.ang - 0.85, slashFx.ang + 0.85); ctx.stroke();
+    const sr = (slashFx.r || 16) / 16;   // 무기마다 궤적 크기
+    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 16 * sr, slashFx.ang - 1, slashFx.ang + 1); ctx.stroke();
+    ctx.strokeStyle = sr < 0.9 ? '#d8d4c0' : '#5fd39a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 13 * sr, slashFx.ang - 0.85, slashFx.ang + 0.85); ctx.stroke();
     ctx.strokeStyle = '#3f7a3a'; ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 11, slashFx.ang - 0.6, slashFx.ang + 0.6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 11 * sr, slashFx.ang - 0.6, slashFx.ang + 0.6); ctx.stroke();
     ctx.globalAlpha = 1;
   }
   // 씨앗
@@ -829,8 +943,99 @@ function draw() {
     if (fxReady) ctx.drawImage(fxImg, (Math.floor(timeNow * 14) % 4) * 16, 0, 16, 16, b.x - cx - 4, b.y - cy - 4, 8, 8);   // fx.png 적 씨앗탄 (회전)
     else { rect(b.x - cx - 1, b.y - cy - 1, 3, 3, '#e9d78a'); rect(b.x - cx, b.y - cy, 1, 1, '#c8454a'); }
   }
+  for (const s of pshots) {
+    rect(s.x - cx - 1, s.y - cy - 1, s.big ? 3 : 2, s.big ? 3 : 2, s.big ? '#9fd27a' : '#c9a86a');
+    rect(s.x - cx - s.vx * 0.012, s.y - cy - s.vy * 0.012, 1, 1, '#e9d78a');
+  }
+  // 줍는 아이템: 빛나는 씨앗 주머니 + 아이콘
+  for (const p of pickups) {
+    if (p.taken) continue;
+    const x = p.x * T + 8 - cx, y = p.y * T + 6 - cy + Math.round(Math.sin(timeNow * 2 + p.x) * 2);
+    ctx.globalAlpha = 0.25 + 0.1 * Math.sin(timeNow * 4); rect(x - 9, y - 9, 18, 18, '#e9d78a'); ctx.globalAlpha = 1;
+    drawIcon(p.id, x - 6, y - 6);
+  }
+  // 가시 갑옷 / 삼켜 뱉기 효과
+  const hx = P.x + P.w / 2 - cx, hy = P.y + P.h / 2 - cy;
+  if (P.thornT > 0) {
+    for (let i = 0; i < 12; i++) {
+      const ang = i / 12 * Math.PI * 2 + timeNow * 2, r0 = 9, r1 = 14 + (i % 2) * 2;
+      for (let r = r0; r < r1; r++) rect(hx + Math.cos(ang) * r, hy + Math.sin(ang) * r, 1, 1, r > r1 - 2 ? '#e2c8a0' : '#8a4a36');
+    }
+  }
+  if (P.swallowT > 0) {
+    ctx.strokeStyle = '#9fd27a'; ctx.lineWidth = 1; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(timeNow * 20);
+    ctx.beginPath(); ctx.arc(hx, hy - 3, 30 * (P.swallowT / 0.8) + 4, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+    if (P.swallowN) { ctx.fillStyle = '#e9d78a'; ctx.font = '7px sans-serif'; ctx.fillText('×' + P.swallowN, hx + 8, hy - 14); }
+  }
   for (const p of parts) rect(p.x - cx, p.y - cy, 1, 1, p.col);
   drawHUD();
+  if (state === 'bag') drawBag();
+}
+
+// ---------- 아이콘 (가방·HUD·줍는 아이템, 12×12 게임 px) ----------
+function drawIcon(id, x, y, dim) {
+  const R = (a, b, w, h, c) => rect(x + a, y + b, w, h, c);
+  if (dim) { ctx.globalAlpha = 0.35; }
+  if (id === 'whip') { R(1, 8, 4, 4, '#a0663e'); R(1, 8, 4, 1, '#c88850'); for (let i = 0; i < 8; i++) R(3 + i, 7 - Math.round(Math.sin(i / 7 * Math.PI) * 5), 1, 1, i % 2 ? '#79b85d' : '#5fd39a'); R(11, 6, 1, 2, '#9fd27a'); }
+  else if (id === 'sickle') { for (let i = 0; i < 6; i++) R(2 + i, 11 - i, 1, 1, '#7a5030'); for (let i = 0; i < 7; i++) R(5 + Math.round(Math.cos(i / 6 * 2.4) * 4), 3 - Math.round(Math.sin(i / 6 * 2.4) * 3) + 2, 2, 1, '#c8ccc4'); }
+  else if (id === 'shotgun') { R(1, 6, 4, 3, '#7a5030'); R(5, 5, 7, 2, '#8a908c'); R(5, 7, 5, 1, '#5a605c'); R(10, 9, 1, 1, '#c9a86a'); R(11, 3, 1, 1, '#c9a86a'); }
+  else if (id === 'hook') { for (let i = 0; i < 9; i++) R(1 + i, 10 - i, 1, 1, '#79b85d'); R(9, 1, 3, 3, '#a8323a'); R(9, 1, 3, 1, '#e8dcb0'); }
+  else if (id === 'seed') { R(4, 5, 5, 6, '#b08a4a'); R(4, 5, 2, 6, '#c8a060'); R(6, 2, 1, 3, '#79b85d'); R(7, 1, 3, 2, '#9fd27a'); }
+  else if (id === 'thorn') { for (let i = 0; i < 8; i++) { const g = i / 8 * Math.PI * 2; R(6 + Math.round(Math.cos(g) * 4), 6 + Math.round(Math.sin(g) * 4), 1, 1, '#e2c8a0'); R(6 + Math.round(Math.cos(g) * 2), 6 + Math.round(Math.sin(g) * 2), 1, 1, '#8a4a36'); } R(5, 5, 3, 3, '#6e3a2e'); }
+  else if (id === 'swallow') { R(1, 2, 10, 3, '#5d8f3e'); R(1, 7, 10, 3, '#4f7a34'); R(2, 5, 8, 2, '#a8323a'); for (let i = 0; i < 5; i++) { R(2 + i * 2, 4, 1, 1, '#e8dcb0'); R(2 + i * 2, 7, 1, 1, '#e8dcb0'); } }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- 가방 화면 (Tab, 열려 있는 동안 게임 멈춤) ----------
+function wrapText(text, x, y, maxW, lh) {
+  let line = '';
+  for (const ch of text) {
+    if (ctx.measureText(line + ch).width > maxW) { ctx.fillText(line, x, y); y += lh; line = ch; } else line += ch;
+  }
+  if (line) ctx.fillText(line, x, y);
+}
+function drawBag() {
+  bagHits = [];
+  const hit = (x, y, w, h, o) => bagHits.push({ x, y, w, h, ...o });
+  ctx.fillStyle = 'rgba(6, 12, 12, 0.72)'; ctx.fillRect(0, 0, VW, VH);
+  rect(22, 12, 276, 156, '#162220'); rect(22, 12, 276, 1, '#3f6b40'); rect(22, 167, 276, 1, '#3f6b40'); rect(22, 12, 1, 156, '#3f6b40'); rect(297, 12, 1, 156, '#3f6b40');
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 9px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e9d78a'; ctx.fillText('가방', 32, 24);
+  ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText('Tab · Esc 닫기   칸을 눌러 바꾸기   1 · 2 기술 칸 고르기', 70, 24);
+  const box = (x, y, on, sel) => { rect(x, y, 20, 20, on ? '#24362c' : '#1a2420'); rect(x, y, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y + 19, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); rect(x + 19, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); };
+  // 장착 칸
+  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText('장착', 32, 38);
+  const slots = [['무기', '왼쪽 클릭', bag.weapon], ['기술 1', '오른쪽 클릭', bag.skills[0]], ['기술 2', 'E · Shift', bag.skills[1]]];
+  slots.forEach(([lab, key, id], i) => {
+    const x = 32, y = 46 + i * 30, sel = i > 0 && bag.sel === i - 1;
+    box(x, y, true, sel); drawIcon(id, x + 4, y + 4);
+    ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = sel ? '#e9d78a' : '#d8e4d4'; ctx.fillText(lab + ' · ' + ITEMS[id].name, x + 25, y + 7);
+    ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText(key, x + 25, y + 15);
+    if (i > 0) hit(x, y, 110, 20, { slot: i - 1 });
+  });
+  // 가진 것 목록
+  const list = (title, ids, y) => {
+    ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText(title, 158, y - 7);
+    ids.forEach((id, i) => {
+      const x = 158 + i * 26, own = bag.owned.has(id);
+      const on = id === bag.weapon || bag.skills.includes(id);
+      box(x, y, own, on);
+      if (own) drawIcon(id, x + 4, y + 4); else { ctx.fillStyle = '#4a5a50'; ctx.font = 'bold 8px sans-serif'; ctx.fillText('?', x + 7, y + 10); }
+      hit(x, y, 20, 20, { item: id });
+    });
+  };
+  list('무기', WEAPON_LIST, 46);
+  list(`기술 → 기술 ${bag.sel + 1} 칸에 장착`, SKILL_LIST, 84);
+  // 설명 (마우스를 올린 것, 없으면 고른 칸)
+  const hv = bagHits.find(b => b.item && mouse.x >= b.x && mouse.x < b.x + b.w && mouse.y >= b.y && mouse.y < b.y + b.h);
+  const id = hv ? hv.item : bag.skills[bag.sel];
+  const it = ITEMS[id], own = bag.owned.has(id);
+  rect(156, 114, 132, 46, '#1a2420');
+  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = own ? '#e9d78a' : '#6a7a70'; ctx.fillText(own ? it.name : '아직 없음', 160, 121);
+  ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#c8d4c4';
+  if (own) { wrapText(it.desc, 160, 130, 124, 7); ctx.fillStyle = '#8aa293'; ctx.fillText('얻은 곳: ' + it.from, 160, 155); }
+  else wrapText((it.kind === 'skill' ? '포식 식물을 쓰러뜨려 화분에 먹이면 얻는다. ' : '어딘가에 떨어져 있다. ') + '얻는 곳: ' + it.from, 160, 130, 124, 7);
+  ctx.textBaseline = 'alphabetic';
 }
 
 // ---------- 루프 ----------
@@ -849,6 +1054,7 @@ buildMap();
 P = { x: 0, y: 0, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, anim: 0, seedCd: 0, act: null, walkT: 0, landT: 0 };
 checkpoint = CHECKS[0]; placePlayerAt(checkpoint); spawnEnemies();
 bullets = []; parts = []; seed = null; hook = null; shake = 0; activeChecks = new Set([0]);
+bag = newBag(); pickups = PICKUPS.map(p => ({ ...p, taken: false })); P.cds = {}; P.thornT = 0; P.swallowT = 0; P.swallowN = 0;
 cam = { x: Math.max(0, P.x - VW / 2), y: Math.min(H * T - VH, P.y - VH / 2) };
 startBtn.addEventListener('click', start);
 startBtn.addEventListener('pointerup', e => { if (state !== 'play') { e.preventDefault(); start(); } });
