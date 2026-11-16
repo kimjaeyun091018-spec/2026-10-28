@@ -45,6 +45,13 @@ canvas:focus-visible { outline: none; }
 #overlay h1 { margin: 0; font-size: clamp(22px, 4vw, 38px); font-weight: 800; letter-spacing: 0.04em; color: var(--sap); text-wrap: balance; }
 #overlay p { margin: 0; color: var(--ink-dim); max-width: 34ch; line-height: 1.6; }
 #overlay[hidden] { display: none !important; }
+/* 결말 화면: 어두운 초록에서 아침빛으로, 문장이 차례로 떠오름 */
+#overlay.ending { background: linear-gradient(to bottom, rgba(8, 20, 14, 0.94), rgba(40, 60, 30, 0.9)); animation: dawn 14s ease-in forwards; }
+#overlay.ending .endText { display: flex; flex-direction: column; gap: 0.55em; max-width: 34em; }
+#overlay.ending .endText p, #overlay.ending .endStats { opacity: 0; animation: lineIn 1.2s ease-out forwards; color: #f2f6e8; max-width: none; text-shadow: 0 1px 2px rgba(10, 20, 10, 0.8); }
+#overlay.ending .endStats { color: var(--sap); }
+@keyframes lineIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes dawn { to { background: linear-gradient(to bottom, rgba(46, 66, 44, 0.94), rgba(140, 132, 88, 0.9)); } }
 #err { color: #e9a08a; font-size: 12px; max-width: 40ch; word-break: break-all; }
 #overlay button {
   font: inherit; font-weight: 800; padding: 10px 22px; border: 2px solid var(--moss); background: var(--moss-dim); color: var(--ink); cursor: pointer;
@@ -90,7 +97,7 @@ canvas:focus-visible { outline: none; }
   <div id="banner"></div>
   <div id="overlay">
     <h1>뿌리 아래로</h1>
-    <p>식물이 삼킨 도시. 덩굴과 씨앗으로 길을 열어, 온실 깊은 곳의 세계수 씨앗까지 가세요.</p>
+    <p>식물이 먹기 시작한 지 칠 년. 먹이로 태어난 사냥꾼 모스가 화분 하나를 들고, 뿌리 아래 세계수까지 내려갑니다.</p>
     <button id="start" type="button">시작 (Enter)</button>
     <p id="err" hidden></p>
   </div>
@@ -145,7 +152,7 @@ document.addEventListener('fullscreenchange', fit);
 window.addEventListener('resize', fit); fit();
 
 // ---------- 맵 ----------
-const W = 96, H = 56;
+const W = 96, H = 92;
 let map;
 function buildMap() {
   map = [];
@@ -169,22 +176,45 @@ function buildMap() {
   carve(80, 10, 14, 40);
   plat(80, 18, 4); plat(88, 22, 4); plat(82, 28, 4); plat(88, 34, 4); plat(81, 40, 4);
   plat(84, 49, 3, '^');
+  // 5. 온실 바닥의 구멍 → 균류 동굴로 떨어짐
+  carve(90, 50, 3, 8);
+  // 6. 균류 동굴 (4구역, 왼쪽으로): 버섯 발판, 가시 구덩이, 천장에서 늘어진 바위
+  carve(20, 58, 74, 10);
+  plat(78, 66, 3);
+  plat(64, 67, 4, '^'); plat(63, 63, 6);
+  plat(54, 64, 3);
+  plat(44, 67, 3, '^'); plat(42, 63, 5);
+  plat(32, 64, 4);
+  for (let y = 58; y <= 60; y++) { map[y][70] = '#'; map[y][71] = '#'; map[y][50] = '#'; }
+  // 7. 왼쪽 끝 갱도로 떨어져 세계수 뿌리 핵 (5구역)
+  carve(20, 68, 4, 8);
+  carve(8, 76, 44, 12);
+  plat(14, 84, 4); plat(26, 82, 5); plat(36, 80, 4);
+  plat(30, 87, 3, '^');
 }
 const SPAWNS = [
   { t: 'blob', x: 17, y: 51 }, { t: 'blob', x: 30, y: 51 },
   { t: 'flower', x: 44, y: 34 },
   { t: 'flower', x: 61, y: 17 }, { t: 'blob', x: 59, y: 17 }, { t: 'blob', x: 70, y: 17 },
   { t: 'flower', x: 83, y: 27 }, { t: 'flower', x: 89, y: 33 }, { t: 'blob', x: 89, y: 49 },
+  // 균류 동굴
+  { t: 'shroom', x: 73, y: 67 }, { t: 'blob', x: 80, y: 67 }, { t: 'shroom', x: 58, y: 67 }, { t: 'flower', x: 55, y: 63 },
+  { t: 'blob', x: 48, y: 67 }, { t: 'shroom', x: 37, y: 67 }, { t: 'shroom', x: 33, y: 63 },
+  // 세계수 뿌리 핵
+  { t: 'blob', x: 18, y: 87 }, { t: 'flower', x: 28, y: 81 }, { t: 'blob', x: 35, y: 87 }, { t: 'shroom', x: 40, y: 87 },
 ];
-const CHECKS = [{ x: 4, y: 51 }, { x: 38, y: 51 }, { x: 47, y: 17 }, { x: 82, y: 17 }];
-const GOAL = { x: 91, y: 49 };
+const CHECKS = [{ x: 4, y: 51 }, { x: 38, y: 51 }, { x: 47, y: 17 }, { x: 82, y: 17 }, { x: 87, y: 67 }, { x: 24, y: 87 }];
+const GOAL = { x: 46, y: 86 };   // 세계수 (닿으면 결말 「심는다」)
 const ZONES = [
   { until: 36, name: '이끼 덮인 지하철', sub: '1구역', base: '#4b5049', deep: '#1d2431', top: '#6aa13c' },
   { until: 46, name: '무너진 환기구', sub: '덩굴을 걸어 올라가세요', base: '#303c3f', deep: '#192124', top: '#5d9a4a' },
   { until: 80, name: '가시덤불 도심', sub: '2구역', base: '#3f3236', deep: '#21191c', top: '#6f8f3e' },
   { until: 99, name: '식충식물 온실', sub: '3구역', base: '#2e3a47', deep: '#171e26', top: '#4f9a6a' },
+  { until: 99, name: '균류 동굴', sub: '4구역', base: '#3a3348', deep: '#1a1624', top: '#4fb8b0' },
+  { until: 99, name: '세계수 뿌리 핵', sub: '5구역', base: '#4a3a2a', deep: '#22180f', top: '#a8c040' },
 ];
-const zoneOf = tx => ZONES.find(z => tx < z.until) || ZONES[ZONES.length - 1];
+// 구역: 56줄 아래는 균류 동굴, 76줄 아래는 세계수 뿌리 핵, 그 위는 가로 위치로 (tools/art/make_world.py·world3d.js와 같은 규칙)
+const zoneOf = (tx, ty = 0) => ty >= 76 ? ZONES[5] : ty >= 56 ? ZONES[4] : (ZONES.slice(0, 4).find(z => tx < z.until) || ZONES[3]);
 
 const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? '#' : map[ty][tx];
 const solidT = (tx, ty) => tileAt(tx, ty) === '#';
@@ -271,7 +301,7 @@ const held = (...ks) => ks.some(k => keys[k]);
 // ---------- 상태 ----------
 let state = 'title';
 let P, enemies, bullets, parts, seed, hook, cam, checkpoint, activeChecks, timeRun, zoneName, bannerT, slashFx, shake;
-let bag, pickups, pshots = [];
+let bag, pickups, pshots = [], clouds = [];
 
 // ---------- 가방(인벤토리): 무기 1 + 기술 2 장착 (STORY.md: 식물에게서 빼앗은 기술 + 방독 마을의 도구 무기) ----------
 const ITEMS = {
@@ -312,8 +342,11 @@ function bagClick(x, y) {
 }
 
 function spawnEnemies() {
+  clouds = [];
   enemies = SPAWNS.map(s => {
-    const e = s.t === 'blob'
+    const e = s.t === 'shroom'
+      ? { t: 'shroom', w: 12, h: 12, hp: 2, vx: 0, vy: 0, cd: 1 + hash(s.x, 2) * 1.5, puff: 0, atkT: 9, face: 1 }
+      : s.t === 'blob'
       ? { t: 'blob', w: 14, h: 15, hp: 3, vx: 32 * (hash(s.x, s.y) < 0.5 ? -1 : 1), vy: 0, atkCd: 1, atkT: 9, face: 1 }
       : { t: 'flower', w: 14, h: 20, hp: 2, vx: 0, vy: 0, cd: 1 + hash(s.x, 1) * 1.5, open: 0, atkT: 9, face: -1 };
     e.x = s.x * T + (T - e.w) / 2; e.y = (s.y + 1) * T - e.h - 0.01;
@@ -349,7 +382,7 @@ function showError(msg) {
 }
 function start() {
   if (state === 'play') return;
-  overlay.hidden = true;
+  overlay.hidden = true; overlay.classList.remove('ending');
   overlay.style.display = 'none';
   try { restart(); cv.focus({ preventScroll: true }); }
   catch (err) { state = 'title'; showError(err && err.message || String(err)); }
@@ -358,7 +391,7 @@ window.addEventListener('error', ev => showError(ev.message || '알 수 없는 �
 // ---------- 쓰러짐 / 다시 일어나기 ----------
 const DEATH_TEXT = {
   blob: '덩굴 뭉치에게 포식됨', flower: '꽃 포탑 씨앗탄 관통', bullet: '꽃 포탑 씨앗탄 관통',
-  spike: '가시덤불 열상', unknown: '식물에게 포식됨',
+  spike: '가시덤불 열상', shroom: '포자 버섯의 포자 흡입', unknown: '식물에게 포식됨',
 };
 let deaths = 0, kills = 0, deathReady = false, termTimer = null;
 const deathEl = document.getElementById('death'), termEl = document.getElementById('term'), termCmds = document.getElementById('termCmds');
@@ -638,6 +671,16 @@ function update(dt) {
       move(e, dt);
       if (e.hitWall) e.vx = -e.hitWall * 32;
       if (e.atkT > 0.4 && Math.abs(e.vx) > 1) e.face = Math.sign(e.vx);
+    } else if (e.t === 'shroom') {
+      // 포자 버섯: 가까이 오면 부풀었다가 포자 구름을 뿜음 (구름 안에 있으면 체력이 깎임)
+      e.puff = Math.max(0, e.puff - dt);
+      const dx = P.x + P.w / 2 - (e.x + e.w / 2), dy = P.y + P.h / 2 - (e.y + e.h / 2);
+      e.face = dx >= 0 ? 1 : -1;
+      e.cd -= dt;
+      if (e.cd <= 0 && Math.hypot(dx, dy) < 72 && e.stun <= 0) {
+        e.cd = 2.6; e.puff = 0.4; e.atkT = 0;
+        clouds.push({ x: e.x + e.w / 2, y: e.y + 2, r: 4, life: 1.8, max: 1.8 });
+      }
     } else {
       e.open = Math.max(0, e.open - dt * 3);
       const dx = P.x + P.w / 2 - (e.x + e.w / 2), dy = P.y + P.h / 2 - (e.y + 5);
@@ -656,8 +699,15 @@ function update(dt) {
     }
     if (e.hp > 0 && P.x < e.x + e.w && P.x + P.w > e.x && P.y < e.y + e.h && P.y + P.h > e.y) hurt(e.x + e.w / 2, e.t === 'blob' ? 20 : 15, e.t);
   }
-  for (const e of enemies) if (e.hp <= 0) { kills++; burst(e.x + e.w / 2, e.y + e.h / 2, e.t === 'blob' ? '#4f7d3a' : '#d65a5a', 14, 110); if (seed && seed.enemy === e) seed.enemy = null; }
+  for (const e of enemies) if (e.hp <= 0) { kills++; burst(e.x + e.w / 2, e.y + e.h / 2, e.t === 'blob' ? '#4f7d3a' : e.t === 'shroom' ? '#8a6ac0' : '#d65a5a', 14, 110); if (seed && seed.enemy === e) seed.enemy = null; }
   enemies = enemies.filter(e => e.hp > 0);
+
+  // 포자 구름: 커지며 위로 떠오르고, 안에 있으면 피해
+  for (const c of clouds) {
+    c.life -= dt; c.r = Math.min(24, c.r + 40 * dt); c.y -= 6 * dt;
+    if (c.life > 0.2 && Math.hypot(P.x + P.w / 2 - c.x, P.y + P.h / 2 - c.y) < c.r) hurt(c.x, 10, 'shroom');
+  }
+  clouds = clouds.filter(c => c.life > 0);
 
   // 모스의 탄 (씨앗 산탄총·삼켜 뱉기)
   for (const s of pshots) {
@@ -701,7 +751,7 @@ function update(dt) {
   if (slashFx) { slashFx.t -= dt; if (slashFx.t <= 0) slashFx = null; }
 
   // 구역 안내
-  const z = zoneOf(Math.floor((P.x + P.w / 2) / T));
+  const z = zoneOf(Math.floor((P.x + P.w / 2) / T), Math.floor((P.y + P.h / 2) / T));
   if (z !== zoneName) { zoneName = z; showBanner(z); }
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) bannerEl.style.opacity = 0; }
 
@@ -728,12 +778,26 @@ function teleportTo(x, y) {
   burst(P.x + P.w / 2, P.y + P.h / 2, '#c9e58a', 12, 90);
 }
 
+// 결말 「심는다」 (STORY.md): 세계수에 닿으면 문장이 하나씩 떠오름
+const ENDING = [
+  '세계수가 물었다. 「이제 너는 무엇을 먹느냐.」',
+  '다섯 포식자의 힘을 먹고 자란 화분이, 모스의 손 안에서 떨렸다.',
+  '모스는 화분에 마지막 먹이를 주지 않았다.',
+  '…먹지 않는다.',
+  '화분 식물을 세계수 곁에 심고, 방독면을 벗었다.',
+  '새 뿌리가 세계수에 섞여 들자, 먹는 의지가 천천히 잦아들었다.',
+  '포자가 걷히고, 방독 마을의 문이 열렸다.',
+  '모스는 돌아오지 않았다. 마을 입구에, 처음 보는 새싹 하나가 돋아 있었다.',
+];
 function clear() {
   state = 'clear';
   const s = timeRun.toFixed(1);
-  overlay.innerHTML = `<h1>세계수 씨앗을 찾았어요</h1><p>걸린 시간 ${s}초. 다음 구역(균류 동굴, 세계수 뿌리 핵)은 아직 준비 중이에요.</p><button id="again" type="button">다시 하기 (R)</button>`;
+  overlay.classList.add('ending');
+  overlay.innerHTML = `<div class="endText">${ENDING.map((t, i) => `<p style="animation-delay:${0.6 + i * 1.6}s">${t}</p>`).join('')}</div>
+    <p class="endStats" style="animation-delay:${0.6 + ENDING.length * 1.6 + 0.6}s">— 심는다 —<br>걸린 시간 ${s}초 · 쓰러뜨린 식물 ${kills} · 쓰러진 횟수 ${deaths}</p>
+    <button id="again" type="button" class="endStats" style="animation-delay:${0.6 + ENDING.length * 1.6 + 1.2}s">처음부터 (R)</button>`;
   overlay.hidden = false; overlay.style.display = '';
-  document.getElementById('again').addEventListener('click', start);
+  document.getElementById('again').addEventListener('click', () => { overlay.classList.remove('ending'); start(); });
 }
 
 // ---------- 그리기 ----------
@@ -780,7 +844,8 @@ function init3D() {
   if (w3 || !window.WebGLRenderingContext) return;
   import('./world3d.js').then(m => {
     w3 = m.createWorld3D({ canvas: document.getElementById('c3'), tileAt, W, H, T, VW, VH, RS,
-      tilesImg, backdropImg: ZONE_BGS[0].img, backdrop2Img: ZONE_BGS[1].img, backdrop3Img: ZONE_BGS[2].img, maxTx: W - 1 });
+      tilesImg, backdropImg: ZONE_BGS[0].img, backdrop2Img: ZONE_BGS[1].img, backdrop3Img: ZONE_BGS[4].img,
+      backdrop4Img: ZONE_BGS[2].img, backdrop5Img: ZONE_BGS[3].img, maxTx: W - 1 });
   }).catch(err => { console.warn('3D 배경을 못 불러와 2D로 그립니다:', err); });
 }
 // 세계 도트 (tools/art/make_world.py가 만듦). 게임 1px = 도트 2px (RS=2)
@@ -797,7 +862,7 @@ function drawTilesArt(cx, cy, minTx = 0) {
   const over = [];
   for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
     const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
-    const zi = ZONES.indexOf(zoneOf(tx));
+    const zi = ZONES.indexOf(zoneOf(tx, ty));
     if (c === '#') {
       const inner = solidT(tx - 1, ty) && solidT(tx + 1, ty) && solidT(tx, ty - 1) && solidT(tx, ty + 1);
       tileSpr(inner ? 3 : Math.floor(hash(tx, ty) * 3), zi, sx, sy);
@@ -815,7 +880,7 @@ function drawTiles(cx, cy, minTx = 0) {
   for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
     const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
     if (c === '#') {
-      const z = zoneOf(tx);
+      const z = zoneOf(tx, ty);
       const inner = solidT(tx - 1, ty) && solidT(tx + 1, ty) && solidT(tx, ty - 1) && solidT(tx, ty + 1);
       rect(sx, sy, T, T, inner ? z.deep : z.base);
       if (!inner) {
@@ -882,7 +947,36 @@ const ENEMY_ART = {
   flower: { src: 'assets/enemies/flower.png', fw: 64, fh: 64, ax: 32, ay: 62, rows: { idle: [0, 4, 220], attack: [1, 4, 90], hurt: [2, 1, 120] } },
 };
 for (const k in ENEMY_ART) { const a = ENEMY_ART[k]; a.img = new Image(); a.img.onload = () => { a.ready = true; }; a.img.src = a.src; }
+// 포자 버섯: 보랏빛 갓에 빛나는 청록 점, 부풀 때 갓이 납작하게 커짐 (화면 px 단위로 직접 찍음)
+function drawShroom(e, cx, cy) {
+  const px0 = Math.round((e.x + e.w / 2 - cx) * RS), py0 = Math.round((e.y + e.h - cy) * RS);
+  const p = e.puff > 0 ? Math.sin(e.puff / 0.4 * Math.PI) : 0, fl = e.flash > 0;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const P_ = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(px0 + x, py0 + y, w, h); };
+  P_(-5, -12, 10, 12, '#16121c'); P_(-4, -12, 8, 12, fl ? '#fff' : '#cfc8b0'); P_(-4, -12, 2, 12, fl ? '#fff' : '#e8e2cc');   // 줄기
+  const cw = 14 + Math.round(p * 4), ch = 9 - Math.round(p * 3), top = -12 - ch;
+  for (let y = 0; y < ch; y++) {
+    const w = Math.round(cw * Math.sqrt(1 - ((ch - y) / ch) ** 2 * 0.85));
+    P_(-w - 1, top + y, 2 * w + 2, 1, '#16121c');
+    P_(-w, top + y, 2 * w, 1, fl ? '#fff' : (y < 2 ? '#9a7ad0' : '#6a4a9a'));
+  }
+  P_(-cw, -13, 2 * cw, 2, fl ? '#fff' : '#3a2a50');                                                   // 주름
+  for (const [sx, sy] of [[-8, 4], [-2, 2], [5, 4], [9, 6], [-11, 6]]) if (Math.abs(sx) < cw - 1) P_(sx, top + sy, 2, 2, '#7ff0e0');   // 빛나는 점
+  ctx.restore();
+}
+function drawClouds(cx, cy) {
+  for (const c of clouds) {
+    const a = Math.min(1, c.life / 0.5) * 0.55;
+    for (let i = 0; i < 26; i++) {
+      const g = i * 2.4 + c.max * 3, rr = c.r * (0.3 + 0.7 * hash(i, Math.floor(c.max * 10)));
+      ctx.globalAlpha = a * (0.5 + 0.5 * hash(i, 3));
+      rect(c.x + Math.cos(g + c.life) * rr - cx, c.y + Math.sin(g + c.life) * rr * 0.7 - cy, 2, 2, i % 3 ? '#9a7ad0' : '#7ff0e0');
+    }
+  }
+  ctx.globalAlpha = 1;
+}
 function drawEnemy(e, cx, cy) {
+  if (e.t === 'shroom') { drawShroom(e, cx, cy); return; }
   const art = ENEMY_ART[e.t];
   if (art && art.ready) {
     let row = e.t === 'blob' ? 'walk' : 'idle', f;
@@ -949,13 +1043,17 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ZONE_BGS = [
   // 1 이끼 덮인 지하철: 가로 0.25배, 그림 속 승강장을 게임 바닥에 맞춤
   { src: 'assets/ch1-bg-2x.png', from: -99, to: 35, fade: 5,
-    ix: cx => -Math.min(cx * 0.25, 426 - VW), iy: cy => -59 - (cy - (H * T - VH)) * 0.25 },
+    ix: cx => -Math.min(cx * 0.25, 426 - VW), iy: cy => -59 - (cy - (56 * T - VH)) * 0.25 },   // 1구역 바닥 기준 (맵 아래로 넓히기 전 높이 56)
   // 2 가시덤불 도심 (윗길, 바닥 y=288): 가로로 천천히, 그림 속 돌 바닥(y≈184)을 게임 바닥에 맞춤
   { src: 'assets/ch2-bg-2x.png', from: 47, to: 79, fade: 4,
     ix: cx => -clamp((cx - 700) * 0.3, 0, 426 - VW), iy: cy => 103 - 184 - (cy - 185) * 0.25 },
   // 3 식충식물 온실 (세로 갱도): 내려가는 동안 그림이 위로 천천히 올라감
+  { src: 'assets/ch4-bg-2x.png', from: -99, to: 999, fade: 3, rows: [57, 75],
+    ix: cx => -clamp((cx - 300) * 0.1, 0, 426 - VW), iy: cy => -30 },
+  { src: 'assets/ch5-bg-2x.png', from: -99, to: 999, fade: 3, rows: [76, 999],
+    ix: cx => -clamp((cx - 100) * 0.15, 0, 426 - VW), iy: cy => -30 },
   { src: 'assets/ch3-bg-2x.png', from: 81, to: 999, fade: 3,
-    ix: cx => -clamp((cx - 1100) * 0.3, 0, 426 - VW), iy: cy => -clamp((cy - 150) / (H * T - VH - 150) * 60, 0, 60) },
+    ix: cx => -clamp((cx - 1100) * 0.3, 0, 426 - VW), iy: cy => -clamp((cy - 150) / (56 * T - VH - 150) * 60, 0, 60) },
 ];
 for (const z of ZONE_BGS) { z.img = new Image(); z.img.onload = () => { z.ready = true; }; z.img.src = z.src; }
 function drawChapterBg(cx, cy) {
@@ -963,7 +1061,9 @@ function drawChapterBg(cx, cy) {
   let cover = 0;
   for (const z of ZONE_BGS) {
     if (!z.ready || w3) continue;   // 3D일 때는 모든 구역을 3D로 그림 (그림은 3D 장면의 먼 배경으로만 씀)
-    const a = clamp((centerTile - z.from) / z.fade + 0.5, 0, 1) * clamp((z.to - centerTile) / z.fade + 0.5, 0, 1);
+    const centerRow = (cy + VH / 2) / T, [r0, r1] = z.rows || [-99, 56];   // 위 세 구역은 56줄 위에서만
+    const a = clamp((centerTile - z.from) / z.fade + 0.5, 0, 1) * clamp((z.to - centerTile) / z.fade + 0.5, 0, 1)
+      * clamp((centerRow - r0) / 3 + 0.5, 0, 1) * clamp((r1 - centerRow) / 3 + 0.5, 0, 1);
     if (a <= 0) continue;
     cover = Math.max(cover, a);
     ctx.globalAlpha = a;
@@ -1013,6 +1113,7 @@ function draw() {
     }
   }
   for (const e of enemies) drawEnemy(e, cx, cy);
+  drawClouds(cx, cy);
   // 갈고리 덩굴
   const drawVine = (x1, y1, x2, y2) => {
     const d = Math.hypot(x2 - x1, y2 - y1), n = Math.max(1, Math.floor(d / 2));

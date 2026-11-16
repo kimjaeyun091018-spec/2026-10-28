@@ -263,7 +263,7 @@ function bigLeafTex(seed) {
 }
 
 // ---------- 장면 ----------
-export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, backdropImg, backdrop2Img, backdrop3Img, maxTx }) {
+export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, backdropImg, backdrop2Img, backdrop3Img, backdrop4Img, backdrop5Img, maxTx }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
   renderer.setPixelRatio(1);
   renderer.setSize(VW * RS, VH * RS, false);
@@ -276,7 +276,8 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
   const Y = y => -y;                                       // 게임 y(아래) → Three y(위)
   const solid = (tx, ty) => tileAt(tx, ty) === '#';
   const lam = (map, extra = {}) => new THREE.MeshLambertMaterial({ map, ...extra });
-  const zoneOf = tx => (tx < 36 ? 0 : tx < 46 ? 1 : tx < 80 ? 2 : 3);   // tiles.png 줄 = index.html ZONES 순서
+  // tiles.png 줄 = index.html ZONES 순서 (56줄 아래 균류 동굴, 76줄 아래 세계수 뿌리 핵)
+  const zoneOf = (tx, ty = 0) => (ty >= 76 ? 5 : ty >= 56 ? 4 : tx < 36 ? 0 : tx < 46 ? 1 : tx < 80 ? 2 : 3);
 
   // --- 블록: 맵의 '#' 칸을 3D 상자로 (앞면 z=0, 깊이 64). 구역·드러남·변형별로 InstancedMesh ---
   const geo = new THREE.BoxGeometry(T, T, DEPTH);
@@ -286,7 +287,7 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
     if (!solid(tx, ty)) continue;
     // 사방이 막힌 칸 중 공기와 3칸 넘게 떨어진 것은 화면에 거의 안 보이므로 앞면만 어둡게 한 장으로
     const inner = solid(tx - 1, ty) && solid(tx + 1, ty) && solid(tx, ty - 1) && solid(tx, ty + 1);
-    const z = zoneOf(tx), v = inner ? 3 : Math.floor(hash(tx, ty) * 3);
+    const z = zoneOf(tx, ty), v = inner ? 3 : Math.floor(hash(tx, ty) * 3);
     const key = z + ':' + v;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push([tx, ty]);
@@ -303,7 +304,8 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
   }
 
   // 블록 위 풀잎 술(앞쪽)과 아래로 늘어진 덩굴
-  const grassMat = new THREE.MeshLambertMaterial({ map: (() => { const t = atlasTex(tilesImg, 4, 0); return t; })(), transparent: true, alphaTest: 0.5 });
+  const grassMats = [0, 1, 2, 3, 4, 5].map(z => new THREE.MeshLambertMaterial({ map: atlasTex(tilesImg, 4, z), transparent: true, alphaTest: 0.5 }));
+  const grassMat = grassMats[0];
   const grassGeo = new THREE.PlaneGeometry(T, T);
   const vineMats = [0, 1, 2].map(s => new THREE.MeshLambertMaterial({ map: vineTex(s), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
   const vineGeo = new THREE.PlaneGeometry(16, 64);
@@ -312,7 +314,7 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
     if (!solid(tx, ty)) continue;
     if (!solid(tx, ty - 1)) {
       for (const zz of [0.5, -20, -44]) {                    // 윗면 앞·중간·뒤에 풀잎
-        const p = new THREE.Mesh(grassGeo, grassMat);
+        const p = new THREE.Mesh(grassGeo, grassMats[zoneOf(tx, ty)]);
         p.position.set(tx * T + T / 2, Y(ty * T - 5), zz);
         scene.add(p);
       }
@@ -325,11 +327,11 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
   }
 
   // 가시 바닥('^' 칸): 가시덤불 판을 깊이 여러 겹으로 세워 덤불처럼
-  const thornMats = [0, 1, 2, 3].map(z => new THREE.MeshLambertMaterial({ map: atlasTex(tilesImg, 7, z), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+  const thornMats = [0, 1, 2, 3, 4, 5].map(z => new THREE.MeshLambertMaterial({ map: atlasTex(tilesImg, 7, z), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx <= maxTx; tx++) {
     if (tileAt(tx, ty) !== '^') continue;
     for (const zz of [0.6, -14, -30, -48]) {
-      const p = new THREE.Mesh(grassGeo, thornMats[zoneOf(tx)]);
+      const p = new THREE.Mesh(grassGeo, thornMats[zoneOf(tx, ty)]);
       p.position.set(tx * T + T / 2 + (hash(tx, zz) - 0.5) * 4, Y(ty * T + T / 2), zz);
       scene.add(p);
     }
@@ -603,6 +605,97 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
     }
   }
 
+  // --- 4구역: 균류 동굴 (x 320~1504, 천장 y 928, 바닥 y 1088) ---
+  const shroomCaps = [];
+  {
+    const FX0 = 320, FX1 = 1504, CE = 928, FL = 1088;
+    backdrop(backdrop4Img, 1700, 960, (FX0 + FX1) / 2, FL - 260, -760, '#9a90c0');
+    const rock = lam(atlasTex(tilesImg, 0, 4, { dark: 0.25 }));
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(FX1 - FX0 + 300, 420), rock);
+    backWall.material.map = backWall.material.map.clone(); backWall.material.map.needsUpdate = true;
+    backWall.material.map.wrapS = backWall.material.map.wrapT = THREE.RepeatWrapping; backWall.material.map.repeat.set((FX1 - FX0 + 300) / 32, 420 / 32);
+    backWall.position.set((FX0 + FX1) / 2, Y(FL - 150), -420); scene.add(backWall);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(FX1 - FX0 + 300, 360), lam(mossTopTex()));
+    floor.rotation.x = -Math.PI / 2; floor.position.set((FX0 + FX1) / 2, Y(FL), -DEPTH - 180); scene.add(floor);
+    // 거대 버섯: 줄기(원기둥) + 빛나는 반구 갓 + 갓 아래 주름판
+    const stemMat = lam(tex(8, 32, g => { px(g, 0, 0, 8, 32, '#c8c0a8'); px(g, 0, 0, 2, 32, '#e0dac4'); px(g, 6, 0, 2, 32, '#9a9280'); noise(g, 8, 32, ['#b0a890'], 20, 3); }, [1, 3]));
+    const capTex = tex(32, 16, g => { px(g, 0, 0, 32, 16, '#6a4a9a'); for (let i = 0; i < 14; i++) px(g, Math.floor(hash(i, 5) * 30), Math.floor(hash(5, i) * 14), 2, 2, '#7ff0e0'); px(g, 0, 0, 32, 3, '#8a6ac0'); });
+    const gillMat = new THREE.MeshLambertMaterial({ color: '#3a2a50', side: THREE.DoubleSide });
+    for (let i = 0; i < 16; i++) {
+      const x = FX0 + 30 + i * 74 + hash(i, 121) * 40, z = -DEPTH - 40 - (i % 3) * 90 - hash(i, 122) * 40;
+      const h = 60 + hash(i, 123) * 110, r = 22 + hash(i, 124) * 30;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.18, r * 0.26, h, 8), stemMat);
+      stem.position.set(x, Y(FL - h / 2), z); stem.rotation.z = (hash(i, 125) - 0.5) * 0.25; scene.add(stem);
+      const capMat = new THREE.MeshLambertMaterial({ map: capTex, emissive: '#3a1a6a', emissiveIntensity: 0.6 });
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
+      cap.position.set(x + Math.sin(stem.rotation.z) * -h / 2, Y(FL - h), z); cap.scale.y = 0.55; scene.add(cap); shroomCaps.push(cap);
+      const gill = new THREE.Mesh(new THREE.CircleGeometry(r * 0.95, 14), gillMat);
+      gill.rotation.x = Math.PI / 2; gill.position.copy(cap.position); scene.add(gill);
+    }
+    // 작은 버섯 무리 (판을 엇갈려 세움)
+    const smallShroom = new THREE.MeshLambertMaterial({ map: tex(16, 16, g => { px(g, 6, 8, 3, 8, '#cfc8b0'); px(g, 2, 4, 12, 4, '#6a4a9a'); px(g, 3, 3, 10, 1, '#8a6ac0'); px(g, 5, 5, 1, 1, '#7ff0e0'); px(g, 10, 5, 1, 1, '#7ff0e0'); }), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, emissive: '#201040' });
+    for (let i = 0; i < 40; i++) {
+      const sz = 8 + hash(i, 131) * 10;
+      for (const r of [0, Math.PI / 2]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), smallShroom);
+        m.position.set(FX0 + hash(i, 132) * (FX1 - FX0), Y(FL - sz / 2), -6 - hash(i, 133) * 70); m.rotation.y = r + hash(i, 134); scene.add(m);
+      }
+    }
+    // 버려진 광산: 레일, 광차, 나무 받침
+    const wood = lam(tex(8, 32, g => { px(g, 0, 0, 8, 32, '#5a4028'); px(g, 0, 0, 2, 32, '#7a5838'); noise(g, 8, 32, ['#4a3020', '#3a2818'], 30, 6); }, [1, 4]));
+    for (const rz of [-110, -126]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(FX1 - FX0, 2, 2), railMat); rail.position.set((FX0 + FX1) / 2, Y(FL - 1), rz); scene.add(rail);
+    }
+    const cart = new THREE.Mesh(new THREE.BoxGeometry(34, 20, 22), [wood, wood, lam(tex(4, 4, g => px(g, 0, 0, 4, 4, '#3a3a40'))), wood, wood, wood]);
+    cart.position.set(FX0 + 520, Y(FL - 14), -118); cart.rotation.z = 0.12; scene.add(cart);
+    for (let x = FX0 + 60; x < FX1; x += 220) {
+      for (const dx of [-30, 30]) { const post = new THREE.Mesh(new THREE.BoxGeometry(8, FL - CE + 40, 8), wood); post.position.set(x + dx, Y((FL + CE) / 2 - 10), -DEPTH - 50); scene.add(post); }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(76, 8, 8), wood); beam.position.set(x, Y(CE - 20), -DEPTH - 50); scene.add(beam);
+    }
+    for (const [x, c] of [[560, '#7ff0e0'], [900, '#b080ff'], [1250, '#7ff0e0']]) {
+      const L = new THREE.PointLight(c, 800, 320, 1.3); L.position.set(x, Y(FL - 70), -80); scene.add(L);
+      extraLights.push({ L, base: 800, kind: 'pulse' });
+    }
+  }
+
+  // --- 5구역: 세계수 뿌리 핵 (x 128~832, 천장 y 1216, 바닥 y 1408), 세계수는 x 744 ---
+  let core = null;
+  {
+    const RX0 = 128, RX1 = 832, CE = 1216, FL = 1408, TX = 744;
+    backdrop(backdrop5Img, 1500, 850, (RX0 + RX1) / 2, FL - 300, -700, '#c8c098');
+    const bark = lam(tex(8, 32, g => { px(g, 0, 0, 8, 32, '#4a3a2a'); px(g, 0, 0, 2, 32, '#6a5238'); px(g, 6, 0, 2, 32, '#2e2418'); for (let y = 0; y < 32; y += 5) px(g, 2, y, 4, 1, '#3a2c1e'); noise(g, 8, 32, ['#5a7a2a'], 10, 8); }, [1, 8]));
+    // 굵은 뿌리: 천장에서 바닥으로 굽이침 (깊이 여러 겹)
+    for (let k = 0; k < 14; k++) {
+      const x0 = RX0 - 40 + k * 60 + hash(k, 141) * 30, z0 = -DEPTH - 20 - hash(k, 142) * 220;
+      const pts = [];
+      for (let j = 0; j <= 5; j++) {
+        const t = j / 5;
+        pts.push(new THREE.Vector3(x0 + Math.sin(t * 3 + k) * 40 + (TX - x0) * t * 0.35, Y(CE - 120 + t * (FL - CE + 140)), z0 + Math.cos(t * 2 + k) * 30));
+      }
+      const r = 6 + hash(k, 143) * 12;
+      scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, r, 7), bark));
+    }
+    // 세계수 줄기와 핵
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(70, 110, 600, 12), bark);
+    trunk.position.set(TX + 40, Y(FL - 300), -230); scene.add(trunk);
+    const coreMat = new THREE.MeshBasicMaterial({ color: '#d8f080', fog: false });
+    core = new THREE.Mesh(new THREE.SphereGeometry(26, 16, 12), coreMat);
+    core.position.set(TX + 10, Y(FL - 70), -140); scene.add(core);
+    const halo = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshBasicMaterial({ map: tex(32, 32, g => { for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const d = Math.hypot(x - 16, y - 16) / 16; if (d < 1) { g.fillStyle = `rgba(230,250,150,${(1 - d) ** 2 * 0.6})`; g.fillRect(x, y, 1, 1); } } }), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    halo.position.copy(core.position); halo.position.z += 2; scene.add(halo); core.userData.halo = halo;
+    const coreLight = new THREE.PointLight('#e8f070', 2400, 520, 1.1); coreLight.position.set(TX, Y(FL - 80), -80); scene.add(coreLight);
+    extraLights.push({ L: coreLight, base: 2400, kind: 'pulse' });
+    // 뿌리에 삼켜진 도시 조각: 빌딩 덩어리, 차, 지하철 표지판
+    const fac = facadeTex(1); fac.wrapS = fac.wrapT = THREE.RepeatWrapping;
+    for (const [x, y, w, h, z, rot] of [[230, FL - 60, 70, 120, -200, 0.4], [470, CE + 40, 90, 70, -260, -0.6], [600, FL - 30, 60, 60, -150, 0.2]]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 40), lam(fac)); b.position.set(x, Y(y), z); b.rotation.z = rot; scene.add(b);
+    }
+    const car = new THREE.Mesh(new THREE.BoxGeometry(48, 24, 22), lam(carTex(1), { transparent: true, alphaTest: 0.5 }));
+    car.position.set(360, Y(FL - 90), -170); car.rotation.z = -0.9; scene.add(car);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(26, 20), lam(signTex())); sign.position.set(180, Y(CE + 60), -120); sign.rotation.z = 0.3; scene.add(sign);
+    // 떠다니는 금빛 포자는 아래 포자 무리에서 함께 처리
+  }
+
   // --- 조명 ---
   scene.add(new THREE.HemisphereLight('#a8cfc8', '#3a3628', 1.6));
   const sun = new THREE.DirectionalLight('#f6e2b4', 2.4);
@@ -611,9 +704,11 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
   fill.position.set(-200, 50, 400); scene.add(fill);
 
   // --- 떠다니는 포자 ---
-  const N = 260, pos = new Float32Array(N * 3), base = [];
+  const N = 520, pos = new Float32Array(N * 3), base = [];
   for (let i = 0; i < N; i++) {
-    const x = X0 + hash(i, 61) * (VX1 - X0), y = 160 + hash(i, 62) * 700, z = -10 - hash(i, 63) * 200;
+    // 앞 절반은 지하철·환기구, 나머지는 균류 동굴·뿌리 핵 (아래쪽)
+    const x = i < 260 ? X0 + hash(i, 61) * (VX1 - X0) : 128 + hash(i, 61) * 1376;
+    const y = i < 260 ? 160 + hash(i, 62) * 700 : 930 + hash(i, 62) * 480, z = -10 - hash(i, 63) * 200;
     base.push([x, y, z]); pos.set([x, Y(y), z], i * 3);
   }
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -627,20 +722,33 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
     { x: 80 * T, fog: '#163028', bg: '#0e201c', sun: '#d8f0d8', hemi: 1.5 },
   ].map(m => ({ ...m, fogC: new THREE.Color(m.fog), bgC: new THREE.Color(m.bg), sunC: new THREE.Color(m.sun) }));
   const hemi = scene.children.find(o => o.isHemisphereLight);
-  function mood(cxw) {
+  // 아래쪽 구역(균류 동굴 → 뿌리 핵)은 카메라 세로 위치로
+  const DEEP = [
+    { y: 56 * T, fog: '#1a1430', bg: '#0b0916', sun: '#a8a0ff', hemi: 0.9 },
+    { y: 76 * T, fog: '#2a2210', bg: '#120d06', sun: '#ffe08a', hemi: 1.2 },
+  ].map(m => ({ ...m, fogC: new THREE.Color(m.fog), bgC: new THREE.Color(m.bg), sunC: new THREE.Color(m.sun) }));
+  function mood(cxw, cyw) {
     let a = MOOD[0], b = MOOD[0], k = 0;
     for (let i = 1; i < MOOD.length; i++) if (cxw > MOOD[i].x - 80) { a = MOOD[i - 1]; b = MOOD[i]; k = Math.min(1, (cxw - (MOOD[i].x - 80)) / 160); }
     scene.fog.color.copy(a.fogC).lerp(b.fogC, k);
     scene.background.copy(a.bgC).lerp(b.bgC, k);
     sun.color.copy(a.sunC).lerp(b.sunC, k);
-    if (hemi) hemi.intensity = a.hemi + (b.hemi - a.hemi) * k;
+    let hi = a.hemi + (b.hemi - a.hemi) * k;
+    for (const d of DEEP) {
+      const kd = Math.max(0, Math.min(1, (cyw - (d.y - 60)) / 120));
+      if (kd <= 0) continue;
+      scene.fog.color.lerp(d.fogC, kd); scene.background.lerp(d.bgC, kd); sun.color.lerp(d.sunC, kd); hi += (d.hemi - hi) * kd;
+    }
+    if (hemi) hemi.intensity = hi;
   }
 
   function render(cx, cy, t) {
-    mood(cx + VW / 2);
+    mood(cx + VW / 2, cy + VH / 2);
     extraLights.forEach(({ L, base, kind }, i) => {
       L.intensity = kind === 'flicker' ? base * (hash(Math.floor(t * 10), i) < 0.12 ? 0.25 : 1) : kind === 'pulse' ? base * (0.8 + 0.2 * Math.sin(t * 1.7 + i)) : base;
     });
+    shroomCaps.forEach((c, i) => { c.material.emissiveIntensity = 0.45 + 0.3 * Math.sin(t * 1.5 + i); });
+    if (core) { const k = 1 + 0.08 * Math.sin(t * 2.2); core.scale.setScalar(k); core.userData.halo.scale.setScalar(1 + 0.15 * Math.sin(t * 2.2)); }
     traps.forEach((m, i) => { m.rotation.z = Math.sin(t * 2 + i) * 0.06; m.scale.y = 1 + Math.sin(t * 3 + i * 1.7) * 0.03; });
     camera.position.set(cx + VW / 2, Y(cy + VH / 2), D);
     camera.lookAt(cx + VW / 2, Y(cy + VH / 2), 0);
@@ -652,7 +760,7 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
     for (let i = 0; i < N; i++) {
       const [x, y, z] = base[i];
       pos[i * 3] = x + Math.sin(t * 0.3 + i) * 12;
-      pos[i * 3 + 1] = Y(((y - t * 6 * (0.5 + hash(i, 64))) % 700 + 700) % 700 + 160);
+      pos[i * 3 + 1] = i < 260 ? Y(((y - t * 6 * (0.5 + hash(i, 64))) % 700 + 700) % 700 + 160) : Y(((y - 930 - t * 5 * (0.5 + hash(i, 64))) % 480 + 480) % 480 + 930);
       pos[i * 3 + 2] = z;
     }
     pg.attributes.position.needsUpdate = true;
