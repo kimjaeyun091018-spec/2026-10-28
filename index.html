@@ -240,7 +240,7 @@ function placePlayerAt(c) {
 }
 function restart() {
   buildMap();
-  P = { x: 0, y: 0, w: 10, h: 26, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, coyote: 0, buffer: 0, slashCd: 0, seedCd: 0, anim: 0, onGround: false, safe: null, act: null, walkT: 0, landT: 0 };
+  P = { x: 0, y: 0, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, coyote: 0, buffer: 0, slashCd: 0, seedCd: 0, anim: 0, onGround: false, safe: null, act: null, walkT: 0, landT: 0 };
   checkpoint = CHECKS[0]; activeChecks = new Set([0]);
   placePlayerAt(checkpoint);
   // 개발용: 주소 끝에 ?at=타일x,타일y 를 붙이면 그 칸에서 시작 (예: ?at=50,16)
@@ -329,7 +329,7 @@ function update(dt) {
   P.coyote = P.onGround ? 0.1 : P.coyote - dt;
   P.buffer = jumpPressed ? 0.12 : P.buffer - dt;
   if (hook && jumpPressed) { hook = null; P.vy = Math.min(P.vy, 0) - 170; P.buffer = 0; burst(P.x + P.w / 2, P.y, '#79b85d', 6, 60); }
-  if (P.buffer > 0 && P.coyote > 0) { P.vy = -300; P.buffer = 0; P.coyote = 0; }
+  if (P.buffer > 0 && P.coyote > 0) { P.vy = -285; P.buffer = 0; P.coyote = 0; }
   if (!held('w', ' ', 'arrowup') && P.vy < -100 && !hook) P.vy += 1400 * dt;
 
   // 덩굴 갈고리
@@ -631,17 +631,17 @@ function drawTiles(cx, cy, minTx = 0) {
   }
 }
 
-// 주인공 도트 (assets/hero/hero_sheet.png). 프레임 96×80, 한 줄에 한 동작, 발 기준점 (43, 77).
-// 프레임 정보는 assets/hero/frames.json과 같음 (tools/hero-anim/anim2.py가 만듦). 시트 원본 도트 1px = 게임 화면 0.5px (RS=2)
+// 주인공 도트 (assets/hero/hero_sheet.png). 프레임 80×60, 한 줄에 한 동작, 발 기준점 (32, 57).
+// 프레임 정보는 assets/hero/frames.json과 같음 (tools/hero-anim/anim3.py가 만듦). 시트 원본 도트 1px = 게임 화면 0.5px (RS=2)
 const heroImg = new Image();
 let heroReady = false;
 heroImg.onload = () => { heroReady = true; };
 heroImg.src = 'assets/hero/hero_sheet.png';
-const HERO = { fw: 96, fh: 80, ax: 43, ay: 77, tipX: 19, tipY: -63,
-  rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], grapple: [3, 6], whip: [4, 5] } };
+const HERO = { fw: 80, fh: 60, ax: 32, ay: 57, tipX: 11, tipY: -40,   // 작은 주인공 (도트 키 44px = 게임 22px)
+  rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], grapple: [3, 1], whip: [4, 4] } };
 function heroFrame() {
   if (P.act) {
-    const n = P.act.name === 'whip' ? 5 : 1;            // 갈고리는 화분을 드는 첫 프레임만 (덩굴은 게임이 조준 방향으로 그림)
+    const n = HERO.rows[P.act.name][1];                // 갈고리는 화분을 겨누는 한 프레임 (덩굴은 게임이 조준 방향으로 그림)
     return [P.act.name, Math.min(n - 1, Math.floor(P.act.t / P.act.dur * n))];
   }
   if (hook) return ['jump', 3];
@@ -847,7 +847,7 @@ function frame(now) {
   draw();
 }
 buildMap();
-P = { x: 0, y: 0, w: 10, h: 26, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, anim: 0, seedCd: 0, act: null, walkT: 0, landT: 0 };
+P = { x: 0, y: 0, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 5, inv: 0, anim: 0, seedCd: 0, act: null, walkT: 0, landT: 0 };
 checkpoint = CHECKS[0]; placePlayerAt(checkpoint); spawnEnemies();
 bullets = []; parts = []; seed = null; hook = null; shake = 0; activeChecks = new Set([0]);
 cam = { x: Math.max(0, P.x - VW / 2), y: Math.min(H * T - VH, P.y - VH / 2) };

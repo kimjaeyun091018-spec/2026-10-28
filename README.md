@@ -69,11 +69,12 @@
   - `ch1-bg-original.png`: 받은 원본 (1672×941)
   - `ch1-bg.png`: 게임 해상도로 줄인 것 (426×240). 1구역에서 가로 0.25배 속도로 천천히 움직이고(패럴랙스), 그림 속 승강장이 게임 바닥과 겹치게 맞춤. 환기구로 넘어가면 서서히 사라짐
 - 주인공 도트는 `assets/hero/`에 둠. 게임이 `hero_sheet.png`를 읽어 상태에 따라 재생함
-  - 대기 → 걷기 8프레임(이동 속도에 맞춰 빨라짐) → 점프(웅크림·도약·장화를 접어 올림·정점·다리 펴기·착지) / 베기 = 덩굴 채찍 / 갈고리 발사 = 화분 들기, 덩굴은 화분 식물에서 조준 방향으로 뻗음
+  - **작은 주인공 (3판)**: 도트 키 44px = 게임 키 약 22px(화면 높이의 1/8, 블록 1.4개). 프레임 80×60, 발 기준점 (32, 57). 충돌 상자 8×19, 점프 높이 약 45px
+  - 대기 4 → 걷기 8(이동 속도에 맞춰 빨라짐) → 점프 6(웅크림·도약·무릎을 끌어올림·정점·다리 펴기·착지) / 베기 = 화분 휘두르기 4 / 갈고리 = 화분을 앞 위로 겨눔, 덩굴은 화분 식물에서 조준 방향으로 뻗음
   - 바라보는 방향: 평소엔 이동 방향, 베기·갈고리·씨앗을 쓸 때와 갈고리에 매달린 동안엔 조준 방향
-  - 걷기는 AI로 생성: Kaggle 무료 GPU에서 SDXL + 픽셀아트 LoRA + ControlNet OpenPose(프레임별 관절 포즈) + IP-Adapter(`hero-concept.png` 참고) → `tools/hero-pose/` (포즈 `poses.py`, 생성 `gen_kaggle.py`·`push.py`, 도트화 `to_sprite.py`). 도트화한 결과와 프롬프트는 `assets/hero/gen/`
-  - 대기·점프·갈고리·채찍은 걷기 통과 자세를 몸통으로 삼아 부위를 잘라 움직임 → `python tools/hero-anim/anim2.py`가 시트·`frames.json`·미리보기를 만듦 (점프를 AI로 두 번 생성해 봤지만 긴 코트 때문에 다리 접는 자세가 나오지 않아 이 방식으로 바꿈)
-  - 충돌 상자는 10×26 (도트 키 약 31px), 키가 커진 만큼 점프를 약 38px → 50px로 높임
+  - 만드는 법: Kaggle 무료 GPU에서 SDXL + 픽셀아트 LoRA + ControlNet OpenPose(2.5등신 체형의 프레임별 관절 포즈 `tools/hero-pose/poses_small.py`) + IP-Adapter(게임 속 주인공 도트 `ref_ingame.png`)로 대기·걷기·점프·채찍·갈고리 20자세 생성(`gen_small_kaggle.py`, `push.py --script gen_small_kaggle.py --poses poses_small.py --cn 1.0 --ip 0.6`) → `to_sprite.py --height 44 --frame 80x60 --anchor 32,57 --hip-y 0.67 --by-seed`로 도트화(`assets/hero/gen_small/`, 프롬프트 포함) → `python tools/hero-anim/anim3.py`가 시트·`frames.json`·미리보기를 만듦
+  - 점프는 AI가 다리 접는 자세를 그리지 못해, 대기 프레임 몸통에 `poses_small.py`의 점프 관절 좌표(엉덩이·무릎·발목)로 다리를 새로 그림
+  - 예전 큰 주인공(키 31px)용 도구 `anim.py`·`anim2.py`, 포즈 `poses.py`, 도트 `assets/hero/gen/`은 기록으로 남겨 둠 (다시 실행하면 지금 시트를 덮어씀)
   - `hero-concept.png`: 고른 캐릭터 원본 (AI 생성 시안, 왼쪽 인물: 방독면·녹색 코트·화분과 바구니를 든 사냥꾼)
   - `hero-base.png`: 원본에서 캐릭터만 원래 픽셀 격자로 추출한 것 (41×62, 1판 애니메이션 `tools/hero-anim/anim.py`용)
   - `hero_sheet.png`: 전체 애니메이션 시트. 프레임 96×80, 한 줄에 한 동작. 동작별 시트 `hero_<동작>.png`도 있음

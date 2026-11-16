@@ -7,6 +7,7 @@
   (웅크림·착지는 발이 바닥에 그대로, 공중 프레임은 다리를 접은 만큼 발이 올라감)
 
 사용:  python to_sprite.py <생성 PNG 폴더> <출력 폴더>   (파일 이름: <동작>_<번호>_s<시드>.png)
+작은 주인공: python to_sprite.py <폴더> <출력> --height 44 --frame 80x60 --anchor 32,57 --hip-y 0.67 --by-seed
 """
 import sys
 from collections import Counter, deque
@@ -16,11 +17,27 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
+# 기본값은 1판(키 62px, poses.py) 설정. 작은 주인공은 main()의 옵션으로 바꿈
 FW, FH = 96, 80
 BLOCK = 11
-HIP_GEN = (512, 123 + 0.53 * 0.78 * 1024)   # poses.draw 기준 서 있을 때 엉덩이 위치 (1024 그림)
-SOLE_GEN = 123 + 1.0 * 0.78 * 1024              # 서 있을 때 발바닥 y (1024 그림)
+HIP_Y = 0.53                                        # poses의 서 있을 때 엉덩이 높이 (키 1.0 기준)
+HIP_GEN = (512, 123 + HIP_Y * 0.78 * 1024)          # poses.draw 기준 서 있을 때 엉덩이 위치 (1024 그림)
+SOLE_GEN = 123 + 1.0 * 0.78 * 1024                  # 서 있을 때 발바닥 y (1024 그림)
 HIP_OUT = (43, 77 - (SOLE_GEN - HIP_GEN[1]) / BLOCK)   # 발바닥이 프레임 y=77에 오도록
+
+
+def configure(height=None, frame=None, anchor=None, hip_y=None):
+    """작은 주인공용: 키 height px, 프레임 크기, 발 기준점, 포즈의 엉덩이 높이."""
+    global FW, FH, BLOCK, HIP_Y, HIP_GEN, HIP_OUT
+    if hip_y is not None:
+        HIP_Y = hip_y
+        HIP_GEN = (512, 123 + HIP_Y * 0.78 * 1024)
+    if height:
+        BLOCK = 0.78 * 1024 / height
+    if frame:
+        FW, FH = frame
+    ax, ay = anchor if anchor else (43, 77)
+    HIP_OUT = (ax, ay - (SOLE_GEN - HIP_GEN[1]) / BLOCK)
 
 
 def palette(paths):
@@ -69,14 +86,16 @@ def to_frame(path, pal):
     out = np.zeros((FH, FW, 4), np.uint8)
     for y in range(FH):
         Y0 = int(round(HIP_GEN[1] + (y - HIP_OUT[1]) * BLOCK))
+        Y1 = int(round(HIP_GEN[1] + (y + 1 - HIP_OUT[1]) * BLOCK))
         for x in range(FW):
             X0 = int(round(HIP_GEN[0] + (x - HIP_OUT[0]) * BLOCK))
-            if X0 < 0 or Y0 < 0 or X0 + BLOCK > 1024 or Y0 + BLOCK > 1024:
+            X1 = int(round(HIP_GEN[0] + (x + 1 - HIP_OUT[0]) * BLOCK))
+            if X0 < 0 or Y0 < 0 or X1 > 1024 or Y1 > 1024:
                 continue
-            m = bgm[Y0:Y0 + BLOCK, X0:X0 + BLOCK]
+            m = bgm[Y0:Y1, X0:X1]
             if m.mean() > 0.5:
                 continue
-            c = Counter(idx[Y0:Y0 + BLOCK, X0:X0 + BLOCK][~m].ravel().tolist()).most_common(1)[0][0]
+            c = Counter(idx[Y0:Y1, X0:X1][~m].ravel().tolist()).most_common(1)[0][0]
             out[y, x, :3] = colors[c]
             out[y, x, 3] = 255
     # 떨어진 점 하나짜리 지우기
@@ -90,12 +109,24 @@ def to_frame(path, pal):
 
 
 def main():
-    src, dst = Path(sys.argv[1]), Path(sys.argv[2])
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('src')
+    ap.add_argument('dst')
+    ap.add_argument('--height', type=float, help='도트 키(px). 예: 44')
+    ap.add_argument('--frame', help='프레임 크기 WxH. 예: 80x60')
+    ap.add_argument('--anchor', help='발 기준점 x,y. 예: 32,57')
+    ap.add_argument('--hip-y', type=float, help='포즈 파일의 HIP_Y (poses_small.py는 0.67)')
+    ap.add_argument('--by-seed', action='store_true', help='시드마다 모든 동작에 공통 팔레트 (동작 사이 색 일치)')
+    a = ap.parse_args()
+    configure(a.height, tuple(map(int, a.frame.split('x'))) if a.frame else None,
+              tuple(map(int, a.anchor.split(','))) if a.anchor else None, a.hip_y)
+    src, dst = Path(a.src), Path(a.dst)
     dst.mkdir(parents=True, exist_ok=True)
     groups = {}
     for p in sorted(src.glob('*_s*.png')):
         kind, _, seed = p.stem.split('_')
-        groups.setdefault((kind, seed), []).append(p)
+        groups.setdefault(seed if a.by_seed else (kind, seed), []).append(p)
     for paths in groups.values():
         pal = palette(paths)
         for p in paths:

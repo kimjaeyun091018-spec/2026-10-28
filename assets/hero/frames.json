@@ -1,13 +1,13 @@
 {
-  "frame_w": 96,
-  "frame_h": 80,
+  "frame_w": 80,
+  "frame_h": 60,
   "anchor": [
-    43,
-    77
+    32,
+    57
   ],
-  "plant_tip": [
-    62,
-    14
+  "plant_tip_grapple": [
+    43,
+    17
   ],
   "anims": {
     "idle": {
@@ -30,14 +30,14 @@
     },
     "grapple": {
       "row": 3,
-      "frames": 6,
-      "ms": 80,
+      "frames": 1,
+      "ms": 160,
       "loop": false
     },
     "whip": {
       "row": 4,
-      "frames": 5,
-      "ms": 70,
+      "frames": 4,
+      "ms": 75,
       "loop": false
     }
   }
