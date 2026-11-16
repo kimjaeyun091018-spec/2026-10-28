@@ -1,0 +1,10 @@
+{
+ "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, people, person, character, animal, ui",
+ "prompts": {
+  "bg_forest": "pixel art, 16-bit video game, crisp chunky pixels, limited palette, mysterious and dreamy atmosphere, soft glowing light, side view parallax background for a 2d platformer, ancient forest with huge mossy tree trunks, ferns, glowing fireflies, light rays through mist, deep green and teal, empty ground area at the bottom, no characters",
+  "bg_river": "pixel art, 16-bit video game, crisp chunky pixels, limited palette, mysterious and dreamy atmosphere, soft glowing light, side view parallax background for a 2d platformer, quiet forest stream with smooth stones and reeds, distant misty trees, golden evening light, sparkles on the water, empty ground area at the bottom, no characters",
+  "tex_soil": "pixel art, 16-bit game tile texture, dark brown earth with small stones and roots, seamless pattern, flat lighting, fills the whole frame, top-down",
+  "tex_moss": "pixel art, 16-bit game tile texture, green grass and moss, seamless pattern, flat lighting, fills the whole frame, top-down",
+  "tex_wood": "pixel art, 16-bit game tile texture, old wooden planks, horizontal boards, seamless pattern, flat lighting, fills the whole frame"
+ }
+}
