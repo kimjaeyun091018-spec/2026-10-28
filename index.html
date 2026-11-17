@@ -505,9 +505,15 @@ function update(dt) {
   if (P.act) P.face = P.act.face;
   const accel = P.onGround ? 900 : 520;
   if (!hook) {
-    if (dir) P.vx += dir * accel * dt;
-    else if (P.onGround) P.vx -= Math.sign(P.vx) * Math.min(Math.abs(P.vx), 900 * dt);
     const cap = 92;
+    // 방향키 가속은 최고 속도(cap)까지만. 예전엔 공중 가속(520)이 공중 감속(160)보다 커서
+    // 이동하며 점프하면 속도가 끝없이 붙는 버그가 있었음
+    if (dir) {
+      const nv = P.vx + dir * accel * dt;
+      if (Math.abs(nv) <= cap || Math.sign(nv) !== dir) P.vx = nv;
+      else if (Math.abs(P.vx) < cap || Math.sign(P.vx) !== dir) P.vx = dir * cap;
+    } else if (P.onGround) P.vx -= Math.sign(P.vx) * Math.min(Math.abs(P.vx), 900 * dt);
+    // 갈고리·반동 등으로 얻은 최고 속도 초과분은 땅에선 빨리, 공중에선 천천히 줄어듦
     if (Math.abs(P.vx) > cap) P.vx -= Math.sign(P.vx) * Math.min(Math.abs(P.vx) - cap, (P.onGround ? 900 : 160) * dt);
   } else if (dir) P.vx += dir * 200 * dt;
 
