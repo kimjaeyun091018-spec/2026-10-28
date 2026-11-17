@@ -116,7 +116,8 @@ canvas:focus-visible { outline: none; }
   <span><b>왼쪽 클릭</b> 무기</span>
   <span><b>오른쪽 클릭</b> 기술 1 (처음: 덩굴 갈고리)</span>
   <span><b>E · Shift</b> 기술 2 (처음: 씨앗 순간이동)</span>
-  <span><b>Tab</b> 가방 (장착 바꾸기)</span>
+  <span><b>W · ↑</b> 문·침대·작업대·대화 (점프는 Space)</span>
+  <span><b>Tab</b> 가방 (보기 · 장비는 캠프 작업대에서)</span>
   <span><b>F</b> 전체 화면</span>
 </div>
 
@@ -152,7 +153,7 @@ document.addEventListener('fullscreenchange', fit);
 window.addEventListener('resize', fit); fit();
 
 // ---------- 맵 ----------
-const W = 96, H = 92;
+const W = 96, H = 132;   // 0~91줄: 바깥 세계, 95줄 아래: 건물 실내(방 11개)
 let map;
 function buildMap() {
   map = [];
@@ -191,6 +192,49 @@ function buildMap() {
   carve(8, 76, 44, 12);
   plat(14, 84, 4); plat(26, 82, 5); plat(36, 80, 4);
   plat(30, 87, 3, '^');
+  // 8. 건물 실내: 바깥과 이어지지 않은 방들 (문으로 순간 이동)
+  for (const b of BUILDINGS) carve(b.rx, b.ry, 20, 8);
+}
+
+// ---------- 건물: 생존자 캠프(구역마다 1) + 탐색 건물(구역마다 1) ----------
+// 바깥 문(door) 앞에서 ↑(W)를 누르면 실내로. 실내는 맵 아래쪽(95줄~)에 4열로 놓인 20×8칸 방 (카메라는 방에 고정)
+const ROOM_ROW0 = 95;
+const BUILDINGS = [
+  { id: 'camp1', kind: 'camp', zone: 0, theme: 'office', name: '지하철 역무실', door: { x: 6, y: 51 },
+    npc: { name: '역무원 할멈', col: '#6a5a8a', lines: ['다녀왔니, 모스. 여긴 아직 안전해.', '침대에서 쉬면 이곳이 네가 다시 일어나는 곳이 된다.', '무기는 작업대에서만 손봐라. 바깥에서 장비 만지다 먹힌 사냥꾼이 한둘이 아니야.'] } },
+  { id: 'ticket', kind: 'explore', zone: 0, theme: 'storage', name: '매표소 창고', door: { x: 31, y: 51 }, item: 'shotgun',
+    note: ['피난 열차 시간표.', '마지막 줄에 누군가 연필로 적어 두었다.', '「오지 않는다.」'] },
+  { id: 'camp2', kind: 'camp', zone: 1, theme: 'maint', name: '환기구 정비실', door: { x: 37, y: 38 },
+    npc: { name: '정비공', col: '#5a6a5a', lines: ['환풍기는 아직 돈다. 내가 돌리니까.', '위로 올라가려면 덩굴을 걸어. 발판은 미끄러워.'] } },
+  { id: 'camp3', kind: 'camp', zone: 2, theme: 'store', name: '무너진 편의점', door: { x: 48, y: 17 },
+    npc: { name: '떠돌이 상인', col: '#8a5a3a', lines: ['캔 하나에 탄 셋. …농담이야, 아직 팔 물건이 없어.', '검문소 쪽으로 가 봐. 군인들이 남긴 게 있을지도.'] } },
+  { id: 'army', kind: 'explore', zone: 2, theme: 'military', name: '버려진 군 검문소', door: { x: 76, y: 17 }, item: 'thorn', enemy: 'blob',
+    note: ['3소대 기록.', '총알은 덩굴을 끊었다. 우리는 많이 죽였다.', '하지만 탄창은 다시 차지 않았고, 덩굴은 다시 자랐다.'] },
+  { id: 'camp4', kind: 'camp', zone: 3, theme: 'greenoffice', name: '온실 관리동', door: { x: 81, y: 17 },
+    npc: { name: '온실 관리인', col: '#4a7a5a', lines: ['그 화분… 어디서 났니? 이 온실 품종이야.', '아래로 내려가면 공기가 달라진다. 정화통 아껴 써.'] } },
+  { id: 'vault', kind: 'explore', zone: 3, theme: 'vault', name: '종자 보관실', door: { x: 82, y: 39 }, item: 'swallow', enemy: 'flower',
+    note: ['품종 7번. 포식성 확인.', '예외: 기르는 사람을 따르는 개체가 있음.', '폐기 보류.'] },
+  { id: 'camp5', kind: 'camp', zone: 4, theme: 'mine', name: '광산 대피소', door: { x: 86, y: 67 },
+    npc: { name: '늙은 광부', col: '#7a6a4a', lines: ['포자 버섯 앞에선 숨을 참아라. 구름이 걷히면 지나가.', '왼쪽 끝 갱도로 떨어지면… 뿌리가 있다. 아무도 돌아오지 않았지.'] } },
+  { id: 'dorm', kind: 'explore', zone: 4, theme: 'dorm', name: '광부 숙소', door: { x: 25, y: 67 },
+    note: ['포자가 처음 나온 곳은 여기였다.', '우리가 뚫은 구멍에서.'] },
+  { id: 'camp6', kind: 'camp', zone: 5, theme: 'outpost', name: '무너진 초소', door: { x: 25, y: 87 },
+    npc: { name: '쓰러진 사냥꾼', col: '#3a5a4a', lines: ['여기까지 왔구나. 나는… 더는 못 가.', '세계수는 묻는다더라. 이제 무엇을 먹느냐고.', '대답은 네가 정해.'] } },
+  { id: 'clinic', kind: 'explore', zone: 5, theme: 'hospital', name: '삼켜진 병원', door: { x: 11, y: 87 },
+    note: ['환자들은 방독면을 벗고 잠들었다.', '몸에서 꽃이 피었다.', '아프지 않았다고 한다.'] },
+];
+BUILDINGS.forEach((b, i) => { b.rx = (i % 4) * 24 + 2; b.ry = ROOM_ROW0 + Math.floor(i / 4) * 12 + 2; });
+const roomAt = (tx, ty) => ty < ROOM_ROW0 ? null : BUILDINGS.find(b => tx >= b.rx - 2 && tx < b.rx + 22 && ty >= b.ry - 2 && ty < b.ry + 10) || null;
+// 상호작용 지점 (타일 좌표, 서 있는 칸)
+const INTERACTS = [];
+for (const b of BUILDINGS) {
+  INTERACTS.push({ kind: 'enter', b, x: b.door.x, y: b.door.y });
+  INTERACTS.push({ kind: 'exit', b, x: b.rx + 1, y: b.ry + 7 });
+  if (b.kind === 'camp') {
+    INTERACTS.push({ kind: 'bed', b, x: b.rx + 6, y: b.ry + 7 });
+    INTERACTS.push({ kind: 'bench', b, x: b.rx + 10, y: b.ry + 7 });
+    INTERACTS.push({ kind: 'npc', b, x: b.rx + 15, y: b.ry + 7 });
+  } else INTERACTS.push({ kind: 'note', b, x: b.rx + 8, y: b.ry + 7 });
 }
 const SPAWNS = [
   { t: 'blob', x: 17, y: 51 }, { t: 'blob', x: 30, y: 51 },
@@ -202,8 +246,11 @@ const SPAWNS = [
   { t: 'blob', x: 48, y: 67 }, { t: 'shroom', x: 37, y: 67 }, { t: 'shroom', x: 33, y: 63 },
   // 세계수 뿌리 핵
   { t: 'blob', x: 18, y: 87 }, { t: 'flower', x: 28, y: 81 }, { t: 'blob', x: 35, y: 87 }, { t: 'shroom', x: 40, y: 87 },
+  // 탐색 건물 안
+  ...BUILDINGS.filter(b => b.enemy).map(b => ({ t: b.enemy, x: b.rx + 13, y: b.ry + 7 })),
 ];
-const CHECKS = [{ x: 4, y: 51 }, { x: 38, y: 51 }, { x: 47, y: 17 }, { x: 82, y: 17 }, { x: 87, y: 67 }, { x: 24, y: 87 }];
+const CHECKS = [];                          // 새싹 체크포인트는 없앰 → 캠프 침대에서 쉬면 다시 일어나는 곳이 됨
+const START = { x: 4, y: 51 };
 const GOAL = { x: 46, y: 86 };   // 세계수 (닿으면 결말 「심는다」)
 const ZONES = [
   { until: 36, name: '이끼 덮인 지하철', sub: '1구역', base: '#4b5049', deep: '#1d2431', top: '#6aa13c' },
@@ -214,7 +261,15 @@ const ZONES = [
   { until: 99, name: '세계수 뿌리 핵', sub: '5구역', base: '#4a3a2a', deep: '#22180f', top: '#a8c040' },
 ];
 // 구역: 56줄 아래는 균류 동굴, 76줄 아래는 세계수 뿌리 핵, 그 위는 가로 위치로 (tools/art/make_world.py·world3d.js와 같은 규칙)
-const zoneOf = (tx, ty = 0) => ty >= 76 ? ZONES[5] : ty >= 56 ? ZONES[4] : (ZONES.slice(0, 4).find(z => tx < z.until) || ZONES[3]);
+const ROOM_ZONES = new Map();
+function roomZone(b) {
+  if (!ROOM_ZONES.has(b)) ROOM_ZONES.set(b, { ...ZONES[b.zone], name: b.name, sub: b.kind === 'camp' ? '생존자 캠프' : '탐색', zi: b.zone, room: b });
+  return ROOM_ZONES.get(b);
+}
+const zoneOf = (tx, ty = 0) => {
+  if (ty >= ROOM_ROW0 - 1) { const b = roomAt(tx, ty); if (b) return roomZone(b); }
+  return ty >= 76 ? ZONES[5] : ty >= 56 ? ZONES[4] : (ZONES.slice(0, 4).find(z => tx < z.until) || ZONES[3]);
+};
 
 const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? '#' : map[ty][tx];
 const solidT = (tx, ty) => tileAt(tx, ty) === '#';
@@ -257,10 +312,11 @@ function move(e, dt) {
 // ---------- 입력 ----------
 const keys = {};
 const mouse = { x: VW / 2, y: VH / 2, left: false, right: false, leftPressed: false };
-let jumpPressed = false, seedPressed = false;
+let jumpPressed = false, seedPressed = false, upPressed = false;
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (['w', ' ', 'arrowup'].includes(k) && !keys[k]) jumpPressed = true;
+  if (['w', 'arrowup'].includes(k) && !keys[k]) upPressed = true;
   if (['e', 'shift'].includes(k) && !keys[k]) seedPressed = true;
   if (k === 'r' && state === 'clear') start();
   if (k === 'f' && !e.repeat) toggleFullscreen();
@@ -272,7 +328,7 @@ addEventListener('keydown', e => {
   if (k === 'tab') { e.preventDefault(); if (state === 'play') openBag(); else if (state === 'bag') closeBag(); return; }
   if (state === 'bag') {
     if (k === 'escape') closeBag();
-    if (k === '1' || k === '2') bag.sel = Number(k) - 1;
+    if ((k === '1' || k === '2') && bag.edit) bag.sel = Number(k) - 1;
     return;
   }
   if ((k === 'enter' || (k === ' ' && state === 'title')) && (state === 'title' || state === 'clear')) { start(); e.preventDefault(); return; }
@@ -321,9 +377,11 @@ const WEAPONS = {
 };
 const SKILL_CD = { thorn: 4, swallow: 3 };
 // 줍는 아이템 (보스가 생기기 전까지 임시: 구역마다 하나)
-const PICKUPS = [{ id: 'shotgun', x: 21, y: 44 }, { id: 'thorn', x: 57, y: 12 }, { id: 'swallow', x: 89, y: 33 }];
-function newBag() { return { owned: new Set(['whip', 'sickle', 'hook', 'seed']), weapon: 'whip', skills: ['hook', 'seed'], sel: 0, hover: null }; }
-function openBag() { state = 'bag'; bag.hover = null; mouse.left = mouse.right = false; }
+// 줍는 아이템: 탐색 건물 안 (보스가 생기기 전까지 임시)
+const PICKUPS = BUILDINGS.filter(b => b.item).map(b => ({ id: b.item, x: b.rx + 17, y: b.ry + 7 }));
+function newBag() { return { owned: new Set(['whip', 'sickle', 'hook', 'seed']), weapon: 'whip', skills: ['hook', 'seed'], sel: 0, hover: null, edit: false, warnT: 0 }; }
+// edit: 캠프 작업대에서 열었을 때만 장비를 바꿀 수 있음 (바깥에서 Tab은 보기만)
+function openBag(edit = false) { state = 'bag'; bag.hover = null; bag.edit = edit; bag.warnT = 0; mouse.left = mouse.right = false; bannerT = 0; bannerEl.style.opacity = 0; }
 function closeBag() { state = 'play'; acc = 0; }
 let bagHits = [];
 function bagClick(x, y) {
@@ -333,6 +391,7 @@ function bagClick(x, y) {
   if (h.close) { closeBag(); return; }
   const id = h.item;
   if (!bag.owned.has(id)) return;
+  if (!bag.edit) { bag.warnT = 1.6; return; }          // 바깥에서는 보기만
   if (ITEMS[id].kind === 'weapon') { bag.weapon = id; return; }
   const other = bag.skills.indexOf(id);
   if (other >= 0 && other !== bag.sel) bag.skills[other] = bag.skills[bag.sel];   // 다른 칸에 있으면 서로 바꿈
@@ -361,7 +420,7 @@ function placePlayerAt(c) {
 function restart() {
   buildMap();
   P = { x: 0, y: 0, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 100, maxHp: 100, hpLag: 100, inv: 0, coyote: 0, buffer: 0, slashCd: 0, seedCd: 0, anim: 0, onGround: false, safe: null, act: null, walkT: 0, landT: 0 };
-  checkpoint = CHECKS[0]; activeChecks = new Set([0]);
+  checkpoint = START; activeChecks = new Set();
   placePlayerAt(checkpoint);
   // 개발용: 주소 끝에 ?at=타일x,타일y 를 붙이면 그 칸에서 시작 (예: ?at=50,16)
   const at = new URLSearchParams(location.search).get('at');
@@ -413,7 +472,7 @@ function deathLines(cause) {
     [`> 버틴 시간 ${timeRun.toFixed(1)}s | 쓰러뜨린 식물 ${kills} | 쓰러진 횟수 ${deaths}`, ''],
   ];
   if (deaths > 1) L.push([`> 재생성 기록 ${deaths - 1}회. 화분 식물 생체 신호: 안정`, 'dim']);
-  L.push(['', ''], ['> 마지막 새싹에서 재생성하시겠습니까?', '']);
+  L.push(['', ''], ['> 마지막으로 쉰 캠프에서 재생성하시겠습니까?', '']);
   return L;
 }
 function typeLines(lines) {
@@ -446,9 +505,8 @@ function respawn() {
   if (state !== 'dead' || !deathReady) return;
   deathEl.hidden = true; clearInterval(termTimer);
   P.hp = P.hpLag = P.maxHp; P.inv = 1.2; P.thornT = 0; P.swallowT = 0; bullets = []; pshots = [];
-  placePlayerAt(checkpoint);
   spawnEnemies();
-  cam.x = P.x - VW / 2; cam.y = P.y - VH / 2;
+  goTo(checkpoint.x, checkpoint.y);
   state = 'play'; acc = 0; cv.focus({ preventScroll: true });
 }
 function restartFromDeath() {
@@ -516,6 +574,13 @@ function update(dt) {
     // 갈고리·반동 등으로 얻은 최고 속도 초과분은 땅에선 빨리, 공중에선 천천히 줄어듦
     if (Math.abs(P.vx) > cap) P.vx -= Math.sign(P.vx) * Math.min(Math.abs(P.vx) - cap, (P.onGround ? 900 : 160) * dt);
   } else if (dir) P.vx += dir * 200 * dt;
+
+  // 상호작용: 문·침대·작업대·사람·기록 앞에서 ↑(W). 이때는 점프하지 않음 (점프는 Space)
+  const pcx = P.x + P.w / 2, pfy = P.y + P.h;
+  P.near = P.onGround ? INTERACTS.find(o => Math.abs(pcx - (o.x * T + 8)) < 10 && Math.abs(pfy - (o.y + 1) * T) < 4) || null : null;
+  if (P.dialog && P.near !== P.dialog.o) P.dialog = null;
+  if (P.near && upPressed) { interact(P.near); jumpPressed = false; }
+  fadeT = Math.max(0, fadeT - dt);
 
   // 점프
   P.coyote = P.onGround ? 0.1 : P.coyote - dt;
@@ -767,10 +832,39 @@ function update(dt) {
   cam.y += (ty - cam.y) * Math.min(1, 6 * dt);
   cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
+  const inRoom = roomAt(Math.floor(pcx / T), Math.floor((P.y + P.h / 2) / T));
+  if (inRoom) { cam.x = inRoom.rx * T; cam.y = inRoom.ry * T + 64 - VH / 2; }   // 실내: 방(20칸 = 화면 너비)에 고정
   shake = Math.max(0, shake - 20 * dt);
 
-  jumpPressed = seedPressed = false; mouse.leftPressed = mouse.rightPressed = false;
+  jumpPressed = seedPressed = upPressed = false; mouse.leftPressed = mouse.rightPressed = false;
 }
+
+// ---------- 건물 상호작용 ----------
+let fadeT = 0;
+function goTo(tx, ty) {
+  placePlayerAt({ x: tx, y: ty });
+  hook = null; seed = null; bullets = []; P.dialog = null;
+  const room = roomAt(tx, ty);
+  if (room) { cam.x = room.rx * T; cam.y = room.ry * T + 64 - VH / 2; }
+  else { cam.x = clamp(P.x - VW / 2, 0, W * T - VW); cam.y = clamp(P.y - VH / 2, 0, H * T - VH); }
+  fadeT = 0.45;
+}
+function interact(o) {
+  const b = o.b;
+  if (o.kind === 'enter') goTo(b.rx + 3, b.ry + 7);
+  else if (o.kind === 'exit') goTo(b.door.x, b.door.y);
+  else if (o.kind === 'bed') {
+    P.hp = P.maxHp; checkpoint = { x: o.x, y: o.y }; burst(o.x * T + 8, o.y * T + 8, '#e9d78a', 16, 70);
+    P.dialog = { o, title: '쉬었다', lines: ['체력이 가득 찼다.', `이제 쓰러지면 「${b.name}」에서 다시 일어난다.`], i: 0 };
+  } else if (o.kind === 'bench') openBag(true);
+  else if (o.kind === 'npc' || o.kind === 'note') {
+    const lines = o.kind === 'npc' ? b.npc.lines : b.note;
+    if (P.dialog && P.dialog.o === o) { P.dialog.i++; if (P.dialog.i >= lines.length) P.dialog = null; }
+    else P.dialog = { o, title: o.kind === 'npc' ? b.npc.name : '기록 · ' + b.name, lines, i: 0 };
+    if (o.kind === 'note') o.read = true;
+  }
+}
+const PROMPT = { enter: o => '들어가기 · ' + o.b.name, exit: () => '나가기', bed: () => '쉬기', bench: () => '작업대 (장비 바꾸기)', npc: o => '대화 · ' + o.b.npc.name, note: () => '읽기' };
 
 function teleportTo(x, y) {
   burst(P.x + P.w / 2, P.y + P.h / 2, '#8cc66a', 10, 70);
@@ -851,7 +945,7 @@ function init3D() {
   import('./world3d.js').then(m => {
     w3 = m.createWorld3D({ canvas: document.getElementById('c3'), tileAt, W, H, T, VW, VH, RS,
       tilesImg, backdropImg: ZONE_BGS[0].img, backdrop2Img: ZONE_BGS[1].img, backdrop3Img: ZONE_BGS[4].img,
-      backdrop4Img: ZONE_BGS[2].img, backdrop5Img: ZONE_BGS[3].img, maxTx: W - 1 });
+      backdrop4Img: ZONE_BGS[2].img, backdrop5Img: ZONE_BGS[3].img, buildings: BUILDINGS, roomRow0: ROOM_ROW0, maxTx: W - 1 });
   }).catch(err => { console.warn('3D 배경을 못 불러와 2D로 그립니다:', err); });
 }
 // 세계 도트 (tools/art/make_world.py가 만듦). 게임 1px = 도트 2px (RS=2)
@@ -868,7 +962,7 @@ function drawTilesArt(cx, cy, minTx = 0) {
   const over = [];
   for (let ty = y0; ty <= y0 + 12; ty++) for (let tx = x0; tx <= x0 + 21; tx++) {
     const c = tileAt(tx, ty), sx = tx * T - cx, sy = ty * T - cy;
-    const zi = ZONES.indexOf(zoneOf(tx, ty));
+    const zz = zoneOf(tx, ty), zi = zz.zi !== undefined ? zz.zi : ZONES.indexOf(zz);
     if (c === '#') {
       const inner = solidT(tx - 1, ty) && solidT(tx + 1, ty) && solidT(tx, ty - 1) && solidT(tx, ty + 1);
       tileSpr(inner ? 3 : Math.floor(hash(tx, ty) * 3), zi, sx, sy);
@@ -1120,6 +1214,13 @@ function draw() {
   }
   for (const e of enemies) drawEnemy(e, cx, cy);
   drawClouds(cx, cy);
+  // 캠프의 생존자 (두건 쓴 사람, 화면 px로 직접 찍음) · 읽지 않은 기록 반짝임
+  for (const o of INTERACTS) {
+    const ox = o.x * T + 8 - cx, oy = (o.y + 1) * T - cy;
+    if (ox < -20 || ox > VW + 20 || oy < -30 || oy > VH + 30) continue;
+    if (o.kind === 'npc') drawNpc(ox, oy, o.b.npc.col);
+    if (o.kind === 'note' && !o.read) { ctx.globalAlpha = 0.5 + 0.5 * Math.sin(timeNow * 4); rect(ox - 1, oy - 14, 2, 2, '#e9d78a'); ctx.globalAlpha = 1; }
+  }
   // 갈고리 덩굴
   const drawVine = (x1, y1, x2, y2) => {
     const d = Math.hypot(x2 - x1, y2 - y1), n = Math.max(1, Math.floor(d / 2));
@@ -1187,7 +1288,34 @@ function draw() {
   }
   for (const p of parts) rect(p.x - cx, p.y - cy, 1, 1, p.col);
   drawHUD();
+  // ↑ 상호작용 안내 · 대화 상자
+  if (state === 'play' && P.near && !P.dialog) {
+    const t = '↑ ' + PROMPT[P.near.kind](P.near);
+    ctx.font = 'bold 6px "Noto Sans KR", sans-serif';
+    const w = ctx.measureText(t).width + 8, x = Math.round(P.x + P.w / 2 - cx - w / 2), y = Math.round(P.y - cy - 16);
+    rect(x, y, w, 10, 'rgba(8, 16, 14, 0.8)'); ctx.fillStyle = '#e9d78a'; ctx.fillText(t, x + 4, y + 7);
+  }
+  if (P.dialog) {
+    const d = P.dialog, x = 40, y = VH - 44, w = VW - 80;
+    rect(x, y, w, 34, 'rgba(8, 16, 14, 0.9)'); rect(x, y, w, 1, '#3f6b40');
+    ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e9d78a'; ctx.fillText(d.title, x + 6, y + 9);
+    ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e6eed8'; wrapText(d.lines[d.i], x + 6, y + 19, w - 12, 8);
+    ctx.fillStyle = '#8aa293'; ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillText(d.i + 1 < d.lines.length ? '↑ 다음' : '↑ 닫기', x + w - 22, y + 30);
+  }
+  if (fadeT > 0) { ctx.globalAlpha = Math.min(1, fadeT / 0.45); rect(0, 0, VW, VH, '#000'); ctx.globalAlpha = 1; }
   if (state === 'bag') drawBag();
+}
+
+// 생존자: 두건 쓴 사람 (화면 px로 직접 찍음, 숨 쉬듯 1px 움직임)
+function drawNpc(gx, gy, col) {
+  const sx = Math.round(gx * RS), sy = Math.round(gy * RS), b = Math.floor(timeNow * 1.5) % 2;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const P_ = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(sx + x, sy + y, w, h); };
+  P_(-8, -34 + b, 16, 34 - b, '#141a16');                       // 테두리
+  P_(-7, -33 + b, 14, 22, col); P_(-7, -33 + b, 4, 22, 'rgba(255,255,255,0.12)');   // 두건·망토
+  P_(-4, -29 + b, 8, 7, '#2a2420'); P_(-2, -27 + b, 2, 2, '#e9d78a'); P_(2, -27 + b, 2, 2, '#e9d78a');   // 그늘진 얼굴·눈빛
+  P_(-6, -11, 12, 9, '#3a3a34'); P_(-5, -2, 4, 2, '#2a2420'); P_(1, -2, 4, 2, '#2a2420');             // 바지·신발
+  ctx.restore();
 }
 
 // ---------- 아이콘 (가방·HUD·줍는 아이템, 12×12 게임 px) ----------
@@ -1219,7 +1347,8 @@ function drawBag() {
   rect(22, 12, 276, 156, '#162220'); rect(22, 12, 276, 1, '#3f6b40'); rect(22, 167, 276, 1, '#3f6b40'); rect(22, 12, 1, 156, '#3f6b40'); rect(297, 12, 1, 156, '#3f6b40');
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 9px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e9d78a'; ctx.fillText('가방', 32, 24);
-  ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText('Tab · Esc 닫기   칸을 눌러 바꾸기   1 · 2 기술 칸 고르기', 70, 24);
+  ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText(bag.edit ? '작업대 · 칸을 눌러 바꾸기   1 · 2 기술 칸 고르기   Tab · Esc 닫기' : '보기만 · 장비는 캠프의 작업대에서 바꿈   Tab · Esc 닫기', 70, 24);
+  if (bag.warnT > 0) { bag.warnT -= 1 / 60; ctx.fillStyle = '#e9a08a'; ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillText('여기서는 바꿀 수 없다. 생존자 캠프의 작업대로 가자.', 158, 108); }
   const box = (x, y, on, sel) => { rect(x, y, 20, 20, on ? '#24362c' : '#1a2420'); rect(x, y, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y + 19, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); rect(x + 19, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); };
   // 장착 칸
   ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText('장착', 32, 38);
@@ -1270,7 +1399,7 @@ function frame(now) {
 }
 buildMap();
 P = { x: 0, y: 0, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 100, maxHp: 100, hpLag: 100, inv: 0, anim: 0, seedCd: 0, act: null, walkT: 0, landT: 0 };
-checkpoint = CHECKS[0]; placePlayerAt(checkpoint); spawnEnemies();
+checkpoint = START; placePlayerAt(checkpoint); spawnEnemies();
 bullets = []; parts = []; seed = null; hook = null; shake = 0; activeChecks = new Set([0]);
 bag = newBag(); pickups = PICKUPS.map(p => ({ ...p, taken: false })); P.cds = {}; P.thornT = 0; P.swallowT = 0; P.swallowN = 0;
 cam = { x: Math.max(0, P.x - VW / 2), y: Math.min(H * T - VH, P.y - VH / 2) };

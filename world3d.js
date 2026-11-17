@@ -263,7 +263,7 @@ function bigLeafTex(seed) {
 }
 
 // ---------- 장면 ----------
-export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, backdropImg, backdrop2Img, backdrop3Img, backdrop4Img, backdrop5Img, maxTx }) {
+export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, backdropImg, backdrop2Img, backdrop3Img, backdrop4Img, backdrop5Img, buildings = [], roomRow0 = 999, maxTx }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
   renderer.setPixelRatio(1);
   renderer.setSize(VW * RS, VH * RS, false);
@@ -277,7 +277,8 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
   const solid = (tx, ty) => tileAt(tx, ty) === '#';
   const lam = (map, extra = {}) => new THREE.MeshLambertMaterial({ map, ...extra });
   // tiles.png 줄 = index.html ZONES 순서 (56줄 아래 균류 동굴, 76줄 아래 세계수 뿌리 핵)
-  const zoneOf = (tx, ty = 0) => (ty >= 76 ? 5 : ty >= 56 ? 4 : tx < 36 ? 0 : tx < 46 ? 1 : tx < 80 ? 2 : 3);
+  const roomAt = (tx, ty) => ty < roomRow0 - 1 ? null : buildings.find(b => tx >= b.rx - 2 && tx < b.rx + 22 && ty >= b.ry - 2 && ty < b.ry + 10) || null;
+  const zoneOf = (tx, ty = 0) => { const r = roomAt(tx, ty); if (r) return r.zone; return ty >= 76 ? 5 : ty >= 56 ? 4 : tx < 36 ? 0 : tx < 46 ? 1 : tx < 80 ? 2 : 3; };
 
   // --- 블록: 맵의 '#' 칸을 3D 상자로 (앞면 z=0, 깊이 64). 구역·드러남·변형별로 InstancedMesh ---
   const geo = new THREE.BoxGeometry(T, T, DEPTH);
@@ -696,6 +697,90 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
     // 떠다니는 금빛 포자는 아래 포자 무리에서 함께 처리
   }
 
+  // --- 건물: 바깥 문 + 실내 (생존자 캠프·탐색 건물) ---
+  const fires = [];
+  const roomLamps = [];       // 방마다 등 위치 (실내 조명 하나를 지금 방으로 옮겨 씀)
+  {
+    const wood = lam(tex(16, 16, g => { px(g, 0, 0, 16, 16, '#6a4a30'); for (let y = 0; y < 16; y += 4) px(g, 0, y, 16, 1, '#4a3220'); noise(g, 16, 16, ['#5a3e28', '#7a5838'], 30, 9); }));
+    const metal = lam(tex(16, 16, g => { px(g, 0, 0, 16, 16, '#4e5654'); px(g, 0, 0, 16, 1, '#6a7470'); noise(g, 16, 16, ['#6b4a34', '#3e4644'], 30, 4); }));
+    const cloth = c => lam(tex(16, 8, g => { px(g, 0, 0, 16, 8, c); noise(g, 16, 8, ['rgba(0,0,0,0.25)', 'rgba(255,255,255,0.12)'], 30, 2); }));
+    const glowMat = c => new THREE.MeshBasicMaterial({ color: c });
+    const B = (w, h, d, mat, x, yBottom, z, rz = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, Y(yBottom - h / 2), z); m.rotation.z = rz; scene.add(m); return m; };
+    const plane = (w, h, mat, x, yc, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, Y(yc), z); scene.add(m); return m; };
+    const WALLS = {
+      office: ['#7a7c70', '#5a5c52'], storage: ['#6a6c62', '#4c4e46'], maint: ['#4a5250', '#2e3433'], store: ['#8a8070', '#5a5048'],
+      military: ['#5a5e48', '#3a3e2e'], greenoffice: ['#6a7a6a', '#3e4c40'], vault: ['#5a5a5e', '#3a3a40'], mine: ['#5a4a38', '#3a2e22'],
+      dorm: ['#6a5a48', '#44382c'], outpost: ['#5a4a3a', '#3a2c20'], hospital: ['#8a8c88', '#5a5c58'],
+    };
+    function wallTexFor(theme) {
+      const [c1, c2] = WALLS[theme] || WALLS.office;
+      return tex(32, 32, g => {
+        px(g, 0, 0, 32, 32, c1);
+        if (theme === 'maint' || theme === 'vault') { px(g, 0, 15, 32, 1, c2); px(g, 15, 0, 1, 32, c2); for (const [x, y] of [[2, 2], [29, 2], [2, 29], [29, 29]]) px(g, x, y, 1, 1, '#8a948f'); }
+        else if (theme === 'mine' || theme === 'outpost' || theme === 'dorm') { for (let y = 0; y < 32; y += 8) px(g, 0, y, 32, 1, c2); px(g, 10, 0, 1, 32, c2); }
+        else { for (let y = 0; y < 32; y += 8) for (let x = 0; x < 32; x += 8) { px(g, x, y + 7, 8, 1, c2); px(g, x + 7, y, 1, 8, c2); } }
+        noise(g, 32, 32, [c2, '#4f6b34', '#6b4a34'], 70, theme.length);
+        for (let x = 0; x < 32; x++) if (hash(x, theme.length) < 0.15) px(g, x, 0, 1, 2 + Math.floor(hash(theme.length, x) * 8), '#3f6a30');   // 위에서 스며든 이끼
+      }, [20 * 16 / 32, 8 * 16 / 32]);
+    }
+    function door(x, yFloor, camp, inside) {
+      B(24, 34, 4, metal, x, yFloor, -3);                                           // 문틀
+      const panel = lam(tex(16, 24, g => {
+        px(g, 0, 0, 16, 24, camp ? '#5a4632' : '#4a4e48'); px(g, 1, 1, 14, 22, camp ? '#6a5238' : '#565a52');
+        if (camp) { px(g, 3, 3, 10, 6, '#ffcf80'); px(g, 7, 3, 1, 6, '#5a4632'); }   // 불 켜진 창
+        else { for (const y of [6, 13]) px(g, 0, y, 16, 3, '#7a5838'); }           // 판자를 덧댐
+        px(g, 12, 13, 2, 2, '#c8b878');
+      }));
+      plane(20, 30, panel, x, yFloor - 15, -0.8);
+      if (camp && !inside) { const l = B(4, 5, 4, glowMat('#ffd9a0'), x + 15, yFloor - 26, -2); fires.push(l); }
+    }
+    for (const b of buildings) {
+      const camp = b.kind === 'camp';
+      // 바깥 문
+      door(b.door.x * T + 8, (b.door.y + 1) * T, camp, false);
+      // 실내
+      const X0 = b.rx * T, X1 = X0 + 20 * T, FL = (b.ry + 8) * T, CE = b.ry * T, cx = (X0 + X1) / 2;
+      const wm = lam(wallTexFor(b.theme));
+      plane(20 * T, 8 * T, wm, cx, (FL + CE) / 2, -DEPTH + 0.5);
+      door(X0 + 1 * T + 8, FL, camp, true);
+      const lampX = cx + (camp ? -10 : 20);
+      B(10, 3, 6, glowMat(camp ? '#ffd9a0' : '#d8e4c8'), lampX, CE + 12, -30); B(1, 10, 1, metal, lampX, CE + 9, -30);
+      roomLamps.push({ b, x: lampX, y: CE + 16, camp });
+      // 창 (판자로 막고 틈으로 빛)
+      plane(30, 22, lam(tex(16, 12, g => { px(g, 0, 0, 16, 12, '#2a3a34'); for (const y of [1, 5, 9]) px(g, 0, y, 16, 2, '#6a4a30'); px(g, 0, 4, 16, 1, '#c8e0b0'); })), X0 + 4 * T, CE + 36, -DEPTH + 1);
+      // 실내로 들어온 덩굴
+      for (let k = 0; k < 6; k++) { const v = new THREE.Mesh(vineGeo, vineMats[k % 3]); v.position.set(X0 + 16 + hash(k, b.rx) * (20 * T - 32), Y(CE + 32), -10 - hash(b.rx, k) * 40); scene.add(v); swaying.push(v); }
+      const at = tx => X0 + (tx - b.rx) * T + 8;
+      if (camp) {
+        // 침대(rx+6) · 작업대(rx+10) · 드럼통 불 · 선반 · 라디오
+        B(30, 6, 18, wood, at(b.rx + 6), FL, -24); B(28, 4, 16, cloth('#c8c0a8'), at(b.rx + 6), FL - 6, -24); B(16, 4, 16, cloth(['#6a3a3a', '#3a4a6a', '#4a6a3a'][b.zone % 3]), at(b.rx + 6) + 6, FL - 9, -24);
+        B(34, 3, 16, wood, at(b.rx + 10), FL - 16, -20); for (const dx of [-14, 14]) B(3, 16, 3, wood, at(b.rx + 10) + dx, FL, -20);
+        B(6, 6, 6, metal, at(b.rx + 10) - 8, FL - 19, -22); B(10, 2, 4, metal, at(b.rx + 10) + 6, FL - 19, -18); B(2, 8, 2, wood, at(b.rx + 10) + 12, FL - 19, -24);   // 바이스·연장
+        B(12, 16, 12, metal, at(b.rx + 13), FL, -40); const f = B(9, 4, 9, glowMat('#ff9a40'), at(b.rx + 13), FL - 16, -40); fires.push(f);
+        B(40, 3, 10, wood, at(b.rx + 17), FL - 40, -54); for (let k = 0; k < 5; k++) B(4, 6, 4, metal, at(b.rx + 17) - 16 + k * 8, FL - 43, -54);
+        B(8, 6, 6, lam(tex(8, 6, g => { px(g, 0, 0, 8, 6, '#3a3a34'); px(g, 1, 1, 3, 3, '#7a7a70'); px(g, 5, 1, 2, 1, '#c8483a'); })), at(b.rx + 17) + 10, FL - 46, -54);
+      } else if (b.theme === 'storage') {
+        for (let k = 0; k < 6; k++) B(14, 34, 10, lam(tex(8, 16, g => { px(g, 0, 0, 8, 16, '#5a6a72'); px(g, 1, 1, 6, 14, '#6a7a82'); for (let y = 3; y < 8; y += 2) px(g, 2, y, 4, 1, '#3a4a52'); })), at(b.rx + 4) + k * 15, FL, -50);
+        for (let k = 0; k < 4; k++) B(16, 12, 14, wood, at(b.rx + 12) + k * 18, FL, -20 - (k % 2) * 14);
+      } else if (b.theme === 'military') {
+        for (let k = 0; k < 9; k++) B(14, 7, 10, cloth('#8a7a5a'), at(b.rx + 4) + (k % 5) * 13 + (k > 4 ? 6 : 0), FL - (k > 4 ? 7 : 0), -30);   // 모래주머니
+        for (let k = 0; k < 3; k++) B(18, 10, 12, lam(tex(8, 6, g => { px(g, 0, 0, 8, 6, '#4a5a3a'); px(g, 0, 0, 8, 1, '#5e6e48'); px(g, 3, 2, 2, 1, '#c8c060'); })), at(b.rx + 14) + k * 20, FL, -22);
+        B(30, 2, 4, wood, at(b.rx + 10), FL - 30, -58); for (let k = 0; k < 4; k++) B(2, 22, 2, metal, at(b.rx + 10) - 10 + k * 6, FL - 8, -56, 0.15);   // 소총 거치대
+      } else if (b.theme === 'vault') {
+        plane(20 * T - 40, 70, lam(tex(32, 16, g => { px(g, 0, 0, 32, 16, '#4a4a50'); for (let y = 0; y < 16; y += 4) for (let x = 0; x < 32; x += 4) { px(g, x, y, 4, 4, '#5a5a62'); px(g, x + 1, y + 1, 2, 1, '#8a8a90'); } })), cx, FL - 45, -DEPTH + 2);
+        for (let k = 0; k < 7; k++) B(5, 8, 5, glowMat(['#9fe0a0', '#d0f080', '#80e0c0'][k % 3]), at(b.rx + 6) + k * 18, FL - 22, -40);
+        B(120, 3, 14, metal, at(b.rx + 11), FL - 22, -40);
+      } else if (b.theme === 'dorm') {
+        for (let k = 0; k < 3; k++) { const x = at(b.rx + 5) + k * 60; for (const h of [0, 26]) { B(40, 4, 16, wood, x, FL - 8 - h, -36); B(38, 3, 14, cloth('#7a6a5a'), x, FL - 12 - h, -36); } for (const dx of [-19, 19]) B(3, 40, 3, wood, x + dx, FL, -36); }
+      } else if (b.theme === 'hospital') {
+        for (let k = 0; k < 3; k++) { const x = at(b.rx + 6) + k * 60; B(36, 4, 18, metal, x, FL - 10, -30); B(34, 4, 16, cloth('#d8d8d0'), x, FL - 14, -30); B(2, 34, 2, metal, x + 22, FL, -30); plane(30, 50, lam(tex(8, 16, g => { px(g, 0, 0, 8, 16, '#8aa098'); for (let x2 = 0; x2 < 8; x2 += 2) px(g, x2, 0, 1, 16, '#6a8078'); }), { transparent: true, opacity: 0.85 }), x - 26, FL - 30, -42); }
+        for (let k = 0; k < 10; k++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshLambertMaterial({ map: fernTex(k), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })); f.position.set(at(b.rx + 6) + (k % 3) * 60 + (hash(k, 5) - 0.5) * 20, Y(FL - 20), -28); scene.add(f); }   // 침대에서 핀 꽃
+      }
+      if (b.kind !== 'camp') B(18, 2, 10, wood, at(b.rx + 8), FL - 14, -14), B(2, 12, 2, wood, at(b.rx + 8) - 7, FL, -14), B(2, 12, 2, wood, at(b.rx + 8) + 7, FL, -14), B(8, 1, 6, glowMat('#e8e0c0'), at(b.rx + 8), FL - 15, -14);   // 기록이 놓인 작은 탁자
+    }
+  }
+  const roomLight = new THREE.PointLight('#ffcf90', 0, 260, 1.2); scene.add(roomLight);
+
   // --- 조명 ---
   scene.add(new THREE.HemisphereLight('#a8cfc8', '#3a3628', 1.6));
   const sun = new THREE.DirectionalLight('#f6e2b4', 2.4);
@@ -739,11 +824,17 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
       if (kd <= 0) continue;
       scene.fog.color.lerp(d.fogC, kd); scene.background.lerp(d.bgC, kd); sun.color.lerp(d.sunC, kd); hi += (d.hemi - hi) * kd;
     }
+    // 실내: 따뜻하고 어둡게, 하늘빛은 거의 없이
+    if (cyw > (roomRow0 - 2) * T) { scene.fog.color.set('#1c140c'); scene.background.set('#0b0805'); sun.color.set('#806040'); hi = 0.55; }
     if (hemi) hemi.intensity = hi;
   }
 
   function render(cx, cy, t) {
     mood(cx + VW / 2, cy + VH / 2);
+    const room = roomLamps.find(r => r.b === roomAt(Math.floor((cx + VW / 2) / T), Math.floor((cy + VH / 2) / T)));
+    if (room) { roomLight.position.set(room.x, Y(room.y), -20); roomLight.color.set(room.camp ? '#ffc880' : '#c8d8c0'); roomLight.intensity = (room.camp ? 1500 : 900) * (0.92 + 0.08 * Math.sin(t * 9) * (hash(Math.floor(t * 6), 3) < 0.15 ? 2 : 1)); }
+    else roomLight.intensity = 0;
+    fires.forEach((f, i) => { f.material.color.setHSL(0.08 + 0.02 * Math.sin(t * 9 + i), 1, 0.55 + 0.12 * Math.sin(t * 13 + i * 2)); });
     extraLights.forEach(({ L, base, kind }, i) => {
       L.intensity = kind === 'flicker' ? base * (hash(Math.floor(t * 10), i) < 0.12 ? 0.25 : 1) : kind === 'pulse' ? base * (0.8 + 0.2 * Math.sin(t * 1.7 + i)) : base;
     });
