@@ -113,7 +113,9 @@ canvas:focus-visible { outline: none; }
 <div id="keys">
   <span><b>A D</b> 이동</span>
   <span><b>W · Space</b> 점프</span>
-  <span><b>왼쪽 클릭</b> 무기</span>
+  <span><b>왼쪽 클릭</b> 무기 (총은 누르고 있으면 연사되는 것도)</span>
+  <span><b>Q</b> 무기 바꿔 들기</span>
+  <span><b>R</b> 재장전</span>
   <span><b>오른쪽 클릭</b> 기술 1 (처음: 덩굴 갈고리)</span>
   <span><b>E · Shift</b> 기술 2 (처음: 씨앗 순간이동)</span>
   <span><b>W · ↑</b> 문·침대·작업대·대화 (점프는 Space)</span>
@@ -202,13 +204,13 @@ const ROOM_ROW0 = 95;
 const BUILDINGS = [
   { id: 'camp1', kind: 'camp', zone: 0, theme: 'office', name: '지하철 역무실', door: { x: 6, y: 51 },
     npc: { name: '역무원 할멈', col: '#6a5a8a', lines: ['다녀왔니, 모스. 여긴 아직 안전해.', '침대에서 쉬면 이곳이 네가 다시 일어나는 곳이 된다.', '무기는 작업대에서만 손봐라. 바깥에서 장비 만지다 먹힌 사냥꾼이 한둘이 아니야.'] } },
-  { id: 'ticket', kind: 'explore', zone: 0, theme: 'storage', name: '매표소 창고', door: { x: 31, y: 51 }, item: 'shotgun',
+  { id: 'ticket', kind: 'explore', zone: 0, theme: 'storage', name: '매표소 창고', door: { x: 31, y: 51 }, item: 'shotgun', loot: [{ ammo: '12g', n: 6 }],
     note: ['피난 열차 시간표.', '마지막 줄에 누군가 연필로 적어 두었다.', '「오지 않는다.」'] },
-  { id: 'camp2', kind: 'camp', zone: 1, theme: 'maint', name: '환기구 정비실', door: { x: 37, y: 38 },
+  { id: 'camp2', kind: 'camp', zone: 1, theme: 'maint', name: '환기구 정비실', door: { x: 37, y: 38 }, item: 'crowbar',
     npc: { name: '정비공', col: '#5a6a5a', lines: ['환풍기는 아직 돈다. 내가 돌리니까.', '위로 올라가려면 덩굴을 걸어. 발판은 미끄러워.'] } },
-  { id: 'camp3', kind: 'camp', zone: 2, theme: 'store', name: '무너진 편의점', door: { x: 48, y: 17 },
+  { id: 'camp3', kind: 'camp', zone: 2, theme: 'store', name: '무너진 편의점', door: { x: 48, y: 17 }, item: 'machete',
     npc: { name: '떠돌이 상인', col: '#8a5a3a', lines: ['캔 하나에 탄 셋. …농담이야, 아직 팔 물건이 없어.', '검문소 쪽으로 가 봐. 군인들이 남긴 게 있을지도.'] } },
-  { id: 'army', kind: 'explore', zone: 2, theme: 'military', name: '버려진 군 검문소', door: { x: 76, y: 17 }, item: 'thorn', enemy: 'blob',
+  { id: 'army', kind: 'explore', zone: 2, theme: 'military', name: '버려진 군 검문소', door: { x: 76, y: 17 }, item: 'rifle', loot: ['thorn', { ammo: '762', n: 10 }, { ammo: '9mm', n: 24 }], enemy: 'blob',
     note: ['3소대 기록.', '총알은 덩굴을 끊었다. 우리는 많이 죽였다.', '하지만 탄창은 다시 차지 않았고, 덩굴은 다시 자랐다.'] },
   { id: 'camp4', kind: 'camp', zone: 3, theme: 'greenoffice', name: '온실 관리동', door: { x: 81, y: 17 },
     npc: { name: '온실 관리인', col: '#4a7a5a', lines: ['그 화분… 어디서 났니? 이 온실 품종이야.', '아래로 내려가면 공기가 달라진다. 정화통 아껴 써.'] } },
@@ -216,11 +218,11 @@ const BUILDINGS = [
     note: ['품종 7번. 포식성 확인.', '예외: 기르는 사람을 따르는 개체가 있음.', '폐기 보류.'] },
   { id: 'camp5', kind: 'camp', zone: 4, theme: 'mine', name: '광산 대피소', door: { x: 86, y: 67 },
     npc: { name: '늙은 광부', col: '#7a6a4a', lines: ['포자 버섯 앞에선 숨을 참아라. 구름이 걷히면 지나가.', '왼쪽 끝 갱도로 떨어지면… 뿌리가 있다. 아무도 돌아오지 않았지.'] } },
-  { id: 'dorm', kind: 'explore', zone: 4, theme: 'dorm', name: '광부 숙소', door: { x: 25, y: 67 },
+  { id: 'dorm', kind: 'explore', zone: 4, theme: 'dorm', name: '광부 숙소', door: { x: 25, y: 67 }, loot: [{ ammo: '9mm', n: 18 }, { ammo: '12g', n: 4 }],
     note: ['포자가 처음 나온 곳은 여기였다.', '우리가 뚫은 구멍에서.'] },
   { id: 'camp6', kind: 'camp', zone: 5, theme: 'outpost', name: '무너진 초소', door: { x: 25, y: 87 },
     npc: { name: '쓰러진 사냥꾼', col: '#3a5a4a', lines: ['여기까지 왔구나. 나는… 더는 못 가.', '세계수는 묻는다더라. 이제 무엇을 먹느냐고.', '대답은 네가 정해.'] } },
-  { id: 'clinic', kind: 'explore', zone: 5, theme: 'hospital', name: '삼켜진 병원', door: { x: 11, y: 87 },
+  { id: 'clinic', kind: 'explore', zone: 5, theme: 'hospital', name: '삼켜진 병원', door: { x: 11, y: 87 }, item: 'smg', loot: [{ ammo: '9mm', n: 30 }],
     note: ['환자들은 방독면을 벗고 잠들었다.', '몸에서 꽃이 피었다.', '아프지 않았다고 한다.'] },
 ];
 BUILDINGS.forEach((b, i) => { b.rx = (i % 4) * 24 + 2; b.ry = ROOM_ROW0 + Math.floor(i / 4) * 12 + 2; });
@@ -312,11 +314,13 @@ function move(e, dt) {
 // ---------- 입력 ----------
 const keys = {};
 const mouse = { x: VW / 2, y: VH / 2, left: false, right: false, leftPressed: false };
-let jumpPressed = false, seedPressed = false, upPressed = false;
+let jumpPressed = false, seedPressed = false, upPressed = false, reloadPressed = false, swapPressed = false;
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (['w', ' ', 'arrowup'].includes(k) && !keys[k]) jumpPressed = true;
   if (['w', 'arrowup'].includes(k) && !keys[k]) upPressed = true;
+  if (k === 'r' && state === 'play' && !keys[k]) reloadPressed = true;
+  if (k === 'q' && state === 'play' && !keys[k]) swapPressed = true;
   if (['e', 'shift'].includes(k) && !keys[k]) seedPressed = true;
   if (k === 'r' && state === 'clear') start();
   if (k === 'f' && !e.repeat) toggleFullscreen();
@@ -360,26 +364,48 @@ let P, enemies, bullets, parts, seed, hook, cam, checkpoint, activeChecks, timeR
 let bag, pickups, pshots = [], clouds = [];
 
 // ---------- 가방(인벤토리): 무기 1 + 기술 2 장착 (STORY.md: 식물에게서 빼앗은 기술 + 방독 마을의 도구 무기) ----------
+// 무기 목록·세계관은 WEAPONS.md. 근접 무기는 탄약이 없고, 총은 탄창·탄약이 있음 (탄약은 탄약 상자에서만)
 const ITEMS = {
-  whip: { kind: 'weapon', name: '화분 채찍', desc: '화분 식물의 덩굴로 넓게 휘두름. 공중에서 아래로 맞히면 튀어오름.', from: '처음부터' },
-  sickle: { kind: 'weapon', name: '가지치기 낫', desc: '짧지만 빠름. 붙어서 연달아 베기 좋음.', from: '처음부터 (방독 마을의 도구)' },
-  shotgun: { kind: 'weapon', name: '씨앗 산탄총', desc: '씨앗 세 발을 흩뿌림. 쏠 때 반동으로 살짝 밀림.', from: '지하철에서 주움' },
+  knife: { kind: 'weapon', name: '전투 나이프', desc: '아주 빠른 찌르기. 짧지만 연달아 쓰기 좋다.', from: '처음부터' },
+  sickle: { kind: 'weapon', name: '가지치기 낫', desc: '빠르고 짧음. 공중에서 아래로 맞히면 튀어오름.', from: '처음부터 (방독 마을의 도구)' },
+  machete: { kind: 'weapon', name: '정글도', desc: '넓게 베어 여럿을 맞힘. 피해 2.', from: '무너진 편의점' },
+  crowbar: { kind: 'weapon', name: '쇠지렛대', desc: '느리지만 무거움. 피해 3, 크게 밀쳐 내고 잠깐 기절시킴.', from: '환기구 정비실' },
+  pistol: { kind: 'weapon', name: '권총', desc: '9mm · 탄창 12. 정확하고 가볍다.', from: '처음부터' },
+  smg: { kind: 'weapon', name: '기관단총', desc: '9mm · 탄창 30. 누르고 있으면 연사, 퍼지고 탄약을 빨리 씀.', from: '삼켜진 병원' },
+  shotgun: { kind: 'weapon', name: '펌프 산탄총', desc: '12게이지 · 탄창 5. 6알이 퍼짐, 가까이서 강함, 반동으로 밀림.', from: '매표소 창고' },
+  rifle: { kind: 'weapon', name: '볼트액션 소총', desc: '소총탄 · 탄창 5. 피해 4, 멀리 곧게 날아가 3마리까지 꿰뚫음.', from: '버려진 군 검문소' },
   hook: { kind: 'skill', name: '덩굴 갈고리', desc: '누르고 있으면 덩굴을 걸어 매달림. 적에게 쏘면 끌어당겨 피해.', from: '엉킴 어미 (1장)' },
   seed: { kind: 'skill', name: '씨앗 순간이동', desc: '씨앗을 던지고, 한 번 더 누르면 싹튼 자리로 이동. 적에게 박히면 피해 2.', from: '화분 식물' },
   thorn: { kind: 'skill', name: '가시 갑옷', desc: '1.2초 동안 가시를 둘러 무적, 닿은 적에게 피해. 재사용 4초.', from: '가시 왕관 (2장)' },
   swallow: { kind: 'skill', name: '삼켜 뱉기', desc: '0.8초 동안 주변 적 탄을 화분이 삼켰다가 조준 방향으로 되쏨. 재사용 3초.', from: '여왕 파리지옥 (3장)' },
 };
-const WEAPON_LIST = ['whip', 'sickle', 'shotgun'], SKILL_LIST = ['hook', 'seed', 'thorn', 'swallow'];
-const WEAPONS = {
-  whip: { cd: 0.28, reach: 12, r: 16, knock: 120, anim: 0.3, pogo: true },
-  sickle: { cd: 0.15, reach: 8, r: 11, knock: 60, anim: 0.18 },
-  shotgun: { cd: 0.6, anim: 0.16 },
+const MELEE_LIST = ['knife', 'sickle', 'machete', 'crowbar'], GUN_LIST = ['pistol', 'smg', 'shotgun', 'rifle'];
+const SKILL_LIST = ['hook', 'seed', 'thorn', 'swallow'];
+const MELEE = {
+  knife: { cd: 0.13, reach: 7, r: 10, dmg: 1, knock: 50, stun: 0.2, anim: 0.14 },
+  sickle: { cd: 0.15, reach: 8, r: 11, dmg: 1, knock: 60, stun: 0.3, anim: 0.18, pogo: true },
+  machete: { cd: 0.3, reach: 11, r: 15, dmg: 2, knock: 90, stun: 0.3, anim: 0.26 },
+  crowbar: { cd: 0.5, reach: 8, r: 12, dmg: 3, knock: 200, stun: 0.9, anim: 0.3 },
 };
+const GUNS = {
+  pistol: { ammo: '9mm', mag: 12, reload: 1.0, cd: 0.2, auto: false, pellets: 1, spread: 0.03, speed: 420, dmg: 1, life: 0.55, kick: 20, shake: 1 },
+  smg: { ammo: '9mm', mag: 30, reload: 1.6, cd: 0.075, auto: true, pellets: 1, spread: 0.13, speed: 400, dmg: 1, life: 0.45, kick: 8, shake: 1 },
+  shotgun: { ammo: '12g', mag: 5, reload: 2.0, cd: 0.75, auto: false, pellets: 6, spread: 0.26, speed: 330, dmg: 1, life: 0.28, kick: 90, shake: 3 },
+  rifle: { ammo: '762', mag: 5, reload: 2.2, cd: 0.95, auto: false, pellets: 1, spread: 0, speed: 720, dmg: 4, life: 0.7, kick: 50, shake: 3, pierce: 3 },
+};
+const AMMO_NAME = { '9mm': '9mm', '12g': '12게이지', '762': '소총탄' };
 const SKILL_CD = { thorn: 4, swallow: 3 };
-// 줍는 아이템 (보스가 생기기 전까지 임시: 구역마다 하나)
-// 줍는 아이템: 탐색 건물 안 (보스가 생기기 전까지 임시)
-const PICKUPS = BUILDINGS.filter(b => b.item).map(b => ({ id: b.item, x: b.rx + 17, y: b.ry + 7 }));
-function newBag() { return { owned: new Set(['whip', 'sickle', 'hook', 'seed']), weapon: 'whip', skills: ['hook', 'seed'], sel: 0, hover: null, edit: false, warnT: 0 }; }
+// 줍는 것: 탐색 건물·캠프 안의 무기·기술·탄약 상자 + 바깥 곳곳의 탄약 상자
+const PICKUPS = [
+  ...BUILDINGS.flatMap(b => [b.item, ...(b.loot || [])].filter(Boolean).map((it, k) =>
+    ({ ...(typeof it === 'string' ? { id: it } : it), x: b.rx + 17 - k * 2, y: b.ry + 7 }))),
+  { ammo: '9mm', n: 12, x: 24, y: 51 }, { ammo: '9mm', n: 12, x: 69, y: 13 },
+  { ammo: '12g', n: 4, x: 44, y: 62 }, { ammo: '9mm', n: 12, x: 15, y: 83 },
+];
+function newBag() {
+  return { owned: new Set(['knife', 'sickle', 'pistol', 'hook', 'seed']), weapons: ['knife', 'pistol'], cur: 1, wsel: 0,
+    skills: ['hook', 'seed'], sel: 0, ammo: { '9mm': 36, '12g': 0, '762': 0 }, mag: { pistol: 12 }, hover: null, edit: false, warnT: 0 };
+}
 // edit: 캠프 작업대에서 열었을 때만 장비를 바꿀 수 있음 (바깥에서 Tab은 보기만)
 function openBag(edit = false) { state = 'bag'; bag.hover = null; bag.edit = edit; bag.warnT = 0; mouse.left = mouse.right = false; bannerT = 0; bannerEl.style.opacity = 0; }
 function closeBag() { state = 'play'; acc = 0; }
@@ -388,11 +414,17 @@ function bagClick(x, y) {
   const h = bagHits.find(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h);
   if (!h) return;
   if (h.slot !== undefined) { bag.sel = h.slot; return; }
+  if (h.wslot !== undefined) { bag.wsel = h.wslot; return; }
   if (h.close) { closeBag(); return; }
   const id = h.item;
   if (!bag.owned.has(id)) return;
   if (!bag.edit) { bag.warnT = 1.6; return; }          // 바깥에서는 보기만
-  if (ITEMS[id].kind === 'weapon') { bag.weapon = id; return; }
+  if (ITEMS[id].kind === 'weapon') {
+    const other = bag.weapons.indexOf(id);
+    if (other >= 0 && other !== bag.wsel) bag.weapons[other] = bag.weapons[bag.wsel];   // 다른 칸에 있으면 서로 바꿈
+    bag.weapons[bag.wsel] = id; P.reloadT = 0;
+    return;
+  }
   const other = bag.skills.indexOf(id);
   if (other >= 0 && other !== bag.sel) bag.skills[other] = bag.skills[bag.sel];   // 다른 칸에 있으면 서로 바꿈
   bag.skills[bag.sel] = id;
@@ -670,32 +702,53 @@ function update(dt) {
     }
   }
 
-  // 무기 (왼쪽 클릭, 가방에서 장착)
-  P.slashCd -= dt;
-  const wp = WEAPONS[bag.weapon];
-  if (mouse.leftPressed && P.slashCd <= 0) {
-    P.slashCd = wp.cd;
-    P.act = { name: bag.weapon === 'shotgun' ? 'grapple' : 'whip', t: 0, dur: wp.anim, face: a.x >= 0 ? 1 : -1 };
-    if (bag.weapon === 'shotgun') {
-      const mx = P.x + P.w / 2, my = P.y + P.h * 0.4, base = Math.atan2(a.y, a.x);
-      for (const off of [-0.18, 0, 0.18]) pshots.push({ x: mx, y: my, vx: Math.cos(base + off) * 300, vy: Math.sin(base + off) * 300, life: 0.32, dmg: 1 });
-      P.vx -= a.x * 70; if (!P.onGround) P.vy -= a.y * 60;
-      burst(mx + a.x * 8, my + a.y * 8, '#e9d78a', 5, 60); shake = 2;
+  // 무기 (무기 칸 2개, Q로 바꿔 들기, 왼쪽 클릭) — 근접은 휘두르기, 총은 탄창·재장전(R)
+  P.slashCd -= dt; P.flashT = (P.flashT || 0) - dt; P.emptyT = (P.emptyT || 0) - dt;
+  if (swapPressed) { bag.cur = 1 - bag.cur; P.reloadT = 0; P.slashCd = Math.max(P.slashCd, 0.12); }
+  const wid = bag.weapons[bag.cur], gun = GUNS[wid];
+  if (P.reloadT > 0) {
+    P.reloadT -= dt;
+    if (P.reloadT <= 0 && gun) { const take = Math.min(gun.mag - (bag.mag[wid] || 0), bag.ammo[gun.ammo]); bag.mag[wid] = (bag.mag[wid] || 0) + take; bag.ammo[gun.ammo] -= take; }
+  }
+  const startReload = () => {
+    if (!gun || P.reloadT > 0 || (bag.mag[wid] || 0) >= gun.mag || bag.ammo[gun.ammo] <= 0) return false;
+    P.reloadT = gun.reload; P.reloadMax = gun.reload; return true;
+  };
+  if (reloadPressed) startReload();
+  const trigger = gun && gun.auto ? mouse.left : mouse.leftPressed;
+  if (trigger && P.slashCd <= 0 && !(P.reloadT > 0)) {
+    if (gun) {
+      if ((bag.mag[wid] || 0) <= 0) { if (!startReload()) { P.emptyT = 0.8; P.slashCd = 0.25; } }
+      else {
+        bag.mag[wid]--; P.slashCd = gun.cd; P.flashT = 0.06;
+        P.act = { name: 'grapple', t: 0, dur: 0.12, face: a.x >= 0 ? 1 : -1 };
+        const mx = P.x + P.w / 2 + a.x * 8, my = P.y + P.h * 0.45 + a.y * 8, base = Math.atan2(a.y, a.x);
+        for (let i = 0; i < gun.pellets; i++) {
+          const ang = base + (gun.pellets > 1 ? (i / (gun.pellets - 1) - 0.5) * 2 * gun.spread + (Math.random() - 0.5) * 0.06 : (Math.random() - 0.5) * 2 * gun.spread);
+          pshots.push({ x: mx, y: my, vx: Math.cos(ang) * gun.speed, vy: Math.sin(ang) * gun.speed, life: gun.life, dmg: gun.dmg, pierce: gun.pierce || 0, hit: new Set(), bullet: true });
+        }
+        P.vx -= a.x * gun.kick; if (!P.onGround) P.vy -= a.y * gun.kick * 0.6;
+        shake = Math.max(shake, gun.shake);
+        if ((bag.mag[wid] || 0) <= 0) startReload();                  // 다 쓰면 자동 재장전
+      }
     } else {
+      const wp = MELEE[wid];
+      P.slashCd = wp.cd;
+      P.act = { name: 'whip', t: 0, dur: wp.anim, face: a.x >= 0 ? 1 : -1 };
       const cx = P.x + P.w / 2 + a.x * wp.reach, cy = P.y + P.h / 2 + a.y * wp.reach;
-      slashFx = { x: cx, y: cy, ang: Math.atan2(a.y, a.x), t: 0.12, r: wp.r };
+      slashFx = { x: cx, y: cy, ang: Math.atan2(a.y, a.x), t: 0.12, r: wp.r, steel: true };
       let hit = false;
       for (const e of enemies) {
         const ex = e.x + e.w / 2, ey = e.y + e.h / 2;
         if (Math.hypot(ex - cx, ey - cy) < wp.r) {
-          e.hp -= 1; e.flash = 0.15; e.stun = 0.3; hit = true;
+          e.hp -= wp.dmg; e.flash = 0.15; e.stun = wp.stun; hit = true;
           if (e.t === 'blob') { e.vx = Math.sign(ex - P.x) * wp.knock; e.vy = -90; }
           burst(ex, ey, '#c9e58a', 6, 80);
         }
       }
       bullets = bullets.filter(b => { if (Math.hypot(b.x - cx, b.y - cy) < wp.r) { hit = true; burst(b.x, b.y, '#e9d78a', 4, 50); return false; } return true; });
       if (hit && wp.pogo && !P.onGround && a.y > 0.5) { P.vy = -230; hook = null; }
-      if (hit) shake = 2;
+      if (hit) shake = Math.max(shake, wid === 'crowbar' ? 4 : 2);
     }
   }
 
@@ -784,8 +837,9 @@ function update(dt) {
   for (const s of pshots) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     if (solidP(s.x, s.y)) { s.life = 0; burst(s.x, s.y, '#a07a48', 3, 30); }
-    for (const e of enemies) if (s.life > 0 && s.x > e.x && s.x < e.x + e.w && s.y > e.y && s.y < e.y + e.h) {
-      e.hp -= s.dmg; e.flash = 0.15; e.stun = 0.25; s.life = 0; burst(s.x, s.y, '#c9e58a', 5, 70);
+    for (const e of enemies) if (s.life > 0 && !(s.hit && s.hit.has(e)) && s.x > e.x && s.x < e.x + e.w && s.y > e.y && s.y < e.y + e.h) {
+      e.hp -= s.dmg; e.flash = 0.15; e.stun = 0.25; burst(s.x, s.y, '#c9e58a', 5, 70);
+      if (s.pierce > 0) { s.pierce--; s.hit.add(e); } else s.life = 0;      // 소총은 꿰뚫음
       if (e.t === 'blob') { e.vx = Math.sign(s.vx) * 90; e.vy = -70; }
     }
   }
@@ -794,8 +848,9 @@ function update(dt) {
     if (p.taken) continue;
     const px = p.x * T + 8, py = p.y * T + 8;
     if (Math.abs(P.x + P.w / 2 - px) < 12 && Math.abs(P.y + P.h / 2 - py) < 16) {
-      p.taken = true; bag.owned.add(p.id); burst(px, py, '#e9d78a', 16, 90);
-      showBanner({ name: '가방에 넣었다 · ' + ITEMS[p.id].name, sub: 'Tab으로 장착' });
+      p.taken = true; burst(px, py, '#e9d78a', 16, 90);
+      if (p.ammo) { bag.ammo[p.ammo] += p.n; showBanner({ name: `탄약 +${p.n} · ${AMMO_NAME[p.ammo]}`, sub: `가진 ${AMMO_NAME[p.ammo]} ${bag.ammo[p.ammo]}발` }); }
+      else { bag.owned.add(p.id); showBanner({ name: '가방에 넣었다 · ' + ITEMS[p.id].name, sub: '장착은 생존자 캠프의 작업대에서' }); }
     }
   }
 
@@ -836,7 +891,7 @@ function update(dt) {
   if (inRoom) { cam.x = inRoom.rx * T; cam.y = inRoom.ry * T + 64 - VH / 2; }   // 실내: 방(20칸 = 화면 너비)에 고정
   shake = Math.max(0, shake - 20 * dt);
 
-  jumpPressed = seedPressed = upPressed = false; mouse.leftPressed = mouse.rightPressed = false;
+  jumpPressed = seedPressed = upPressed = reloadPressed = swapPressed = false; mouse.leftPressed = mouse.rightPressed = false;
 }
 
 // ---------- 건물 상호작용 ----------
@@ -1122,15 +1177,28 @@ function drawHUD() {
     for (let i = 1; i < 5; i++) rect(x + Math.round(w * i / 5), y, 1, h, 'rgba(11,21,23,0.5)');
     ctx.font = 'bold 5px sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText(`${Math.ceil(P.hp)} / ${P.maxHp}`, x + w + 4, y + 6);
   }
-  // 장착 칸: 무기(왼쪽 클릭)·기술 1(오른쪽 클릭)·기술 2(E) + 재사용 대기
-  if (bag) [[bag.weapon, 'L', P.slashCd / WEAPONS[bag.weapon].cd], [bag.skills[0], 'R', 0], [bag.skills[1], 'E', 0]].forEach(([id, key, k], i) => {
-    const x = 6 + i * 17, y = VH - 20;
-    rect(x, y, 15, 15, '#162220'); rect(x, y, 15, 1, '#3f6b40'); rect(x, y + 14, 15, 1, '#3f6b40');
-    drawIcon(id, x + 1, y + 1);
-    const cdv = i === 0 ? k : (SKILL_CD[id] ? Math.max(0, (P.cds[id] || 0) / SKILL_CD[id]) : (id === 'seed' && seed ? 0 : 0));
-    if (cdv > 0) { ctx.globalAlpha = 0.6; rect(x, y + 15 - Math.ceil(15 * Math.min(1, cdv)), 15, Math.ceil(15 * Math.min(1, cdv)), '#000'); ctx.globalAlpha = 1; }
-    ctx.fillStyle = '#d8e4d4'; ctx.font = 'bold 5px sans-serif'; ctx.fillText(key, x + 11, y - 1);
-  });
+  // 장착 칸: 무기 2(지금 든 것은 노란 테두리, Q로 바꿈) + 탄창/탄약 + 기술 2(R=오른쪽 클릭, E)
+  if (bag) {
+    const slotBox = (x, y, id, hi, key, cdv) => {
+      rect(x, y, 15, 15, '#162220'); rect(x, y, 15, 1, hi ? '#e9d78a' : '#3f6b40'); rect(x, y + 14, 15, 1, hi ? '#e9d78a' : '#3f6b40');
+      drawIcon(id, x + 1, y + 1, !hi && ITEMS[id].kind === 'weapon');
+      if (cdv > 0) { ctx.globalAlpha = 0.6; rect(x, y + 15 - Math.ceil(15 * Math.min(1, cdv)), 15, Math.ceil(15 * Math.min(1, cdv)), '#000'); ctx.globalAlpha = 1; }
+      ctx.fillStyle = '#d8e4d4'; ctx.font = 'bold 5px sans-serif'; ctx.fillText(key, x + 11, y - 1);
+    };
+    const y = VH - 20;
+    bag.weapons.forEach((id, i) => slotBox(6 + i * 17, y, id, i === bag.cur, i === bag.cur ? 'L' : 'Q', i === bag.cur && MELEE[id] ? P.slashCd / MELEE[id].cd : 0));
+    const g = GUNS[bag.weapons[bag.cur]];
+    ctx.font = 'bold 6px sans-serif';
+    if (g) {
+      const m = bag.mag[bag.weapons[bag.cur]] || 0;
+      ctx.fillStyle = m ? '#e9d78a' : '#e9a08a'; ctx.fillText(`${m}`, 42, y + 7);
+      ctx.fillStyle = '#8aa293'; ctx.font = '5px sans-serif'; ctx.fillText(`/ ${bag.ammo[g.ammo]} ${AMMO_NAME[g.ammo]}`, 42 + ctx.measureText(String(m)).width * 1.25, y + 7);
+      if (P.reloadT > 0) { rect(42, y + 10, 30, 2, '#24302a'); rect(42, y + 10, Math.round(30 * (1 - P.reloadT / P.reloadMax)), 2, '#e9d78a'); }
+      else if (P.emptyT > 0) { ctx.fillStyle = '#e9a08a'; ctx.fillText('탄약 없음', 42, y + 13); }
+      else if (!m) { ctx.fillStyle = '#8aa293'; ctx.fillText('R 재장전', 42, y + 13); }
+    } else { ctx.fillStyle = '#8aa293'; ctx.font = '5px sans-serif'; ctx.fillText('근접', 42, y + 7); }
+    bag.skills.forEach((id, i) => slotBox(82 + i * 17, y, id, true, i ? 'E' : 'R', SKILL_CD[id] ? Math.max(0, (P.cds[id] || 0) / SKILL_CD[id]) : 0));
+  }
   // 조준점
   const mx = Math.round(mouse.x), my = Math.round(mouse.y);
   const c = hook ? '#e9d78a' : '#d8e4d4';
@@ -1234,6 +1302,7 @@ function draw() {
   if (hook) drawVine(tip.x - cx, tip.y - cy, hook.x - cx, hook.y - cy);
   if (slashFx && slashFx.vine) drawVine(tip.x - cx, tip.y - cy, slashFx.x2 - cx, slashFx.y2 - cy);
   drawPlayer(cx, cy);
+  drawHeldGun(cx, cy);
   // 베기
   if (slashFx && !slashFx.vine) {
     // 덩굴 채찍 궤적: 바깥은 밝은 청록빛, 안쪽은 이끼색 (주인공 방독면 강조색에 맞춤), 사라지며 옅어짐
@@ -1242,7 +1311,7 @@ function draw() {
     ctx.strokeStyle = '#c6f7d8'; ctx.lineWidth = 1.5;
     const sr = (slashFx.r || 16) / 16;   // 무기마다 궤적 크기
     ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 16 * sr, slashFx.ang - 1, slashFx.ang + 1); ctx.stroke();
-    ctx.strokeStyle = sr < 0.9 ? '#d8d4c0' : '#5fd39a'; ctx.lineWidth = 1;
+    ctx.strokeStyle = slashFx.steel || sr < 0.9 ? '#d8d4c0' : '#5fd39a'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 13 * sr, slashFx.ang - 0.85, slashFx.ang + 0.85); ctx.stroke();
     ctx.strokeStyle = '#3f7a3a'; ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.arc(P.x + P.w / 2 - cx, P.y + P.h / 2 - cy, 11 * sr, slashFx.ang - 0.6, slashFx.ang + 0.6); ctx.stroke();
@@ -1263,6 +1332,11 @@ function draw() {
     else { rect(b.x - cx - 1, b.y - cy - 1, 3, 3, '#e9d78a'); rect(b.x - cx, b.y - cy, 1, 1, '#c8454a'); }
   }
   for (const s of pshots) {
+    if (s.bullet) {                                    // 총알: 짧은 예광선
+      ctx.strokeStyle = '#ffe8a0'; ctx.lineWidth = 0.75; ctx.beginPath();
+      ctx.moveTo(s.x - cx - s.vx * 0.018, s.y - cy - s.vy * 0.018); ctx.lineTo(s.x - cx, s.y - cy); ctx.stroke();
+      continue;
+    }
     rect(s.x - cx - 1, s.y - cy - 1, s.big ? 3 : 2, s.big ? 3 : 2, s.big ? '#9fd27a' : '#c9a86a');
     rect(s.x - cx - s.vx * 0.012, s.y - cy - s.vy * 0.012, 1, 1, '#e9d78a');
   }
@@ -1271,7 +1345,7 @@ function draw() {
     if (p.taken) continue;
     const x = p.x * T + 8 - cx, y = p.y * T + 6 - cy + Math.round(Math.sin(timeNow * 2 + p.x) * 2);
     ctx.globalAlpha = 0.25 + 0.1 * Math.sin(timeNow * 4); rect(x - 9, y - 9, 18, 18, '#e9d78a'); ctx.globalAlpha = 1;
-    drawIcon(p.id, x - 6, y - 6);
+    drawIcon(p.ammo ? 'ammo' : p.id, x - 6, y - 6);
   }
   // 가시 갑옷 / 삼켜 뱉기 효과
   const hx = P.x + P.w / 2 - cx, hy = P.y + P.h / 2 - cy;
@@ -1306,6 +1380,26 @@ function draw() {
   if (state === 'bag') drawBag();
 }
 
+// 손에 든 총: 조준 방향으로 돌려 그림 (화면 px), 쏠 때 총구 불꽃
+const GUN_ART = {
+  pistol: ['....', 'kkkkkkkkk', 'kgggggggk', 'kkkbbk', '..kbbk', '..kkk'],
+  smg: ['', 'kkkkkkkkkkkkk', 'kgggggggggggk', 'kkkbbkkgk', '..kbbk.gk', '..kkk..kk'],
+  shotgun: ['', 'kkkkkkkkkkkkkkkkkkk', 'kwwwwwwgggggggggggk', 'kwwwkkkkwwwwwk', 'kkkk....kkkkk'],
+  rifle: ['....kkk', 'kkkkkkkkkkkkkkkkkkkkkk', 'kwwwwwwwwwgggggggggggk', 'kwwwkkkbbkkkkkkkkkkkk', 'kkkk..kbbk', '......kkk'],
+};
+const GUN_COL = { k: '#16181a', g: '#6a6e70', b: '#3a3c3e', w: '#7a5434' };
+function drawHeldGun(cx, cy) {
+  if (!bag || (P.inv > 0 && Math.floor(P.inv * 20) % 2 === 0)) return;
+  const id = bag.weapons[bag.cur], art = GUN_ART[id];
+  if (!art) return;
+  const a = aim(), ang = Math.atan2(a.y, a.x), left = a.x < 0;
+  const hx = (P.x + P.w / 2 + (left ? -2 : 2) - cx) * RS, hy = (P.y + P.h * 0.48 - cy) * RS;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.translate(Math.round(hx), Math.round(hy)); ctx.rotate(ang); if (left) ctx.scale(1, -1);
+  art.forEach((row, y) => [...row].forEach((ch, x) => { if (GUN_COL[ch]) { ctx.fillStyle = GUN_COL[ch]; ctx.fillRect(x - 2, y - 2, 1, 1); } }));
+  if (P.flashT > 0) { const L = art[1].length; ctx.fillStyle = '#fff4c0'; ctx.fillRect(L - 2, -1, 4, 3); ctx.fillStyle = '#ffb040'; ctx.fillRect(L + 2, 0, 3, 1); ctx.fillRect(L, -3, 1, 2); ctx.fillRect(L, 2, 1, 2); }
+  ctx.restore();
+}
+
 // 생존자: 두건 쓴 사람 (화면 px로 직접 찍음, 숨 쉬듯 1px 움직임)
 function drawNpc(gx, gy, col) {
   const sx = Math.round(gx * RS), sy = Math.round(gy * RS), b = Math.floor(timeNow * 1.5) % 2;
@@ -1322,7 +1416,15 @@ function drawNpc(gx, gy, col) {
 function drawIcon(id, x, y, dim) {
   const R = (a, b, w, h, c) => rect(x + a, y + b, w, h, c);
   if (dim) { ctx.globalAlpha = 0.35; }
-  if (id === 'whip') { R(1, 8, 4, 4, '#a0663e'); R(1, 8, 4, 1, '#c88850'); for (let i = 0; i < 8; i++) R(3 + i, 7 - Math.round(Math.sin(i / 7 * Math.PI) * 5), 1, 1, i % 2 ? '#79b85d' : '#5fd39a'); R(11, 6, 1, 2, '#9fd27a'); }
+  if (id === 'knife') { R(2, 9, 3, 2, '#3a2a1e'); R(1, 8, 1, 4, '#5a5e60'); for (let i = 0; i < 7; i++) R(4 + i, 8 - i, 1, 2, i > 4 ? '#e8ecec' : '#c8ccc8'); }
+  else if (id === 'machete') { R(1, 9, 3, 2, '#5a3a22'); for (let i = 0; i < 8; i++) R(4 + i, 8 - Math.round(i * 0.7), 1, 3, '#b8bcb8'); R(10, 2, 2, 2, '#d8dcd8'); }
+  else if (id === 'crowbar') { for (let i = 0; i < 9; i++) R(2 + i, 10 - i, 2, 1, '#8a3a2a'); R(10, 1, 2, 2, '#8a3a2a'); R(2, 10, 1, 2, '#8a3a2a'); }
+  else if (id === 'pistol') { R(2, 4, 9, 3, '#3a3c3e'); R(2, 4, 9, 1, '#6a6e70'); R(3, 7, 3, 4, '#2a2c2e'); }
+  else if (id === 'smg') { R(1, 4, 11, 3, '#3a3c3e'); R(1, 4, 11, 1, '#6a6e70'); R(3, 7, 2, 4, '#2a2c2e'); R(7, 7, 2, 3, '#2a2c2e'); }
+  else if (id === 'shotgun') { R(0, 5, 4, 3, '#7a5434'); R(4, 4, 8, 2, '#5a5e60'); R(5, 6, 5, 1, '#7a5434'); }
+  else if (id === 'rifle') { R(0, 5, 4, 3, '#7a5434'); R(4, 5, 8, 2, '#4a4c4e'); R(5, 3, 3, 1, '#2a2c2e'); R(6, 7, 1, 2, '#2a2c2e'); }
+  else if (id === 'ammo') { R(1, 4, 10, 7, '#4a5a3a'); R(1, 4, 10, 1, '#6a7a50'); R(4, 6, 4, 2, '#c8c060'); }
+  else if (id === 'whip') { R(1, 8, 4, 4, '#a0663e'); R(1, 8, 4, 1, '#c88850'); for (let i = 0; i < 8; i++) R(3 + i, 7 - Math.round(Math.sin(i / 7 * Math.PI) * 5), 1, 1, i % 2 ? '#79b85d' : '#5fd39a'); R(11, 6, 1, 2, '#9fd27a'); }
   else if (id === 'sickle') { for (let i = 0; i < 6; i++) R(2 + i, 11 - i, 1, 1, '#7a5030'); for (let i = 0; i < 7; i++) R(5 + Math.round(Math.cos(i / 6 * 2.4) * 4), 3 - Math.round(Math.sin(i / 6 * 2.4) * 3) + 2, 2, 1, '#c8ccc4'); }
   else if (id === 'shotgun') { R(1, 6, 4, 3, '#7a5030'); R(5, 5, 7, 2, '#8a908c'); R(5, 7, 5, 1, '#5a605c'); R(10, 9, 1, 1, '#c9a86a'); R(11, 3, 1, 1, '#c9a86a'); }
   else if (id === 'hook') { for (let i = 0; i < 9; i++) R(1 + i, 10 - i, 1, 1, '#79b85d'); R(9, 1, 3, 3, '#a8323a'); R(9, 1, 3, 1, '#e8dcb0'); }
@@ -1347,41 +1449,47 @@ function drawBag() {
   rect(22, 12, 276, 156, '#162220'); rect(22, 12, 276, 1, '#3f6b40'); rect(22, 167, 276, 1, '#3f6b40'); rect(22, 12, 1, 156, '#3f6b40'); rect(297, 12, 1, 156, '#3f6b40');
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 9px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e9d78a'; ctx.fillText('가방', 32, 24);
-  ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText(bag.edit ? '작업대 · 칸을 눌러 바꾸기   1 · 2 기술 칸 고르기   Tab · Esc 닫기' : '보기만 · 장비는 캠프의 작업대에서 바꿈   Tab · Esc 닫기', 70, 24);
-  if (bag.warnT > 0) { bag.warnT -= 1 / 60; ctx.fillStyle = '#e9a08a'; ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillText('여기서는 바꿀 수 없다. 생존자 캠프의 작업대로 가자.', 158, 108); }
+  ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText(bag.edit ? '작업대 · 왼쪽 칸을 고르고 오른쪽 목록에서 눌러 넣기   Tab · Esc 닫기' : '보기만 · 장비는 캠프의 작업대에서 바꿈   Tab · Esc 닫기', 70, 24);
+  if (bag.warnT > 0) { bag.warnT -= 1 / 60; ctx.fillStyle = '#e9a08a'; ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillText('여기서는 바꿀 수 없다. 생존자 캠프의 작업대로 가자.', 158, 32); }
   const box = (x, y, on, sel) => { rect(x, y, 20, 20, on ? '#24362c' : '#1a2420'); rect(x, y, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y + 19, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); rect(x + 19, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); };
-  // 장착 칸
-  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText('장착', 32, 38);
-  const slots = [['무기', '왼쪽 클릭', bag.weapon], ['기술 1', '오른쪽 클릭', bag.skills[0]], ['기술 2', 'E · Shift', bag.skills[1]]];
-  slots.forEach(([lab, key, id], i) => {
-    const x = 32, y = 46 + i * 30, sel = i > 0 && bag.sel === i - 1;
+  // 장착 칸: 무기 2 + 기술 2
+  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText('장착', 32, 36);
+  const slots = [['무기 1', bag.cur === 0 ? '지금 든 것 · Q로 바꿈' : 'Q로 바꿈', bag.weapons[0], 'w', 0], ['무기 2', bag.cur === 1 ? '지금 든 것 · Q로 바꿈' : 'Q로 바꿈', bag.weapons[1], 'w', 1],
+    ['기술 1', '오른쪽 클릭', bag.skills[0], 's', 0], ['기술 2', 'E · Shift', bag.skills[1], 's', 1]];
+  slots.forEach(([lab, key, id, kind, i], n) => {
+    const x = 32, y = 42 + n * 24 + (n > 1 ? 6 : 0), sel = bag.edit && (kind === 'w' ? bag.wsel === i : bag.sel === i);
     box(x, y, true, sel); drawIcon(id, x + 4, y + 4);
     ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = sel ? '#e9d78a' : '#d8e4d4'; ctx.fillText(lab + ' · ' + ITEMS[id].name, x + 25, y + 7);
-    ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText(key, x + 25, y + 15);
-    if (i > 0) hit(x, y, 110, 20, { slot: i - 1 });
+    ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293';
+    const g = GUNS[id];
+    ctx.fillText(key + (g ? `   탄창 ${bag.mag[id] || 0}/${g.mag}` : ''), x + 25, y + 15);
+    hit(x, y, 110, 20, kind === 'w' ? { wslot: i } : { slot: i });
   });
+  ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#c8c060';
+  ctx.fillText(`탄약  9mm ${bag.ammo['9mm']} · 12게이지 ${bag.ammo['12g']} · 소총탄 ${bag.ammo['762']}`, 32, 160);
   // 가진 것 목록
   const list = (title, ids, y) => {
-    ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText(title, 158, y - 7);
+    ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText(title, 158, y - 6);
     ids.forEach((id, i) => {
       const x = 158 + i * 26, own = bag.owned.has(id);
-      const on = id === bag.weapon || bag.skills.includes(id);
+      const on = bag.weapons.includes(id) || bag.skills.includes(id);
       box(x, y, own, on);
       if (own) drawIcon(id, x + 4, y + 4); else { ctx.fillStyle = '#4a5a50'; ctx.font = 'bold 8px sans-serif'; ctx.fillText('?', x + 7, y + 10); }
       hit(x, y, 20, 20, { item: id });
     });
   };
-  list('무기', WEAPON_LIST, 46);
-  list(`기술 → 기술 ${bag.sel + 1} 칸에 장착`, SKILL_LIST, 84);
+  list(`근접 → 무기 ${bag.wsel + 1} 칸에`, MELEE_LIST, 42);
+  list(`총 → 무기 ${bag.wsel + 1} 칸에`, GUN_LIST, 72);
+  list(`기술 → 기술 ${bag.sel + 1} 칸에`, SKILL_LIST, 102);
   // 설명 (마우스를 올린 것, 없으면 고른 칸)
   const hv = bagHits.find(b => b.item && mouse.x >= b.x && mouse.x < b.x + b.w && mouse.y >= b.y && mouse.y < b.y + b.h);
-  const id = hv ? hv.item : bag.skills[bag.sel];
+  const id = hv ? hv.item : bag.weapons[bag.wsel];
   const it = ITEMS[id], own = bag.owned.has(id);
-  rect(156, 114, 132, 46, '#1a2420');
-  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = own ? '#e9d78a' : '#6a7a70'; ctx.fillText(own ? it.name : '아직 없음', 160, 121);
+  rect(156, 126, 132, 38, '#1a2420');
+  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = own ? '#e9d78a' : '#6a7a70'; ctx.fillText(own ? it.name : '아직 없음', 160, 132);
   ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#c8d4c4';
-  if (own) { wrapText(it.desc, 160, 130, 124, 7); ctx.fillStyle = '#8aa293'; ctx.fillText('얻은 곳: ' + it.from, 160, 155); }
-  else wrapText((it.kind === 'skill' ? '포식 식물을 쓰러뜨려 화분에 먹이면 얻는다. ' : '어딘가에 떨어져 있다. ') + '얻는 곳: ' + it.from, 160, 130, 124, 7);
+  if (own) { wrapText(it.desc, 160, 140, 124, 7); ctx.fillStyle = '#8aa293'; ctx.fillText('얻은 곳: ' + it.from, 160, 159); }
+  else wrapText((it.kind === 'skill' ? '포식 식물을 쓰러뜨려 화분에 먹이면 얻는다. ' : '어딘가에 떨어져 있다. ') + '얻는 곳: ' + it.from, 160, 140, 124, 7);
   ctx.textBaseline = 'alphabetic';
 }
 
