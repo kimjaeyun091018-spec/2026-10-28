@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">A/D 이동 · Space 점프 · W 문·기록·호출 · J/클릭 칼 · 엘리베이터 위에서 W/S 도르래</div>
+<div id="help">A/D 이동 · Space 점프 · S 웅크리기 · W 문·기록·호출 · J/클릭 칼 · 엘리베이터 위에서 W/S 도르래</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -28,11 +28,12 @@
 //  - 바깥쪽 벽에 문, 안쪽(중정 쪽)에 원형 난간 (노트 답변 5)
 //  - 길이 이어진 층은 360° 회전. 벽으로 막히거나 바닥이 끊긴 층은 회전이 멈추고 캐릭터가 화면 끝으로 걸어감 (노트 4쪽, 답변 6)
 import * as THREE from './lib/three.module.min.js';
+import * as W3 from './world3d.js';   // 지하철(1구역)과 같은 도트 텍스처 (벽 타일·기둥·벤치·고사리·덩굴·빛줄기·열차)
 
 const T = 16, VW = 320, VH = 180, RS = 2;
 const WC = 96, BAND = 10, NB = 6, H = NB * BAND;     // 둘레 96칸, 층마다 10줄(마지막 줄이 바닥), 6층
 const C = WC * T, RP = C / (2 * Math.PI);            // 둘레 1536px → 캐릭터가 걷는 반지름 ≈ 244
-const RIN = RP - 18, ROUT = RP + 26;                 // 블록 앞면·난간(중정 쪽) / 바깥 벽
+const RIN = RP - 18, ROUT = RP + 72;                 // 블록 앞면·난간(중정 쪽) / 바깥 벽. 걷는 면 뒤로 깊이를 둬서 기둥·벤치·열차가 입체로 보임
 const CB = 40, DIST = RP + CB;                       // 카메라는 탑 중심에서 40만큼 뒤 → 걷는 면까지 거리
 const mod = (a, n) => ((a % n) + n) % n;
 const wd = a => mod(a + C / 2, C) - C / 2;           // 둘레를 감안한 가로 거리
@@ -122,6 +123,12 @@ const qs = new URLSearchParams(location.search);
 const at = (qs.get('at') || '').split(',').map(Number);
 const START = at.length === 2 && at.every(Number.isFinite) ? { x: at[0] * T, y: at[1] * T - 19 } : { x: 6 * T, y: floorRow(0) * T - 19 };
 const P = { x: START.x, y: START.y, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 100, inv: 0, coyote: 0, buffer: 0, slashCd: 0, act: null, onGround: false, onElev: false, walkT: 0, landT: 0, near: null };
+const STAND_H = 19, CROUCH_H = 14;
+function standUp() {                                   // 머리 위가 비었을 때만 일어섬
+  if (!P.crouch) return true;
+  if (hitBox(P.x, P.y - (STAND_H - P.h), P.w, STAND_H)) return false;
+  P.y -= STAND_H - P.h; P.h = STAND_H; P.crouch = false; return true;
+}
 const elev = { x: SHAFT * T, w: 2 * T, y: floorRow(0) * T, target: null };
 const ELEV_MIN = floorRow(0) * T, ELEV_MAX = floorRow(NB - 1) * T;
 const enemies = [[25, 2], [55, 2], [40, 3], [24, 3], [10, 4], [62, 4], [30, 5], [75, 5]].map(([c, b]) =>
@@ -169,11 +176,11 @@ function hurt(fromX, dmg) {
   if (P.inv > 0 || state !== 'play') return;
   P.hp -= dmg; P.inv = 0.9;
   P.vx = (wd(P.x - fromX) >= 0 ? 1 : -1) * 150; P.vy = -150;
-  if (P.hp <= 0) { P.hp = 0; state = 'dead'; deadT = 0; }
+  if (P.hp <= 0) { P.hp = 0; state = 'dying'; deadT = 0; }   // 1.4초 쓰러진 모습 → CMD 화면
 }
 let deadT = 0;
 function respawn() {
-  Object.assign(P, { x: START.x, y: START.y, vx: 0, vy: 0, hp: 100, inv: 1, act: null });
+  Object.assign(P, { x: START.x, y: START.y, vx: 0, vy: 0, hp: 100, inv: 1, act: null, h: STAND_H, crouch: false });
   camX = P.x; camY = P.y; state = 'play'; lastBand = -1;
 }
 function interact(o) {
@@ -214,7 +221,11 @@ function update(dt) {
   const dir = (held('d', 'arrowright') ? 1 : 0) - (held('a', 'arrowleft') ? 1 : 0);
   if (dir) P.face = dir;
   if (P.act) { P.face = P.act.face; if ((P.act.t += dt) >= P.act.dur) P.act = null; }
-  const accel = P.onGround ? 900 : 520, cap = 92;
+  // 웅크리기 (S·↓, 땅에서. 엘리베이터 위에서는 S가 도르래): 작고 느리게, 조용히 → 덩굴 뭉치가 늦게 알아챔
+  const wantCrouch = P.onGround && !P.onElev && held('s', 'arrowdown');
+  if (wantCrouch && !P.crouch) { P.y += P.h - CROUCH_H; P.h = CROUCH_H; P.crouch = true; }
+  else if (!wantCrouch && P.crouch) standUp();
+  const accel = P.onGround ? 900 : 520, cap = P.crouch ? 40 : 92;
   if (dir) {
     const nv = P.vx + dir * accel * dt;
     if (Math.abs(nv) <= cap || Math.sign(nv) !== dir) P.vx = nv;
@@ -224,7 +235,7 @@ function update(dt) {
 
   P.coyote = P.onGround ? 0.1 : P.coyote - dt;
   P.buffer = jumpP ? 0.12 : P.buffer - dt;
-  if (P.buffer > 0 && P.coyote > 0) { P.vy = -285; P.buffer = 0; P.coyote = 0; P.onElev = false; }
+  if (P.buffer > 0 && P.coyote > 0 && standUp()) { P.vy = -285; P.buffer = 0; P.coyote = 0; P.onElev = false; }
   const jumpHeld = held(' ') || (!P.onElev && held('w', 'arrowup'));
   if (!jumpHeld && P.vy < -100) P.vy += 1400 * dt;
   P.vy = Math.min(P.vy + 900 * dt, 400);
@@ -258,10 +269,13 @@ function update(dt) {
   for (const e of enemies) {
     if (e.hp <= 0) continue;
     e.t += dt; e.flash -= dt; e.stun -= dt;
+    const ndx = wd(P.x + P.w / 2 - (e.x + e.w / 2)), ndy = P.y + P.h - (e.y + e.h);
+    const chase = e.stun <= 0 && Math.abs(ndx) < (P.crouch ? 28 : 72) && Math.abs(ndy) < 20;
+    if (chase) e.dir = Math.sign(ndx) || e.dir;
     if (e.stun <= 0) {
       const ahead = e.dir > 0 ? e.x + e.w + 1 : e.x - 1;
       if (e.onGround && (!solidP(ahead, e.y + e.h + 2) || solidP(ahead, e.y + e.h / 2))) e.dir *= -1;
-      e.vx = e.dir * 28;
+      e.vx = e.dir * (chase ? 50 : 28);
     } else e.vx *= 1 - 4 * dt;
     e.vy = Math.min(e.vy + 900 * dt, 400);
     move(e, dt); e.x = mod(e.x, C);
@@ -357,12 +371,8 @@ const atlas = canvasTex(32 * ATL, 32, g => {
 
 // 바깥 벽 (원통 안쪽 면): 타일 벽 + 아래쪽 띠
 {
-  const wallTex = canvasTex(32, 32, g => {
-    px(g, 0, 0, 32, 32, '#3d4a45');
-    px(g, 0, 0, 32, 1, '#2b3532'); px(g, 0, 16, 32, 1, '#2b3532'); px(g, 0, 0, 1, 32, '#2b3532'); px(g, 16, 0, 1, 16, '#2b3532'); px(g, 8, 16, 1, 16, '#2b3532'); px(g, 24, 16, 1, 16, '#2b3532');
-    noise(g, 32, 32, ['#46554f', '#34403c', '#4f6150'], 70, 11);
-  });
-  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping; wallTex.repeat.set(WC, H + 4);
+  const wallTex = W3.wallTex();                         // 때 묻은 흰 타일 + 이끼 (1구역 지하철 뒷벽과 같음)
+  wallTex.repeat.set(Math.round(2 * Math.PI * ROUT / 128), (H + 4) * T / 128);
   const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROUT, ROUT, (H + 4) * T, WC, 1, true), new THREE.MeshLambertMaterial({ map: wallTex, side: THREE.BackSide }));
   wall.position.y = -(H * T) / 2; scene.add(wall);
   // 천장(가운데 구멍으로 지상 빛) · 바닥 물웅덩이
@@ -443,12 +453,14 @@ const fans = [];
     for (let i = 0; i < 3; i++) { px(g, 8 + i * 30, 8, 22, 16, '#202f33'); px(g, 10 + i * 30, 10, 6, 2, '#5d7b7c'); }
     noise(g, 96, 48, ['#4f7a3a', '#5f8f44', '#3c5a2c'], 160, 33);
   });
-  const mat = new THREE.MeshLambertMaterial({ map: tt });
+  const side = new THREE.MeshLambertMaterial({ map: W3.trainTex() }), end = new THREE.MeshLambertMaterial({ map: tt }), roof = new THREE.MeshLambertMaterial({ color: '#5d5f58' });
   const yb = floorRow(NB - 1) * T;
-  for (let i = 0; i < 5; i++) {
-    const car = new THREE.Mesh(new THREE.BoxGeometry(92, 46, 12), mat);
-    placeOnRing(car, (30 + i * 7) * T + 46, yb - 23, ROUT - 8); scene.add(car);
+  for (let i = 0; i < 4; i++) {                       // 차량 4칸 (옆면은 1구역 열차와 같은 그림), 바깥 벽 쪽에 멈춰 있음
+    const car = new THREE.Mesh(new THREE.BoxGeometry(150, 62, 30), [end, end, roof, roof, side, side]);
+    placeOnRing(car, (28 + i * 10) * T + 75, yb - 31, ROUT - 20); scene.add(car);
   }
+  const rail = new THREE.Mesh(new THREE.TorusGeometry(ROUT - 20, 1.5, 4, WC * 2), new THREE.MeshLambertMaterial({ color: '#6a6258' }));
+  rail.rotation.x = Math.PI / 2; rail.position.y = -yb + 1; scene.add(rail);
 }
 // 인력 엘리베이터: 발판 + 줄
 const elevMesh = new THREE.Group();
@@ -464,11 +476,72 @@ const elevMesh = new THREE.Group();
 const lamps = [];
 {
   const bulbMat = new THREE.MeshBasicMaterial({ color: '#ffd9a0' });
-  for (let b = 0; b < NB; b++) for (let k = 0; k < 8; k++) {
-    const x = (k * 12 + 6) * T, y = b * BAND * T + 2.5 * T;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 3), bulbMat); placeOnRing(m, x, y, ROUT - 1.5); scene.add(m);
-    lamps.push({ x, y, v: new THREE.Vector3(...P3(ROUT - 16, x, y + 4)) });
+  // 층마다 기둥(8칸 간격). 앞면에 층 번호판과 등. 문·승강로·벽·끊긴 바닥·열차 앞에는 세우지 않음
+  const pillarMat = new THREE.MeshLambertMaterial({ map: W3.pillarTex() });
+  const benchMat = new THREE.MeshLambertMaterial({ map: W3.benchTex() });
+  const PR = RP + 44;
+  const blocked = (b, col) => INTERACTS.some(o => o.b === b && o.kind !== 'call' && Math.abs(col - o.col) <= 2) || (col >= SHAFT - 2 && col <= SHAFT + 3) ||
+    (b === NB - 1 && col >= 26 && col <= 70);
+  const floorOk = (b, col) => map[floorRow(b)][mod(col, WC)] === '#' && map[floorRow(b) - 1][mod(col, WC)] !== '#' && !isStop(mod(col, WC), b);
+  for (let b = 0; b < NB; b++) {
+    const top = b * BAND * T, fl = floorRow(b) * T, h = fl - top;
+    for (let k = 0; k < WC / 8; k++) {
+      const col = k * 8 + 4;
+      if (!floorOk(b, col) || blocked(b, col)) continue;
+      const x = col * T + T / 2;
+      const p = new THREE.Mesh(new THREE.BoxGeometry(18, h, 18), pillarMat); placeOnRing(p, x, top + h / 2, PR); scene.add(p);
+      const bulb = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 3), bulbMat); placeOnRing(bulb, x + 6, top + 30, PR - 10); scene.add(bulb);
+      lamps.push({ x, y: top + 30, v: new THREE.Vector3(...P3(PR - 22, x + 6, top + 34)) });
+      // 벤치 (기둥 사이)
+      const bx = col + 4;
+      if ((k + b) % 2 === 0 && floorOk(b, bx) && floorOk(b, bx + 1) && !blocked(b, bx)) {
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(30, 8, 10), benchMat); placeOnRing(seat, bx * T + T, fl - 8, RP + 26); scene.add(seat);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(30, 14, 2), benchMat); placeOnRing(back, bx * T + T, fl - 17, RP + 31); scene.add(back);
+      }
+    }
+    // 벽을 두르는 배관 (층마다 한 바퀴)
+    const pipe = new THREE.Mesh(new THREE.TorusGeometry(ROUT - 5, 3, 6, WC), new THREE.MeshLambertMaterial({ color: '#5c6563' }));
+    pipe.rotation.x = Math.PI / 2; pipe.position.y = -(top + 12); scene.add(pipe);
   }
+  // 고사리 (바닥 위 여러 깊이, 가로세로 두 장) · 천장에서 늘어진 덩굴
+  const fernMats = [3, 4, 5].map(sd => new THREE.MeshLambertMaterial({ map: W3.fernTex(sd), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+  const vineMats = [1, 2, 3].map(sd => new THREE.MeshLambertMaterial({ map: W3.vineTex(sd), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+  for (let b = 0; b < NB; b++) {
+    for (let i = 0; i < 26; i++) {
+      const col = Math.floor(hash(i, 60 + b) * WC);
+      if (!floorOk(b, col)) continue;
+      const x = col * T + hash(i, 61 + b) * T, r = RP + 6 + hash(i, 62 + b) * (ROUT - RP - 12), sz = 14 + hash(i, 63 + b) * 16;
+      for (const rot of [0, Math.PI / 2]) {
+        const f = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), fernMats[i % 3]);
+        placeOnRing(f, x, floorRow(b) * T - sz / 2 + 1, r); f.rotation.y += rot + hash(i, 64); scene.add(f);
+      }
+    }
+    for (let i = 0; i < 14; i++) {
+      const col = Math.floor(hash(i, 70 + b) * WC), x = col * T + 8, r = RP + 8 + hash(i, 71 + b) * (ROUT - RP - 14);
+      if (b > 0 && map[b * BAND - 1][col] !== '#') continue;      // 위층 바닥이 있는 곳에서만 늘어짐
+      const v = new THREE.Mesh(new THREE.PlaneGeometry(16, 64), vineMats[i % 3]);
+      placeOnRing(v, x, b * BAND * T + 30, r); scene.add(v);
+    }
+  }
+}
+// B1(지상 출입층): 바깥 벽의 아치 창 너머로 바깥 정글이 보이고, 빛줄기가 비스듬히 들어옴
+{
+  const bgImg = await loadImg('assets/ch1-bg-2x.png').catch(() => null);
+  const archMat = new THREE.MeshLambertMaterial({ map: W3.archWindowTex(), transparent: true, alphaTest: 0.5 });
+  const shaftMat = new THREE.MeshBasicMaterial({ map: W3.shaftTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide, opacity: 0.45 });
+  const AW = 48, AH = 72, yb = floorRow(0) * T - 26;
+  [14, 26, 40, 54, 66, 78].forEach((col, i) => {
+    const x = col * T + T / 2;
+    if (bgImg) {                                        // 창 안쪽만 보이게 창틀 바로 뒤에 바깥 그림 조각
+      const t = new THREE.Texture(bgImg); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+      t.repeat.set(0.16, 0.5); t.offset.set((i * 0.14) % 0.84, 0.3);
+      const far = new THREE.Mesh(new THREE.PlaneGeometry(AW - 4, AH - 4), new THREE.MeshBasicMaterial({ map: t, color: '#c4d2bc', fog: false }));
+      placeOnRing(far, x, yb - 2, ROUT - 0.5); scene.add(far);
+    }
+    const fr = new THREE.Mesh(new THREE.PlaneGeometry(AW, AH), archMat); placeOnRing(fr, x, yb, ROUT - 1.2); scene.add(fr);
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(18, 150), shaftMat);
+    placeOnRing(sh, x - 22, yb - AH / 2 + 40, ROUT - 34); sh.rotation.z = 0.5; scene.add(sh);
+  });
 }
 const lampLights = Array.from({ length: 5 }, () => { const L = new THREE.PointLight('#ffb070', 900, 230, 1.4); scene.add(L); return L; });
 const lantern = new THREE.PointLight('#bfe0a8', 260, 110, 1.4); scene.add(lantern);
@@ -484,7 +557,7 @@ function makeSprite(img, fw, fh, ax, ay) {
   m.userData = { t, fw, fh, img }; scene.add(m); return m;
 }
 function setFrame(m, col, row) { const { t, fw, fh, img } = m.userData; t.offset.set(col * fw / img.width, 1 - (row + 1) * fh / img.height); }
-const HERO = { fw: 80, fh: 60, ax: 32, ay: 57, rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], whip: [4, 4] } };
+const HERO = { fw: 80, fh: 60, ax: 32, ay: 57, rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], whip: [4, 4], crouch: [5, 4], cwalk: [6, 8] } };
 const heroMesh = makeSprite(heroImg, HERO.fw, HERO.fh, HERO.ax, HERO.ay);
 const blobMeshes = enemies.map(() => makeSprite(blobImg, 48, 40, 24, 38));
 const slashMesh = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.MeshBasicMaterial({ map: canvasTex(44, 28, g => {
@@ -494,6 +567,8 @@ scene.add(slashMesh);
 
 function heroFrame() {
   if (P.act) { const n = HERO.rows.whip[1]; return ['whip', Math.min(n - 1, Math.floor(P.act.t / P.act.dur * n))]; }
+  if (state === 'dying') return ['jump', 5];
+  if (P.crouch) return Math.abs(P.vx) > 8 ? ['cwalk', Math.floor(P.walkT / 0.12) % 8] : ['crouch', Math.floor(timeNow / 0.35) % 4];
   if (!P.onGround) return ['jump', P.vy < -150 ? 1 : P.vy < -30 ? 2 : P.vy < 60 ? 3 : 4];
   if (P.landT > 0) return ['jump', 5];
   if (Math.abs(P.vx) > 10) return ['walk', Math.floor(P.walkT / 0.095) % 8];
@@ -505,7 +580,7 @@ function render3D() {
   const [name, f] = heroFrame();
   setFrame(heroMesh, f, HERO.rows[name][0]);
   placeOnRing(heroMesh, P.x + P.w / 2, P.y + P.h, RP); heroMesh.scale.x = P.face;
-  heroMesh.visible = !(P.inv > 0 && Math.floor(P.inv * 20) % 2 === 0) && state === 'play';
+  heroMesh.visible = state === 'play' ? !(P.inv > 0 && Math.floor(P.inv * 20) % 2 === 0) : state === 'dying' && deadT < 0.6 && Math.floor(deadT * 16) % 2 === 0;
   slashMesh.visible = slash > 0;
   if (slash > 0) { placeOnRing(slashMesh, P.x + P.w / 2 + P.face * 12, P.y + P.h / 2 - 2, RP - 2); slashMesh.scale.x = P.face; }
   // 적
@@ -573,6 +648,7 @@ function drawHud() {
     hx.fillStyle = '#e6efd8'; hx.font = '13px system-ui, sans-serif'; hx.textAlign = 'center'; hx.textBaseline = 'middle';
     hx.fillText(dialog.text, 320, 317);
   }
+  if (state === 'dying') { const k = Math.min(1, deadT / 1.4); hx.fillStyle = `rgba(2,6,4,${(k * k * 0.9).toFixed(3)})`; hx.fillRect(0, 0, hud.width, hud.height); }
   if (state === 'dead') {
     hx.fillStyle = 'rgba(2,6,4,.9)'; hx.fillRect(0, 0, hud.width, hud.height);
     hx.font = '13px ui-monospace, monospace'; hx.fillStyle = '#7fe07a'; hx.textAlign = 'left'; hx.textBaseline = 'top';
@@ -587,7 +663,11 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
   if (state === 'play') update(dt);
-  else { deadT += dt; timeNow += dt; if (enterP && deadT > 1) respawn(); }
+  else {
+    deadT += dt; timeNow += dt;
+    if (state === 'dying' && deadT >= 1.4) { state = 'dead'; deadT = 0; }
+    else if (state === 'dead' && enterP && deadT > 1) respawn();
+  }
   render3D(); drawHud();
   jumpP = upP = atkP = enterP = false;
   requestAnimationFrame(frame);
