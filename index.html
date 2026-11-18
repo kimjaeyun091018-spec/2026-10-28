@@ -118,8 +118,9 @@ canvas:focus-visible { outline: none; }
   <span><b>R</b> 재장전</span>
   <span><b>오른쪽 클릭</b> 기술 1 (처음: 덩굴 갈고리)</span>
   <span><b>E · Shift</b> 기술 2 (처음: 씨앗 순간이동)</span>
-  <span><b>W · ↑</b> 문·침대·작업대·대화 (점프는 Space)</span>
-  <span><b>Tab</b> 가방 (보기 · 장비는 캠프 작업대에서)</span>
+  <span><b>W · ↑</b> 문·침대·작업대·대화 (점프는 Space) · 덩굴에 매달려 감아 올라가기</span>
+  <span><b>S · ↓</b> 웅크리기 (조용히 걷기, 적이 늦게 알아챔)</span>
+  <span><b>Tab</b> 가방 (장비 바꾸기 · 무기는 4개까지)</span>
   <span><b>F</b> 전체 화면</span>
 </div>
 
@@ -203,7 +204,7 @@ function buildMap() {
 const ROOM_ROW0 = 95;
 const BUILDINGS = [
   { id: 'camp1', kind: 'camp', zone: 0, theme: 'office', name: '지하철 역무실', door: { x: 6, y: 51 },
-    npc: { name: '역무원 할멈', col: '#6a5a8a', lines: ['다녀왔니, 모스. 여긴 아직 안전해.', '침대에서 쉬면 이곳이 네가 다시 일어나는 곳이 된다.', '무기는 작업대에서만 손봐라. 바깥에서 장비 만지다 먹힌 사냥꾼이 한둘이 아니야.'] } },
+    npc: { name: '역무원 할멈', col: '#6a5a8a', lines: ['다녀왔니, 모스. 여긴 아직 안전해.', '침대에서 쉬면 이곳이 네가 다시 일어나는 곳이 된다.', '가방은 가볍게 다녀라. 남는 무기는 작업대 보관함에 맡기면 어느 캠프에서든 꺼낼 수 있어.'] } },
   { id: 'ticket', kind: 'explore', zone: 0, theme: 'storage', name: '매표소 창고', door: { x: 31, y: 51 }, item: 'shotgun', loot: [{ ammo: '12g', n: 6 }],
     note: ['피난 열차 시간표.', '마지막 줄에 누군가 연필로 적어 두었다.', '「오지 않는다.」'] },
   { id: 'camp2', kind: 'camp', zone: 1, theme: 'maint', name: '환기구 정비실', door: { x: 37, y: 38 }, item: 'crowbar',
@@ -314,11 +315,12 @@ function move(e, dt) {
 // ---------- 입력 ----------
 const keys = {};
 const mouse = { x: VW / 2, y: VH / 2, left: false, right: false, leftPressed: false };
-let jumpPressed = false, seedPressed = false, upPressed = false, reloadPressed = false, swapPressed = false;
+let jumpPressed = false, spacePressed = false, seedPressed = false, upPressed = false, reloadPressed = false, swapPressed = false;
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (['w', ' ', 'arrowup'].includes(k) && !keys[k]) jumpPressed = true;
   if (['w', 'arrowup'].includes(k) && !keys[k]) upPressed = true;
+  if (k === ' ' && !keys[k]) spacePressed = true;
   if (k === 'r' && state === 'play' && !keys[k]) reloadPressed = true;
   if (k === 'q' && state === 'play' && !keys[k]) swapPressed = true;
   if (['e', 'shift'].includes(k) && !keys[k]) seedPressed = true;
@@ -332,7 +334,7 @@ addEventListener('keydown', e => {
   if (k === 'tab') { e.preventDefault(); if (state === 'play') openBag(); else if (state === 'bag') closeBag(); return; }
   if (state === 'bag') {
     if (k === 'escape') closeBag();
-    if ((k === '1' || k === '2') && bag.edit) bag.sel = Number(k) - 1;
+    if (k === '1' || k === '2') bag.sel = Number(k) - 1;
     return;
   }
   if ((k === 'enter' || (k === ' ' && state === 'title')) && (state === 'title' || state === 'clear')) { start(); e.preventDefault(); return; }
@@ -349,7 +351,7 @@ function mousePos(e) {
 cv.addEventListener('mousemove', mousePos);
 cv.addEventListener('mousedown', e => {
   mousePos(e); cv.focus();
-  if (state === 'bag') { bagClick(mouse.x, mouse.y); e.preventDefault(); return; }
+  if (state === 'bag') { bagClick(mouse.x, mouse.y, e.button === 2); e.preventDefault(); return; }
   if (e.button === 0) { mouse.left = true; mouse.leftPressed = true; }
   if (e.button === 2) { mouse.right = true; mouse.rightPressed = true; }
   e.preventDefault();
@@ -404,21 +406,38 @@ const PICKUPS = [
 ];
 function newBag() {
   return { owned: new Set(['knife', 'sickle', 'pistol', 'hook', 'seed']), weapons: ['knife', 'pistol'], cur: 1, wsel: 0,
-    skills: ['hook', 'seed'], sel: 0, ammo: { '9mm': 36, '12g': 0, '762': 0 }, mag: { pistol: 12 }, hover: null, edit: false, warnT: 0 };
+    skills: ['hook', 'seed'], sel: 0, ammo: { '9mm': 36, '12g': 0, '762': 0 }, mag: { pistol: 12 }, hover: null, edit: false, warnT: 0, warn: '',
+    stash: new Set() };   // stash: 캠프 보관함 (캠프끼리 이어져 있음, 칸 제한 없음)
 }
-// edit: 캠프 작업대에서 열었을 때만 장비를 바꿀 수 있음 (바깥에서 Tab은 보기만)
+// 가방에 넣을 수 있는 무기는 장착한 2개를 포함해 CARRY_MAX개까지. 기술은 화분 식물의 힘이라 칸을 차지하지 않음
+const CARRY_MAX = 4;
+const carried = () => [...bag.owned].filter(id => ITEMS[id].kind === 'weapon').length;
+const bagWarn = text => { bag.warn = text; bag.warnT = 2; };
+// 장비는 가방 안에 있으면 어디서나 바꿈. edit: 캠프 작업대에서 열었을 때 → 보관함에 맡기기·꺼내기도 됨
 function openBag(edit = false) { state = 'bag'; bag.hover = null; bag.edit = edit; bag.warnT = 0; mouse.left = mouse.right = false; bannerT = 0; bannerEl.style.opacity = 0; }
 function closeBag() { state = 'play'; acc = 0; }
 let bagHits = [];
-function bagClick(x, y) {
+function bagClick(x, y, right = false) {
   const h = bagHits.find(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h);
   if (!h) return;
   if (h.slot !== undefined) { bag.sel = h.slot; return; }
   if (h.wslot !== undefined) { bag.wsel = h.wslot; return; }
   if (h.close) { closeBag(); return; }
   const id = h.item;
+  if (bag.stash.has(id)) {                              // 캠프 보관함에 있는 무기: 작업대에서만 꺼냄
+    if (!bag.edit) return bagWarn('캠프 보관함에 있다. 생존자 캠프의 작업대에서 꺼내자.');
+    if (carried() >= CARRY_MAX) return bagWarn(`가방이 가득 찼다 (무기 ${CARRY_MAX}개). 하나를 먼저 맡기자.`);
+    bag.stash.delete(id); bag.owned.add(id); return;
+  }
   if (!bag.owned.has(id)) return;
-  if (!bag.edit) { bag.warnT = 1.6; return; }          // 바깥에서는 보기만
+  if (right) {                                          // 오른쪽 클릭: 맡기기(캠프) / 버리기(바깥)
+    if (ITEMS[id].kind !== 'weapon') return bagWarn('기술은 화분 식물의 힘이라 버릴 수 없다.');
+    if (bag.weapons.includes(id)) return bagWarn('장착한 무기는 내려놓을 수 없다. 먼저 다른 무기로 바꾸자.');
+    bag.owned.delete(id);
+    if (bag.edit) { bag.stash.add(id); return; }
+    pickups.push({ id, x: Math.floor((P.x + P.w / 2) / T), y: Math.floor((P.y + P.h - 1) / T), taken: false, wait: true });
+    return bagWarn(ITEMS[id].name + '을(를) 내려놓았다. 다시 지나가면 주울 수 있다.');
+  }
   if (ITEMS[id].kind === 'weapon') {
     const other = bag.weapons.indexOf(id);
     if (other >= 0 && other !== bag.wsel) bag.weapons[other] = bag.weapons[bag.wsel];   // 다른 칸에 있으면 서로 바꿈
@@ -445,7 +464,18 @@ function spawnEnemies() {
     return e;
   });
 }
+const STAND_H = 19, CROUCH_H = 14;
+// 일어설 자리가 있으면 일어섬 (머리 위가 막혔으면 웅크린 채)
+function standUp() {
+  if (!P.crouch) return true;
+  if (hitBox(P.x, P.y - (STAND_H - P.h), P.w, STAND_H)) return false;
+  P.y -= STAND_H - P.h; P.h = STAND_H; P.crouch = false;
+  return true;
+}
+// 적이 모스를 알아채는 거리 배율: 웅크려 걸으면 0.4배
+const noticeMul = () => P.crouch ? 0.4 : 1;
 function placePlayerAt(c) {
+  P.h = STAND_H; P.crouch = false;
   P.x = c.x * T + 4; P.y = (c.y + 1) * T - P.h - 0.01; P.vx = P.vy = 0;
   P.safe = { x: P.x, y: P.y };
 }
@@ -529,9 +559,16 @@ function typeLines(lines) {
 function die(cause = 'unknown') {
   burst(P.x + P.w / 2, P.y + P.h / 2, '#79b85d', 24, 140);
   hook = null; seed = null; shake = 6; deaths++;
-  state = 'dead';
-  deathEl.hidden = false;
-  typeLines(deathLines(cause));
+  state = 'dying'; dyingT = 0; dyingCause = cause;          // 쓰러지는 모습을 잠깐 보여준 뒤 CMD 화면
+}
+let dyingT = 0, dyingCause = 'unknown';
+const DYING_TIME = 1.4;
+function updateDying(dt) {
+  dyingT += dt;
+  for (const p of parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  parts = parts.filter(p => p.life > 0);
+  shake = Math.max(0, shake - 20 * dt);
+  if (dyingT >= DYING_TIME) { state = 'dead'; deathEl.hidden = false; typeLines(deathLines(dyingCause)); }
 }
 function respawn() {
   if (state !== 'dead' || !deathReady) return;
@@ -593,9 +630,13 @@ function update(dt) {
   if (mouse.leftPressed || mouse.rightPressed || seedPressed) P.face = a.x >= 0 ? 1 : -1;
   if (hook) P.face = hook.x >= P.x + P.w / 2 ? 1 : -1;
   if (P.act) P.face = P.act.face;
+  // 웅크리기 (S·↓, 땅에서): 키가 작아지고 느리게, 조용히 걸음 → 적이 알아채는 거리가 줄어듦
+  const wantCrouch = P.onGround && !hook && held('s', 'arrowdown');
+  if (wantCrouch && !P.crouch) { P.y += P.h - CROUCH_H; P.h = CROUCH_H; P.crouch = true; }
+  else if (!wantCrouch && P.crouch) standUp();
   const accel = P.onGround ? 900 : 520;
   if (!hook) {
-    const cap = 92;
+    const cap = P.crouch ? 40 : 92;
     // 방향키 가속은 최고 속도(cap)까지만. 예전엔 공중 가속(520)이 공중 감속(160)보다 커서
     // 이동하며 점프하면 속도가 끝없이 붙는 버그가 있었음
     if (dir) {
@@ -617,8 +658,9 @@ function update(dt) {
   // 점프
   P.coyote = P.onGround ? 0.1 : P.coyote - dt;
   P.buffer = jumpPressed ? 0.12 : P.buffer - dt;
-  if (hook && jumpPressed) { hook = null; P.vy = Math.min(P.vy, 0) - 170; P.buffer = 0; burst(P.x + P.w / 2, P.y, '#79b85d', 6, 60); }
-  if (P.buffer > 0 && P.coyote > 0) { P.vy = -285; P.buffer = 0; P.coyote = 0; }
+  if (hook && !spacePressed) jumpPressed = false;          // 매달린 동안 W·↑는 덩굴 감기, 놓기는 Space
+  if (hook && spacePressed) { hook = null; P.vy = Math.min(P.vy, 0) - 220; P.buffer = 0; burst(P.x + P.w / 2, P.y, '#79b85d', 6, 60); }
+  if (P.buffer > 0 && P.coyote > 0 && standUp()) { P.vy = -285; P.buffer = 0; P.coyote = 0; }
   if (!held('w', ' ', 'arrowup') && P.vy < -100 && !hook) P.vy += 1400 * dt;
 
   // 기술 (가방에서 장착한 두 칸: 기술 1 = 오른쪽 클릭, 기술 2 = E·Shift)
@@ -636,8 +678,20 @@ function update(dt) {
       e.vx = (P.x - e.x) > 0 ? 160 : -160; e.vy = -120;
       slashFx = { x1: P.x + P.w / 2, y1: P.y + P.h * 0.4, x2: r.x, y2: r.y, t: 0.15, vine: true };
     } else if (r) {
-      const d = Math.hypot(r.x - P.x - 4, r.y - P.y - 5);
-      hook = { x: r.x, y: r.y, rest: d * 0.7 };
+      hook = { x: r.x, y: r.y };
+      // 벽 위 모서리 가까이(2칸 안)에 걸리면 모서리로 붙임 → 감아 올라가 그 위로 올라설 수 있음
+      const htx = Math.floor(r.x / T), hty = Math.floor(r.y / T);
+      for (let up = 0; up < 2; up++) {
+        const ty = hty - up;
+        if (!solidT(htx, ty)) break;
+        const side = P.x + P.w / 2 < htx * T + T / 2 ? -1 : 1;       // 모스가 있는 쪽 모서리
+        if (!solidT(htx, ty - 1) && !solidT(htx + side, ty) && P.y + P.h > ty * T) {   // 벽 옆면 + 그 위가 비었고 모스가 아래에 있을 때만
+          hook.x = side < 0 ? htx * T + 1 : (htx + 1) * T - 1; hook.y = ty * T + 1;
+          hook.ledge = { tx: htx, ty, side };
+          break;
+        }
+      }
+      hook.rest = Math.hypot(hook.x - P.x - 4, hook.y - P.y - 5) * 0.7;
       burst(r.x, r.y, '#8cc66a', 5, 50);
     } else {
       slashFx = { x1: P.x + P.w / 2, y1: P.y + P.h * 0.4, x2: P.x + P.w / 2 + a.x * 150, y2: P.y + P.h * 0.4 + a.y * 150, t: 0.12, vine: true };
@@ -646,7 +700,22 @@ function update(dt) {
   if (hook && !hk.hold) hook = null;
   if (hook) {
     const dx = hook.x - (P.x + P.w / 2), dy = hook.y - (P.y + P.h * 0.4), d = Math.hypot(dx, dy) || 1;
-    hook.rest = Math.max(18, hook.rest - 70 * dt);
+    // W·↑: 덩굴을 감아 올라감 · S·↓: 풀어 내려감 · 그냥 두면 천천히 감김
+    if (held('w', 'arrowup')) hook.rest = Math.max(4, hook.rest - 150 * dt);
+    else if (held('s', 'arrowdown')) hook.rest = Math.min(150, hook.rest + 90 * dt);
+    else hook.rest = Math.max(Math.min(hook.rest, 18), hook.rest - 70 * dt);
+    // 모서리에 건 덩굴을 끝까지 감으면 그 위로 올라섬
+    const L = hook.ledge;
+    if (L && P.y < L.ty * T + 6 && Math.abs(P.x + P.w / 2 - (L.side < 0 ? L.tx * T : (L.tx + 1) * T)) < 12) {
+      const nx = L.side < 0 ? L.tx * T + 1 : (L.tx + 1) * T - P.w - 1, ny = L.ty * T - P.h - 0.01;
+      if (!hitBox(nx, ny, P.w, P.h)) {
+        P.x = nx; P.y = ny; P.vx = 0; P.vy = 0; hook = null;
+        burst(P.x + P.w / 2, P.y + P.h, '#9fd27a', 8, 60);
+      }
+    }
+  }
+  if (hook) {
+    const dx = hook.x - (P.x + P.w / 2), dy = hook.y - (P.y + P.h * 0.4), d = Math.hypot(dx, dy) || 1;
     if (d > hook.rest) {
       const f = Math.min(1500, 16 * (d - hook.rest));
       P.vx += dx / d * f * dt; P.vy += dy / d * f * dt;
@@ -780,7 +849,7 @@ function update(dt) {
     if (e.t === 'blob') {
       e.atkCd -= dt;
       const pdx = P.x + P.w / 2 - (e.x + e.w / 2), pdy = P.y + P.h - (e.y + e.h);
-      if (e.onGround && e.stun <= 0 && e.atkCd <= 0 && Math.abs(pdx) < 46 && Math.abs(pdy) < 24) {
+      if (e.onGround && e.stun <= 0 && e.atkCd <= 0 && Math.abs(pdx) < 46 * noticeMul() && Math.abs(pdy) < 24) {
         e.atkCd = 1.8; e.atkT = 0; e.stun = 0.45;                 // 덤벼들기 (웅크림 → 도약)
         e.vx = Math.sign(pdx) * 120; e.vy = -150; e.face = Math.sign(pdx) || 1;
       }
@@ -801,7 +870,7 @@ function update(dt) {
       const dx = P.x + P.w / 2 - (e.x + e.w / 2), dy = P.y + P.h / 2 - (e.y + e.h / 2);
       e.face = dx >= 0 ? 1 : -1;
       e.cd -= dt;
-      if (e.cd <= 0 && Math.hypot(dx, dy) < 72 && e.stun <= 0) {
+      if (e.cd <= 0 && Math.hypot(dx, dy) < 72 * noticeMul() && e.stun <= 0) {
         e.cd = 2.6; e.puff = 0.4; e.atkT = 0;
         clouds.push({ x: e.x + e.w / 2, y: e.y + 2, r: 4, life: 1.8, max: 1.8 });
       }
@@ -810,7 +879,7 @@ function update(dt) {
       const dx = P.x + P.w / 2 - (e.x + e.w / 2), dy = P.y + P.h / 2 - (e.y + 5);
       e.face = dx >= 0 ? 1 : -1;
       e.cd -= dt;
-      if (e.cd <= 0 && Math.hypot(dx, dy) < 160 && e.stun <= 0) {
+      if (e.cd <= 0 && Math.hypot(dx, dy) < 160 * noticeMul() && e.stun <= 0) {
         e.cd = 1.9; e.open = 1; e.atkT = 0;
         const d = Math.hypot(dx, dy) || 1;
         bullets.push({ x: e.x + e.w / 2, y: e.y + 5, vx: dx / d * 105, vy: dy / d * 105, life: 3 });
@@ -847,10 +916,17 @@ function update(dt) {
   for (const p of pickups) {
     if (p.taken) continue;
     const px = p.x * T + 8, py = p.y * T + 8;
-    if (Math.abs(P.x + P.w / 2 - px) < 12 && Math.abs(P.y + P.h / 2 - py) < 16) {
+    const near = Math.abs(P.x + P.w / 2 - px) < 12 && Math.abs(P.y + P.h / 2 - py) < 16;
+    if (!near) { p.wait = false; p.warned = false; continue; }
+    if (p.wait) continue;                               // 방금 내려놓은 것은 한 번 벗어났다 와야 주움
+    if (p.id && ITEMS[p.id].kind === 'weapon' && carried() >= CARRY_MAX) {
+      if (!p.warned) showBanner({ name: `가방이 가득 찼다 · 무기 ${CARRY_MAX}개`, sub: 'Tab 가방에서 하나를 버리거나(오른쪽 클릭) 캠프 보관함에 맡기자' });
+      p.warned = true; continue;
+    }
+    {
       p.taken = true; burst(px, py, '#e9d78a', 16, 90);
       if (p.ammo) { bag.ammo[p.ammo] += p.n; showBanner({ name: `탄약 +${p.n} · ${AMMO_NAME[p.ammo]}`, sub: `가진 ${AMMO_NAME[p.ammo]} ${bag.ammo[p.ammo]}발` }); }
-      else { bag.owned.add(p.id); showBanner({ name: '가방에 넣었다 · ' + ITEMS[p.id].name, sub: '장착은 생존자 캠프의 작업대에서' }); }
+      else { bag.owned.add(p.id); showBanner({ name: '가방에 넣었다 · ' + ITEMS[p.id].name, sub: `Tab 가방에서 장착 · 무기 ${carried()}/${CARRY_MAX}` }); }
     }
   }
 
@@ -891,7 +967,7 @@ function update(dt) {
   if (inRoom) { cam.x = inRoom.rx * T; cam.y = inRoom.ry * T + 64 - VH / 2; }   // 실내: 방(20칸 = 화면 너비)에 고정
   shake = Math.max(0, shake - 20 * dt);
 
-  jumpPressed = seedPressed = upPressed = reloadPressed = swapPressed = false; mouse.leftPressed = mouse.rightPressed = false;
+  jumpPressed = spacePressed = seedPressed = upPressed = reloadPressed = swapPressed = false; mouse.leftPressed = mouse.rightPressed = false;
 }
 
 // ---------- 건물 상호작용 ----------
@@ -919,7 +995,7 @@ function interact(o) {
     if (o.kind === 'note') o.read = true;
   }
 }
-const PROMPT = { enter: o => '들어가기 · ' + o.b.name, exit: () => '나가기', bed: () => '쉬기', bench: () => '작업대 (장비 바꾸기)', npc: o => '대화 · ' + o.b.npc.name, note: () => '읽기' };
+const PROMPT = { enter: o => '들어가기 · ' + o.b.name, exit: () => '나가기', bed: () => '쉬기', bench: () => '작업대 (보관함)', npc: o => '대화 · ' + o.b.npc.name, note: () => '읽기' };
 
 function teleportTo(x, y) {
   burst(P.x + P.w / 2, P.y + P.h / 2, '#8cc66a', 10, 70);
@@ -1070,13 +1146,14 @@ let heroReady = false;
 heroImg.onload = () => { heroReady = true; };
 heroImg.src = 'assets/hero/hero_sheet.png';
 const HERO = { fw: 80, fh: 60, ax: 32, ay: 57, tipX: 11, tipY: -40,   // 작은 주인공 (도트 키 44px = 게임 22px)
-  rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], grapple: [3, 1], whip: [4, 4] } };
+  rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], grapple: [3, 1], whip: [4, 4], crouch: [5, 4], cwalk: [6, 8] } };   // 5·6줄: tools/hero-anim/crouch.py
 function heroFrame() {
   if (P.act) {
     const n = HERO.rows[P.act.name][1];                // 갈고리는 화분을 겨누는 한 프레임 (덩굴은 게임이 조준 방향으로 그림)
     return [P.act.name, Math.min(n - 1, Math.floor(P.act.t / P.act.dur * n))];
   }
   if (hook) return ['jump', 3];
+  if (P.crouch) return Math.abs(P.vx) > 8 ? ['cwalk', Math.floor(P.walkT / 0.12) % 8] : ['crouch', Math.floor(timeNow / 0.35) % 4];
   if (!P.onGround) return ['jump', P.vy < -150 ? 1 : P.vy < -30 ? 2 : P.vy < 60 ? 3 : 4];
   if (P.landT > 0) return ['jump', 5];
   if (Math.abs(P.vx) > 10) return ['walk', Math.floor(P.walkT / 0.095) % 8];
@@ -1085,6 +1162,7 @@ function heroFrame() {
 // 덩굴이 나오는 화분 식물 위치 (게임 좌표)
 const plantTip = () => ({ x: P.x + P.w / 2 + P.face * HERO.tipX / RS, y: P.y + P.h + HERO.tipY / RS });
 function drawPlayer(cx, cy) {
+  if (state === 'dying' || state === 'dead') return;
   if (P.inv > 0 && Math.floor(P.inv * 20) % 2 === 0) return;
   if (!heroReady) { rect(P.x - cx, P.y - cy, P.w, P.h, '#4e8f4a'); return; }
   const [name, f] = heroFrame();
@@ -1377,6 +1455,10 @@ function draw() {
     ctx.fillStyle = '#8aa293'; ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillText(d.i + 1 < d.lines.length ? '↑ 다음' : '↑ 닫기', x + w - 22, y + 30);
   }
   if (fadeT > 0) { ctx.globalAlpha = Math.min(1, fadeT / 0.45); rect(0, 0, VW, VH, '#000'); ctx.globalAlpha = 1; }
+  if (state === 'dying') {                              // 쓰러진 뒤 화면이 서서히 어두워짐
+    const k = Math.min(1, dyingT / DYING_TIME);
+    ctx.fillStyle = `rgba(4, 8, 6, ${(k * k * 0.9).toFixed(3)})`; ctx.fillRect(0, 0, VW, VH);
+  }
   if (state === 'bag') drawBag();
 }
 
@@ -1448,16 +1530,18 @@ function drawBag() {
   ctx.fillStyle = 'rgba(6, 12, 12, 0.72)'; ctx.fillRect(0, 0, VW, VH);
   rect(22, 12, 276, 156, '#162220'); rect(22, 12, 276, 1, '#3f6b40'); rect(22, 167, 276, 1, '#3f6b40'); rect(22, 12, 1, 156, '#3f6b40'); rect(297, 12, 1, 156, '#3f6b40');
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 9px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e9d78a'; ctx.fillText('가방', 32, 24);
-  ctx.font = '6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293'; ctx.fillText(bag.edit ? '작업대 · 왼쪽 칸을 고르고 오른쪽 목록에서 눌러 넣기   Tab · Esc 닫기' : '보기만 · 장비는 캠프의 작업대에서 바꿈   Tab · Esc 닫기', 70, 24);
-  if (bag.warnT > 0) { bag.warnT -= 1 / 60; ctx.fillStyle = '#e9a08a'; ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillText('여기서는 바꿀 수 없다. 생존자 캠프의 작업대로 가자.', 158, 32); }
+  ctx.font = 'bold 9px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#e9d78a'; ctx.fillText(bag.edit ? '작업대' : '가방', 32, 24);
+  ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = carried() >= CARRY_MAX ? '#e9a08a' : '#c8c060'; ctx.fillText(`무기 ${carried()}/${CARRY_MAX}`, 32 + (bag.edit ? 30 : 22), 24);
+  ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293';
+  ctx.fillText(bag.edit ? '클릭: 장착 · 보관함에서 꺼내기   오른쪽 클릭: 보관함에 맡기기   Tab · Esc 닫기' : '클릭: 장착   오른쪽 클릭: 버리기 (장착한 것은 못 버림)   Tab · Esc 닫기', 100, 24);
+  if (bag.warnT > 0) { bag.warnT -= 1 / 60; ctx.fillStyle = '#e9a08a'; ctx.font = 'bold 5px "Noto Sans KR", sans-serif'; ctx.fillText(bag.warn, 100, 32); }
   const box = (x, y, on, sel) => { rect(x, y, 20, 20, on ? '#24362c' : '#1a2420'); rect(x, y, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y + 19, 20, 1, sel ? '#e9d78a' : '#3f6b40'); rect(x, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); rect(x + 19, y, 1, 20, sel ? '#e9d78a' : '#3f6b40'); };
   // 장착 칸: 무기 2 + 기술 2
   ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText('장착', 32, 36);
   const slots = [['무기 1', bag.cur === 0 ? '지금 든 것 · Q로 바꿈' : 'Q로 바꿈', bag.weapons[0], 'w', 0], ['무기 2', bag.cur === 1 ? '지금 든 것 · Q로 바꿈' : 'Q로 바꿈', bag.weapons[1], 'w', 1],
     ['기술 1', '오른쪽 클릭', bag.skills[0], 's', 0], ['기술 2', 'E · Shift', bag.skills[1], 's', 1]];
   slots.forEach(([lab, key, id, kind, i], n) => {
-    const x = 32, y = 42 + n * 24 + (n > 1 ? 6 : 0), sel = bag.edit && (kind === 'w' ? bag.wsel === i : bag.sel === i);
+    const x = 32, y = 42 + n * 24 + (n > 1 ? 6 : 0), sel = (kind === 'w' ? bag.wsel === i : bag.sel === i);
     box(x, y, true, sel); drawIcon(id, x + 4, y + 4);
     ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = sel ? '#e9d78a' : '#d8e4d4'; ctx.fillText(lab + ' · ' + ITEMS[id].name, x + 25, y + 7);
     ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#8aa293';
@@ -1471,10 +1555,14 @@ function drawBag() {
   const list = (title, ids, y) => {
     ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#d8e4d4'; ctx.fillText(title, 158, y - 6);
     ids.forEach((id, i) => {
-      const x = 158 + i * 26, own = bag.owned.has(id);
+      const x = 158 + i * 26, own = bag.owned.has(id), kept = bag.stash.has(id);
       const on = bag.weapons.includes(id) || bag.skills.includes(id);
       box(x, y, own, on);
-      if (own) drawIcon(id, x + 4, y + 4); else { ctx.fillStyle = '#4a5a50'; ctx.font = 'bold 8px sans-serif'; ctx.fillText('?', x + 7, y + 10); }
+      if (own) drawIcon(id, x + 4, y + 4);
+      else if (kept) {                                   // 캠프 보관함에 맡긴 것: 흐리게 + '캠' 표시
+        ctx.globalAlpha = bag.edit ? 0.6 : 0.3; drawIcon(id, x + 4, y + 4); ctx.globalAlpha = 1;
+        ctx.font = 'bold 4px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#c8c060'; ctx.fillText('캠', x + 13, y + 17);
+      } else { ctx.fillStyle = '#4a5a50'; ctx.font = 'bold 8px sans-serif'; ctx.fillText('?', x + 7, y + 10); }
       hit(x, y, 20, 20, { item: id });
     });
   };
@@ -1484,11 +1572,11 @@ function drawBag() {
   // 설명 (마우스를 올린 것, 없으면 고른 칸)
   const hv = bagHits.find(b => b.item && mouse.x >= b.x && mouse.x < b.x + b.w && mouse.y >= b.y && mouse.y < b.y + b.h);
   const id = hv ? hv.item : bag.weapons[bag.wsel];
-  const it = ITEMS[id], own = bag.owned.has(id);
+  const it = ITEMS[id], own = bag.owned.has(id) || bag.stash.has(id);
   rect(156, 126, 132, 38, '#1a2420');
   ctx.font = 'bold 6px "Noto Sans KR", sans-serif'; ctx.fillStyle = own ? '#e9d78a' : '#6a7a70'; ctx.fillText(own ? it.name : '아직 없음', 160, 132);
   ctx.font = '5px "Noto Sans KR", sans-serif'; ctx.fillStyle = '#c8d4c4';
-  if (own) { wrapText(it.desc, 160, 140, 124, 7); ctx.fillStyle = '#8aa293'; ctx.fillText('얻은 곳: ' + it.from, 160, 159); }
+  if (own) { wrapText(it.desc, 160, 140, 124, 7); ctx.fillStyle = '#8aa293'; ctx.fillText(bag.stash.has(id) ? '캠프 보관함에 있음 (작업대에서 꺼냄)' : '얻은 곳: ' + it.from, 160, 159); }
   else wrapText((it.kind === 'skill' ? '포식 식물을 쓰러뜨려 화분에 먹이면 얻는다. ' : '어딘가에 떨어져 있다. ') + '얻는 곳: ' + it.from, 160, 140, 124, 7);
   ctx.textBaseline = 'alphabetic';
 }
@@ -1502,7 +1590,7 @@ function frame(now) {
   if (state === 'play') {
     acc += dt;
     while (acc >= 1 / 60) { update(1 / 60); acc -= 1 / 60; }
-  }
+  } else if (state === 'dying') updateDying(dt);
   draw();
 }
 buildMap();
@@ -1514,5 +1602,7 @@ cam = { x: Math.max(0, P.x - VW / 2), y: Math.min(H * T - VH, P.y - VH / 2) };
 startBtn.addEventListener('click', start);
 startBtn.addEventListener('pointerup', e => { if (state !== 'play') { e.preventDefault(); start(); } });
 requestAnimationFrame(frame);
+// 시험용 손잡이 (브라우저 자동 시험에서 상태 확인)
+window.__game = { get P() { return P; }, get bag() { return bag; }, get state() { return state; }, get hook() { return hook; }, get timeRun() { return timeRun; }, get cam() { return cam; }, get dyingT() { return dyingT; }, get pickups() { return pickups; }, tileAt: (x, y) => tileAt(x, y), held, standUp, bagHits: () => bagHits, die: c => die(c) };
 })();
 </script>
