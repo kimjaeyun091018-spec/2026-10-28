@@ -1,0 +1,85 @@
+{
+ "wall_neo_entrance": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, ground floor wall of a ruined futuristic skyscraper metro tower, shattered glass panels, broken holographic billboard frames, dead neon tube signs, steel beams, giant tree roots and vines bursting through the wall, tall wild grass at the bottom, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "wall_neo_service": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, maintenance level wall inside a ruined futuristic metro tower, sleek metal panels and hexagonal vents, thick bundles of cables, broken server racks and glowing status lights, pipes, creeping vines and moss covering everything, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "wall_neo_subway": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, interior wall of an abandoned futuristic underground metro concourse, smooth white composite panels cracked open, dead neon line maps, broken advertising screens, emergency lights, thick roots and hanging ivy, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "wall_neo_station": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, far wall of an abandoned futuristic maglev subway platform, sleek curved panels with a faded glowing stripe, broken digital timetable screens, overgrown with vines ferns and roots, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "train": {
+  "prompt": "pixel art, 16-bit game sprite, single object, full view, strict side view, plain flat light gray background, no ground, no shadow, crisp chunky pixels, dark outline, muted palette, a long sleek futuristic maglev subway train car seen exactly from the side, rounded aerodynamic body, long dark window band, abandoned and dirty, overgrown with moss and hanging vines, one cracked window, faded cyan stripe",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, scenery, ground, people, person",
+  "size": [
+   1536,
+   512
+  ],
+  "seeds": [
+   7,
+   8,
+   9
+  ]
+ },
+ "hero": {
+  "prompt": "pixel art character sprite, detailed modern 16-bit indie metroidvania style, small slim character about three heads tall with a big head, full body, strict side view facing right, standing, thick dark outline, muted moody palette, plain flat light gray background, no ground shadow, a lone survivor wearing a big round old brass deep sea diving helmet with one round glass porthole glowing faint green and rivets, a breathing hose from the helmet to a small tank on the back, long tattered dark teal raincoat flowing behind, thin legs, heavy boots, carrying a small glass pot with a little carnivorous sprout",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, multiple characters, character sheet, cropped, frame, border, scenery, front view, back view, chibi, fat",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   101,
+   202,
+   303,
+   404,
+   505,
+   606,
+   707,
+   808
+  ]
+ }
+}
