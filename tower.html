@@ -309,8 +309,8 @@ catch (e) { document.getElementById('err').style.display = 'grid'; throw e; }
 renderer.setPixelRatio(1); renderer.setSize(VW * RS, VH * RS, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#0d1716');
-scene.fog = new THREE.Fog('#0d1716', DIST + 40, DIST + 520);
+scene.background = new THREE.Color('#050908');
+scene.fog = new THREE.Fog('#050908', DIST - 20, DIST + 360);       // 어둡고 짙은 안개: 멀리 있는 층·벽은 어둠에 묻힘
 const camera = new THREE.PerspectiveCamera(2 * Math.atan((VH / 2) / DIST) * 180 / Math.PI, VW / VH, 1, 3000);
 
 const P3 = (r, x, y) => [r * Math.sin(x / RP), -y, -r * Math.cos(x / RP)];
@@ -378,7 +378,7 @@ const atlas = canvasTex(32 * ATL, 32, g => {
   const wallTex = W3.wallTex();                         // 때 묻은 흰 타일 + 이끼 (1구역 지하철 뒷벽과 같음)
   wallTex.repeat.set(Math.round(2 * Math.PI * ROUT / 128), (H + 4) * T / 128);
   const WALL_Y0 = -2 * T, WALL_Y1 = (floorRow(NB - 2) + 1) * T;    // 꼭대기 ~ 승강장 천장
-  const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROUT, ROUT, WALL_Y1 - WALL_Y0, WC, 1, true), new THREE.MeshLambertMaterial({ map: wallTex, side: THREE.BackSide }));
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROUT, ROUT, WALL_Y1 - WALL_Y0, WC, 1, true), new THREE.MeshLambertMaterial({ map: wallTex, side: THREE.BackSide, color: '#8f948a' }));
   wallTex.repeat.y = (WALL_Y1 - WALL_Y0) / 128;
   wall.position.y = -(WALL_Y0 + WALL_Y1) / 2; scene.add(wall);
   // 천장(가운데 구멍으로 지상 빛) · 바닥 물웅덩이
@@ -395,7 +395,7 @@ const atlas = canvasTex(32 * ATL, 32, g => {
 // 안쪽 원형 난간: 디딜 수 있는 바닥 위, 중정 쪽 가장자리
 {
   const tops = [];
-  for (let b = 0; b < NB; b++) { const ty = floorRow(b); for (let tx = 0; tx < WC; tx++) if (map[ty][tx] === '#' && map[ty - 1][tx] !== '#') tops.push([tx, ty]); }
+  for (let b = 0; b < NB - 1; b++) { const ty = floorRow(b); for (let tx = 0; tx < WC; tx++) if (map[ty][tx] === '#' && map[ty - 1][tx] !== '#') tops.push([tx, ty]); }   // 맨 아래 승강장은 막힌 홀이라 난간 없음
   const mat = new THREE.MeshLambertMaterial({ color: '#7a6446' });
   const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 11, 1.5), mat, tops.length);
   const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(T + 0.4, 1.5, 1.5), mat, tops.length * 2);
@@ -452,37 +452,31 @@ const fans = [];
     const m = new THREE.Mesh(new THREE.PlaneGeometry(44, 44), new THREE.MeshLambertMaterial({ map: ft, transparent: true, alphaTest: 0.5 })); piv.add(m); fans.push(m);
   }
 }
-// ---------- 지하철 1역 승강장 (B6): 진짜 역처럼 ----------
-// 승강장(걷는 곳) 뒤로 노란 안전선 → 30 아래 선로 바닥(자갈·침목·레일 두 줄) → 선로 위에 멈춘 열차(입체 차량) → 역 벽(이름 띠·광고판)
-// 천장(B5 바닥 밑)에는 형광등과 매달린 역 이름판, 승강장 끝에는 기둥 줄
+// ---------- 지하철 1역 승강장 (B6): 본 게임 1구역처럼 땅속에 움푹 파인 역 ----------
+// 탑 가운데(중정)까지 천장이 덮여 위층이 보이지 않는 낮은 지하 홀. 승강장 뒤로 한 단 낮은 선로 홈과 멈춘 열차만 있음.
+// 기둥(번호판 1)·벽등은 1구역과 같은 도트. 표지판·광고판 같은 군더더기는 없음
 const stationLights = [];
 {
   const FL = floorRow(NB - 1) * T, CE = (floorRow(NB - 2) + 1) * T, TR = FL + TRENCH;     // 승강장 윗면 · 천장 · 선로 바닥
   const lam = o => new THREE.MeshLambertMaterial(o);
-  const flatRing = (r0, r1, y, mat, up = true) => { const m = new THREE.Mesh(new THREE.RingGeometry(r0, r1, WC * 2, 1), mat); m.rotation.x = up ? -Math.PI / 2 : Math.PI / 2; m.position.y = -y; scene.add(m); return m; };
+  const flatRing = (r0, r1, y, mat, up = true) => { const m = new THREE.Mesh(r0 > 0 ? new THREE.RingGeometry(r0, r1, WC * 2, 1) : new THREE.CircleGeometry(r1, WC * 2), mat); m.rotation.x = up ? -Math.PI / 2 : Math.PI / 2; m.position.y = -y; scene.add(m); return m; };
   const repTex = (t, rx, ry) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.needsUpdate = true; return t; };
-  // 역 벽: 아래는 흰 타일, 가운데 초록 띠에 역 이름, 위는 어두운 판
-  const stWallTex = repTex(canvasTex(256, 128, g => {
-    const w = W3.wallTex().image; g.drawImage(w, 0, 0); g.drawImage(w, 128, 0);
-    px(g, 0, 0, 256, 34, '#2c302c'); noise(g, 256, 34, ['#363b36', '#232723'], 200, 5);
-    px(g, 0, 50, 256, 22, '#2f7d45'); px(g, 0, 50, 256, 2, '#5aa86a'); px(g, 0, 70, 256, 2, '#1f5a30');
-    g.font = 'bold 15px sans-serif'; g.fillStyle = '#eef3e6'; g.textBaseline = 'middle';
-    g.fillText('지하철 1역', 12, 61); g.font = 'bold 11px sans-serif'; g.fillText('Station 1  ·  ← 2역   중앙(연구소) →', 104, 62);
-    noise(g, 256, 128, ['#4f6b34', '#3f5a2c'], 220, 77);
-  }), -12, 1);                                             // 원통 안쪽 면이라 글자가 뒤집히지 않게 가로를 거꾸로
-  const stWall = new THREE.Mesh(new THREE.CylinderGeometry(ST_R, ST_R, TR - CE + 4, WC * 2, 1, true), lam({ map: stWallTex, side: THREE.BackSide }));
+  // 천장: 중정까지 전부 덮음 (가운데는 이끼 낀 콘크리트, 위층 쪽에서 보면 바닥)
+  const ceilTex = repTex(canvasTex(32, 32, g => { px(g, 0, 0, 32, 32, '#26291f'); noise(g, 32, 32, ['#30342a', '#1c1f18', '#3f5a2c', '#2f4a24'], 300, 21); }), 40, 40);
+  flatRing(0, ST_R + 1, CE, lam({ map: ceilTex, side: THREE.DoubleSide }), false);
+  // 승강장 앞(중정 쪽) 아래는 어두운 바닥
+  flatRing(0, RIN + 1, FL + T, lam({ color: '#141712' }));
+  // 역 벽: 1구역 뒷벽과 같은 때 묻은 타일, 어둡게
+  const stWallTex = W3.wallTex(); stWallTex.repeat.set(-Math.round(2 * Math.PI * ST_R / 128), (TR - CE + 4) / 128);
+  const stWall = new THREE.Mesh(new THREE.CylinderGeometry(ST_R, ST_R, TR - CE + 4, WC * 2, 1, true), lam({ map: stWallTex, side: THREE.BackSide, color: '#7d8278' }));
   stWall.position.y = -(CE + TR) / 2; scene.add(stWall);
-  // 천장: 위층 바닥 바깥(ROUT~역 벽)을 덮음
-  flatRing(ROUT - 1, ST_R + 1, CE, lam({ color: '#2a2f2b', side: THREE.DoubleSide }), false);
-  // 선로 바닥: 자갈
-  const gravel = repTex(canvasTex(32, 32, g => { px(g, 0, 0, 32, 32, '#3a3a33'); noise(g, 32, 32, ['#4a4a40', '#2c2c26', '#55554a', '#4f6b34'], 420, 14); }), 60, 4);
+  // 선로 홈: 승강장 끝에서 떨어지는 벽 + 자갈 바닥 + 침목·레일
+  const gravel = repTex(canvasTex(32, 32, g => { px(g, 0, 0, 32, 32, '#2e2e28'); noise(g, 32, 32, ['#3c3c34', '#22221e', '#46463c', '#3f5a2c'], 420, 14); }), 60, 4);
   flatRing(PLAT_R - 1, ST_R + 1, TR, lam({ map: gravel }));
-  // 노란 안전선 (점자 블록)
-  const yellow = repTex(canvasTex(16, 8, g => { px(g, 0, 0, 16, 8, '#c9a830'); for (let i = 0; i < 4; i++) px(g, 2 + i * 4, 3, 2, 2, '#a58620'); }), 240, 1);
-  flatRing(PLAT_R - 8, PLAT_R - 2, FL - 0.4, lam({ map: yellow }));
-  // 레일 두 줄 + 침목
-  const RT = PLAT_R + 52;                                    // 선로 가운데
-  const steel = lam({ color: '#8a8478' }), sleeperMat = lam({ color: '#4a3a2c' });
+  const yellow = repTex(canvasTex(16, 8, g => { px(g, 0, 0, 16, 8, '#9c8428'); for (let i = 0; i < 4; i++) px(g, 2 + i * 4, 3, 2, 2, '#7a6820'); }), 240, 1);
+  flatRing(PLAT_R - 7, PLAT_R - 2, FL - 0.4, lam({ map: yellow }));
+  const RT = PLAT_R + 52;
+  const steel = lam({ color: '#6f6a60' }), sleeperMat = lam({ color: '#3a2e24' });
   for (const dr of [-11, 11]) { const r = new THREE.Mesh(new THREE.TorusGeometry(RT + dr, 1.6, 4, WC * 4), steel); r.rotation.x = Math.PI / 2; r.position.y = -(TR - 3); scene.add(r); }
   const nSl = Math.round(2 * Math.PI * RT / 12);
   const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 2.5, 34), sleeperMat, nSl), o3 = new THREE.Object3D();
@@ -524,35 +518,15 @@ const stationLights = [];
     for (let k = -2; k <= 2; k++) { const pole = new THREE.Mesh(new THREE.BoxGeometry(1, CAR_H - 14, 1), poleMat); pole.position.set(k * 26, 0, (k % 2) * 3); car.add(pole); }
     const strip = new THREE.Mesh(new THREE.BoxGeometry(CAR_L - 30, 1.5, 3), stripMat); strip.position.y = CAR_H / 2 - 4; car.add(strip);
   }
-  // 승강장 끝 기둥 줄 (천장까지) + 역 이름판(천장에 매달림) + 형광등
-  const pillarMat = lam({ map: W3.pillarTex() });
-  const boardTex = canvasTex(96, 24, g => {
-    px(g, 0, 0, 96, 24, '#1d2a24'); px(g, 1, 1, 94, 22, '#2f7d45'); px(g, 3, 3, 90, 18, '#24402f');
-    g.font = 'bold 12px sans-serif'; g.fillStyle = '#eef3e6'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('지하철 1역', 48, 13);
-  });
-  const tubeMat = new THREE.MeshBasicMaterial({ color: '#e6f2dc' }), wire = lam({ color: '#2a2a2a' });
+  // 승강장 기둥 (1구역과 같은 기둥 + 번호판 1 + 주황 벽등)
+  const pillarMat = lam({ map: W3.pillarTex() }), signMat = lam({ map: W3.signTex() }), bulbMat = new THREE.MeshBasicMaterial({ color: '#ffd9a0' });
   for (let k = 0; k < WC / 8; k++) {
     const col = k * 8 + 2, x = col * T + T / 2;
     if (col >= SHAFT - 2 && col <= SHAFT + 3) continue;
-    const pl = new THREE.Mesh(new THREE.BoxGeometry(16, FL - CE, 16), pillarMat); placeOnRing(pl, x, (FL + CE) / 2, PLAT_R - 16); scene.add(pl);
-    const tx = x + 4 * T;                                     // 기둥 사이 형광등 (천장에서 줄로 매달림)
-    const tube = new THREE.Mesh(new THREE.BoxGeometry(34, 2.5, 5), tubeMat); placeOnRing(tube, tx, CE + 20, RP + 18); scene.add(tube);
-    for (const d of [-14, 14]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.6, 18, 0.6), wire); placeOnRing(w, tx + d, CE + 10, RP + 18); scene.add(w); }
-    stationLights.push(new THREE.Vector3(...P3(RP + 10, tx, CE + 34)));
-    if (k % 2 === 0) {                                        // 역 이름판 (양면)
-      const bd = new THREE.Mesh(new THREE.PlaneGeometry(48, 12), lam({ map: boardTex, side: THREE.DoubleSide })); placeOnRing(bd, x + 2 * T, CE + 26, PLAT_R - 4); scene.add(bd);
-      for (const d of [-18, 18]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.6, 20, 0.6), wire); placeOnRing(w, x + 2 * T + d, CE + 10, PLAT_R - 4); scene.add(w); }
-    }
-  }
-  // 역 벽의 광고판 (빛바랜 피난 안내)
-  const posterTex = canvasTex(64, 40, g => {
-    px(g, 0, 0, 64, 40, '#1d201d'); px(g, 2, 2, 60, 36, '#b8b09a'); px(g, 2, 2, 60, 10, '#8a3a30');
-    g.font = 'bold 8px sans-serif'; g.fillStyle = '#f0e6d0'; g.fillText('피난 안내', 6, 10);
-    g.fillStyle = '#4a4438'; g.fillText('열차 운행 중단', 6, 22); g.fillText('방독면 착용', 6, 32);
-    noise(g, 64, 40, ['#4f6b34', '#8a8070', '#3f5a2c'], 120, 9);
-  });
-  for (let k = 0; k < 10; k++) {
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(48, 30), lam({ map: posterTex })); placeOnRing(p, (k * 9.6 + 5) * T, TR - 52, ST_R - 1); scene.add(p);
+    const pl = new THREE.Mesh(new THREE.BoxGeometry(18, FL - CE, 18), pillarMat); placeOnRing(pl, x, (FL + CE) / 2, PLAT_R - 16); scene.add(pl);
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), signMat); placeOnRing(sg, x, CE + 30, PLAT_R - 25.5); scene.add(sg);
+    const bulb = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 3), bulbMat); placeOnRing(bulb, x + 12, CE + 52, PLAT_R - 26); scene.add(bulb);
+    stationLights.push(new THREE.Vector3(...P3(PLAT_R - 40, x + 12, CE + 56)));
   }
 }
 // 인력 엘리베이터: 발판 + 줄
@@ -596,25 +570,61 @@ const lamps = [];
     const pipe = new THREE.Mesh(new THREE.TorusGeometry((b === NB - 1 ? ST_R : ROUT) - 5, 3, 6, WC), new THREE.MeshLambertMaterial({ color: '#5c6563' }));
     pipe.rotation.x = Math.PI / 2; pipe.position.y = -(top + 12); scene.add(pipe);
   }
-  // 고사리 (바닥 위 여러 깊이, 가로세로 두 장) · 천장에서 늘어진 덩굴
-  const fernMats = [3, 4, 5].map(sd => new THREE.MeshLambertMaterial({ map: W3.fernTex(sd), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
-  const vineMats = [1, 2, 3].map(sd => new THREE.MeshLambertMaterial({ map: W3.vineTex(sd), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+  // ---------- 식물 (무성하게): 같은 그림끼리 한 번에 그리는 InstancedMesh ----------
+  // 바닥: 고사리 덤불·큰 잎 / 천장: 길게 늘어진 덩굴 / 층 바닥 앞면(중정 쪽): 아래로 드리운 덩굴 커튼 / 바깥 벽·기둥: 타고 오른 덩굴
+  const plantMat = t => new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+  const fernMats = [3, 4, 5, 6].map(sd => plantMat(W3.fernTex(sd)));
+  const leafMats = [1, 2].map(sd => plantMat(W3.bigLeafTex(sd)));
+  const vineMats = [1, 2, 3, 4].map(sd => plantMat(W3.vineTex(sd)));
+  const plane = new THREE.PlaneGeometry(1, 1), hang = new THREE.PlaneGeometry(1, 1).translate(0, -0.5, 0);   // hang: 윗변이 기준(천장에 매달림)
+  const groups = new Map();
+  const add = (mat, geo, x, y, r, sx, sy, ry = 0) => {
+    const k = mat.uuid + geo.uuid; if (!groups.has(k)) groups.set(k, { mat, geo, list: [] });
+    groups.get(k).list.push([x, y, r, sx, sy, ry]);
+  };
+  const outerR = b => (b === NB - 1 ? PLAT_R - 10 : ROUT - 4);
+  let n = 0;
+  const rnd = () => hash(n++, 913);
   for (let b = 0; b < NB; b++) {
-    for (let i = 0; i < 26; i++) {
-      const col = Math.floor(hash(i, 60 + b) * WC);
+    const fl = floorRow(b) * T, top = b * BAND * T;
+    // 바닥 고사리 덤불 (칸마다 여러 포기, 앞뒤 깊이 고루)
+    for (let col = 0; col < WC; col++) {
       if (!floorOk(b, col)) continue;
-      const x = col * T + hash(i, 61 + b) * T, r = RP + 6 + hash(i, 62 + b) * ((b === NB - 1 ? PLAT_R - 10 : ROUT) - RP - 12), sz = 14 + hash(i, 63 + b) * 16;
-      for (const rot of [0, Math.PI / 2]) {
-        const f = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), fernMats[i % 3]);
-        placeOnRing(f, x, floorRow(b) * T - sz / 2 + 1, r); f.rotation.y += rot + hash(i, 64); scene.add(f);
+      const cnt = 2 + Math.floor(rnd() * 3);
+      for (let i = 0; i < cnt; i++) {
+        const x = col * T + rnd() * T, r = RP - 6 + rnd() * (outerR(b) - RP + 6), sz = 12 + rnd() * 22, m = fernMats[Math.floor(rnd() * 4)];
+        add(m, plane, x, fl - sz / 2 + 1, r, sz, sz, rnd() * 3); add(m, plane, x, fl - sz / 2 + 1, r, sz, sz, rnd() * 3 + 1.5);
+      }
+      if (rnd() < 0.15) {                               // 큰 잎 (뒤쪽에 몇 장, 비스듬히 엇갈려)
+        const sz = 14 + rnd() * 10, r = RP + 20 + rnd() * (outerR(b) - RP - 20), x = col * T + rnd() * T, m = leafMats[Math.floor(rnd() * 2)];
+        add(m, plane, x, fl - sz / 2 + 2, r, sz * 0.8, sz, 0.7 + rnd() * 0.4); add(m, plane, x + 4, fl - sz / 2 + 3, r + 3, sz * 0.7, sz * 0.9, -0.7 - rnd() * 0.4);
       }
     }
-    for (let i = 0; i < 14; i++) {
-      const col = Math.floor(hash(i, 70 + b) * WC), x = col * T + 8, r = RP + 8 + hash(i, 71 + b) * (ROUT - RP - 14);
-      if (b > 0 && map[b * BAND - 1][col] !== '#') continue;      // 위층 바닥이 있는 곳에서만 늘어짐
-      const v = new THREE.Mesh(new THREE.PlaneGeometry(16, 64), vineMats[i % 3]);
-      placeOnRing(v, x, b * BAND * T + 30, r); scene.add(v);
+    // 천장에서 늘어진 덩굴 (길이 제각각)
+    for (let col = 0; col < WC; col++) {
+      if (b > 0 && map[b * BAND - 1][col] !== '#') continue;   // 위층 바닥 밑에서만
+      const cnt = 1 + Math.floor(rnd() * 3);
+      for (let i = 0; i < cnt; i++) {
+        const len = 40 + rnd() * 90;
+        add(vineMats[Math.floor(rnd() * 4)], hang, col * T + rnd() * T, top, RP + 4 + rnd() * (outerR(b) - RP - 4), 14 + rnd() * 6, len, (rnd() - 0.5) * 0.8);
+      }
     }
+    // 바깥 벽을 타고 오른 덩굴 (벽에 붙여 크게)
+    for (let i = 0; i < 46; i++) {
+      const len = 70 + rnd() * 80;
+      add(vineMats[Math.floor(rnd() * 4)], hang, rnd() * C, top + rnd() * 30, (b === NB - 1 ? ST_R : ROUT) - 1.5, 18 + rnd() * 10, len);
+    }
+    // 층 바닥 앞면(중정 쪽)에서 아래로 드리운 덩굴 커튼 — 아래층 화면 위쪽을 가림
+    if (b < NB - 1) for (let col = 0; col < WC; col++) {
+      if (map[floorRow(b)][col] !== '#' || rnd() < 0.3) continue;
+      add(vineMats[Math.floor(rnd() * 4)], hang, col * T + rnd() * T, fl + T - 2, RIN - 1 - rnd() * 3, 14 + rnd() * 6, 24 + rnd() * 46);
+    }
+  }
+  const o = new THREE.Object3D();
+  for (const { mat, geo, list } of groups.values()) {
+    const im = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach(([x, y, r, sx, sy, ry], i) => { placeOnRing(o, x, y, r); o.rotation.y += ry; o.scale.set(sx, sy, 1); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+    scene.add(im);
   }
 }
 // B1(지상 출입층): 바깥 벽의 아치 창 너머로 바깥 정글이 보이고, 빛줄기가 비스듬히 들어옴
@@ -636,10 +646,10 @@ const lamps = [];
     placeOnRing(sh, x - 22, yb - AH / 2 + 40, ROUT - 34); sh.rotation.z = 0.5; scene.add(sh);
   });
 }
-for (const v of stationLights) lamps.push({ v, cold: true });
-const lampLights = Array.from({ length: 5 }, () => { const L = new THREE.PointLight('#ffb070', 900, 230, 1.4); scene.add(L); return L; });
-const lantern = new THREE.PointLight('#bfe0a8', 260, 110, 1.4); scene.add(lantern);
-scene.add(new THREE.HemisphereLight('#9fc4bc', '#2a2a22', 1.1));
+for (const v of stationLights) lamps.push({ v });
+const lampLights = Array.from({ length: 5 }, () => { const L = new THREE.PointLight('#ffa060', 620, 190, 1.5); scene.add(L); return L; });
+const lantern = new THREE.PointLight('#bfe0a8', 200, 90, 1.5); scene.add(lantern);   // 방독면 렌즈 빛
+scene.add(new THREE.HemisphereLight('#6f948c', '#14140f', 0.32));
 
 // 도트 스프라이트: 걷는 면(RP)에 원통 접선 방향으로 세운 판. 좌우 반전은 scale.x
 function makeSprite(img, fw, fh, ax, ay) {
@@ -697,7 +707,7 @@ function render3D() {
   // 가까운 벽등에만 빛
   const look = new THREE.Vector3(...P3(RP, camX, camY));
   lamps.sort((a, b) => a.v.distanceToSquared(look) - b.v.distanceToSquared(look));
-  lampLights.forEach((L, i) => { L.position.copy(lamps[i].v); L.color.set(lamps[i].cold ? '#d8ecd8' : '#ffb070'); });   // 역 형광등은 차가운 빛
+  lampLights.forEach((L, i) => { L.position.copy(lamps[i].v); L.color.set('#ffa060'); });   // 역 형광등은 차가운 빛
   lantern.position.set(...P3(RP - 14, P.x + P.w / 2, P.y));
   renderer.render(scene, camera);
 }

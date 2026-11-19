@@ -861,4 +861,4 @@ export function createWorld3D({ canvas, tileAt, W, H, T, VW, VH, RS, tilesImg, b
 }
 
 // 원통 탑 시제품(tower.html)이 같은 도트 텍스처를 쓰도록 내보냄
-export { tex, px, noise, hash, mossTopTex, trainTex, wallTex, archWindowTex, pillarTex, fernTex, vineTex, benchTex, panelTex, fanTex, shaftTex };
+export { tex, px, noise, hash, mossTopTex, trainTex, wallTex, archWindowTex, pillarTex, signTex, fernTex, vineTex, bigLeafTex, benchTex, panelTex, fanTex, shaftTex };
