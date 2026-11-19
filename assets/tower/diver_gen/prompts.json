@@ -1,0 +1,89 @@
+{
+ "negative": "front view, facing the viewer, three-quarter view, back view, multiple characters, two people, duplicate, sprite sheet, tall, adult proportions, raincoat, cape, extra legs, extra arms, missing legs, deformed hands, fused legs, blurry, smooth shading, 3d render, realistic photo, text, watermark, signature, frame, cropped feet, cut off hat, scenery, floor, grass",
+ "seeds": [
+  11,
+  22
+ ],
+ "frames": [
+  {
+   "name": "idle_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, standing still, relaxed, holding the flower pot at chest height"
+  },
+  {
+   "name": "walk_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, contact pose: front leg forward with the heel touching the ground, back leg pushing off on the toes"
+  },
+  {
+   "name": "walk_1",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, down pose: weight on the front leg with the knee slightly bent, back foot lifting off"
+  },
+  {
+   "name": "walk_2",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, passing pose: supporting leg straight under the body, other leg lifted with knee bent passing forward"
+  },
+  {
+   "name": "walk_3",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, up pose: rising on the toes of the back leg, swinging leg reaching forward"
+  },
+  {
+   "name": "walk_4",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, contact pose: front leg forward with the heel touching the ground, back leg pushing off on the toes"
+  },
+  {
+   "name": "walk_5",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, down pose: weight on the front leg with the knee slightly bent, back foot lifting off"
+  },
+  {
+   "name": "walk_6",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, passing pose: supporting leg straight under the body, other leg lifted with knee bent passing forward"
+  },
+  {
+   "name": "walk_7",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, walking, up pose: rising on the toes of the back leg, swinging leg reaching forward"
+  },
+  {
+   "name": "jump_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, crouching low before a jump, knees deeply bent, arms swung back, dynamic action pose, the bent legs and boots are clearly visible"
+  },
+  {
+   "name": "jump_1",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, jumping off the ground, legs fully extended, arms swinging up, dynamic action pose, the bent legs and boots are clearly visible"
+  },
+  {
+   "name": "jump_2",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, in mid-air rising, knees pulled up toward the chest, dynamic action pose, the bent legs and boots are clearly visible"
+  },
+  {
+   "name": "jump_3",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, at the peak of a jump in mid-air, legs tightly tucked, knees near the chest, dynamic action pose, the bent legs and boots are clearly visible"
+  },
+  {
+   "name": "jump_4",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, falling in mid-air, legs extending down to land, arms out for balance, dynamic action pose, the bent legs and boots are clearly visible"
+  },
+  {
+   "name": "jump_5",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, landing, knees bent absorbing the impact, crouching, dynamic action pose, the bent legs and boots are clearly visible"
+  },
+  {
+   "name": "whip_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, swinging back the flower pot behind the head, winding up an attack, dynamic attack pose"
+  },
+  {
+   "name": "whip_1",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, raising the flower pot high above the head, dynamic attack pose"
+  },
+  {
+   "name": "whip_2",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, swinging the flower pot forward hard, arm stretched forward, dynamic attack pose"
+  },
+  {
+   "name": "whip_3",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, follow-through after a swing, arm down and forward, leaning forward, dynamic attack pose"
+  },
+  {
+   "name": "grapple_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from helmet to boots, strict side view profile facing right, small slim character about three heads tall with a big round head, the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, a small air tank on the back, heavy brown boots, holding a small glass pot with a little carnivorous sprout in the near hand, muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, aiming the flower pot forward and upward with the arm fully stretched out, dynamic pose"
+  }
+ ]
+}

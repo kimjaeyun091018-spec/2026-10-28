@@ -143,9 +143,9 @@ for (const b of [NB - 2, NB - 1]) INTERACTS.push({ col: 86, b, kind: 'call', lab
 // ---------- 상태 ----------
 const qs = new URLSearchParams(location.search);
 const at = (qs.get('at') || '').split(',').map(Number);
-const START = at.length === 2 && at.every(Number.isFinite) ? { x: at[0] * T, y: at[1] * T - 19 } : { x: 6 * T, y: floorRow(0) * T - 19 };
-const P = { x: START.x, y: START.y, w: 8, h: 19, vx: 0, vy: 0, face: 1, inv: 0, coyote: 0, buffer: 0, act: null, onGround: false, onElev: false, walkT: 0, landT: 0, near: null, fallFrom: null, grab: null };
-const STAND_H = 19, CROUCH_H = 14;
+const START = at.length === 2 && at.every(Number.isFinite) ? { x: at[0] * T, y: at[1] * T - 24 } : { x: 6 * T, y: floorRow(0) * T - 24 };
+const P = { x: START.x, y: START.y, w: 9, h: 24, vx: 0, vy: 0, face: 1, inv: 0, coyote: 0, buffer: 0, act: null, onGround: false, onElev: false, walkT: 0, landT: 0, near: null, fallFrom: null, grab: null };
+const STAND_H = 24, CROUCH_H = 18;                     // 잠수부 헬멧 주인공: 게임 키 26px (도트 52px)
 function standUp() {                                   // 머리 위가 비었을 때만 일어섬
   if (!P.crouch) return true;
   if (hitBox(P.x, P.y - (STAND_H - P.h), P.w, STAND_H)) return false;
@@ -339,8 +339,8 @@ function update(dt) {
   const crateNear = side => props.find(o => o.kind === 'crate' && Math.abs(o.y + o.h - (P.y + P.h)) < 3 &&
     Math.abs(wd(side > 0 ? o.x - (P.x + P.w) : P.x - (o.x + o.w))) < 2.5);
   const grabKey = held('e', 'shift');
-  if (P.grab && (!grabKey || !P.onGround || !crateNear(P.face))) P.grab = null;
-  if (!P.grab && grabKey && P.onGround && !hook) P.grab = crateNear(P.face) || null;
+  if (P.grab && (!grabKey || !P.onGround || crateNear(Math.sign(wd(P.grab.x - P.x)) || 1) !== P.grab)) P.grab = null;
+  if (!P.grab && grabKey && P.onGround && !hook) P.grab = crateNear(P.face) || crateNear(-P.face) || null;   // 붙어 있는 상자 (앞이 먼저)
   let pushing = null;
   if (P.onGround && dir) {
     const c = P.grab || crateNear(dir);
@@ -384,8 +384,9 @@ function update(dt) {
   P.vy = Math.min(P.vy + 900 * dt, 400);
 
   // 상자·잔해: 떨어지며 아래 것을 깔아뭉갬
+  const pulling = pushing && wd(pushing.x - P.x) * dir < 0;   // 당길 때는 사람이 먼저 움직이고 상자가 따라옴
   for (const o of props) {
-    if (o.held) continue;
+    if (o.held || (pulling && o === pushing)) continue;
     if (o.yank > 0) o.yank -= dt;
     if (o !== pushing) o.vx = o.yank > 0 ? o.yankDir * 90 : 0;   // 덩굴로 걸면 잠깐 이쪽으로 끌려옴
     o.vy = Math.min(o.vy + 900 * dt, 420);
@@ -397,12 +398,14 @@ function update(dt) {
       if (hit(P)) die('crush');
     }
   }
-  if (pushing) {                                       // 밀 때는 상자가 먼저 움직이고, 당길 때는 사람이 먼저
-    const pullDir = wd(pushing.x - P.x) * dir < 0;
-    if (pullDir) { P.vx = dir * 40; move(P, dt); pushing.x = mod(dir > 0 ? P.x - pushing.w - 0.05 : P.x + P.w + 0.05, C); P.vx = dir * 40; }
-  }
   const wasGround = P.onGround, prevBottom = P.y + P.h;
-  if (!(pushing && wd(pushing.x - P.x) * dir < 0)) move(P, dt);
+  if (pulling) {
+    const ox = P.x, cx0 = pushing.x;
+    P.vx = dir * 40; move(P, dt);
+    const nx = dir > 0 ? P.x - pushing.w - 0.05 : P.x + P.w + 0.05;
+    if (hitBox(nx, pushing.y, pushing.w, pushing.h)) { P.x = ox; pushing.x = cx0; }   // 상자 뒤가 막혔으면 못 당김
+    else pushing.x = mod(nx, C);
+  } else move(P, dt);
   if (hook) ropeConstrain();
   // 엘리베이터 발판 (위에서만 밟힘)
   P.onElev = false;
@@ -492,7 +495,7 @@ const px = (g, x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
 const noise = (g, w, h, cols, n, seed) => { for (let i = 0; i < n; i++) px(g, Math.floor(hash(i, seed) * w), Math.floor(hash(seed, i) * h), 1, 1, cols[i % cols.length]); };
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 
-const [tilesImg, heroImg, blobImg] = await Promise.all(['assets/world/tiles.png', 'assets/hero/hero_sheet.png', 'assets/enemies/blob.png'].map(loadImg));
+const [tilesImg, heroImg, blobImg] = await Promise.all(['assets/world/tiles.png', 'assets/tower/diver_sheet.png', 'assets/enemies/blob.png'].map(loadImg));
 // Kaggle에서 만든 도트 그림 (tools/tower-art): 무너진 미래 도시 층별 벽(가로로 이어짐) · 자기부상 열차 · 덩굴 커튼 · 긴 풀 · 고사리
 const ART = {};
 await Promise.all(['wall_neo_entrance_s33', 'wall_neo_service_s11', 'wall_neo_subway_s33', 'wall_neo_station_s33', 'train_s7', 'vine_hang_s4', 'vine_hang_s5', 'grass_s3', 'fern_s4']
@@ -779,7 +782,7 @@ const neons = [];
   }
 }
 const lampLights = Array.from({ length: 5 }, () => { const L = new THREE.PointLight('#ffc890', 420, 170, 1.6); scene.add(L); return L; });
-const lantern = new THREE.PointLight('#bfe0a8', 200, 90, 1.5); scene.add(lantern);   // 방독면 렌즈 빛
+const lantern = new THREE.PointLight('#ffb070', 200, 90, 1.5); scene.add(lantern);   // 잠수부 헬멧 창의 주황 빛
 scene.add(new THREE.HemisphereLight('#7f9fb8', '#141820', 0.6));   // 푸른 밤빛
 
 // 도트 스프라이트: 걷는 면(RP)에 원통 접선 방향으로 세운 판. 좌우 반전은 scale.x
@@ -865,6 +868,7 @@ function renderPixel() {
 function heroFrame() {
   if (P.act) { const n = HERO.rows.whip[1]; return ['whip', Math.min(n - 1, Math.floor(P.act.t / P.act.dur * n))]; }
   if (state === 'dying') return ['jump', 5];
+  if (hook) return ['jump', 3];                         // 덩굴에 매달린 동안
   if (P.crouch) return Math.abs(P.vx) > 8 ? ['cwalk', Math.floor(P.walkT / 0.12) % 8] : ['crouch', Math.floor(timeNow / 0.35) % 4];
   if (!P.onGround) return ['jump', P.vy < -150 ? 1 : P.vy < -30 ? 2 : P.vy < 60 ? 3 : 4];
   if (P.landT > 0) return ['jump', 5];
