@@ -1,0 +1,116 @@
+{
+ "wall_subway": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, dark night scene, dim warm lamp light, deep blue and violet shadows, warm amber and olive highlights, crisp chunky pixels, rich hand placed detail, interior wall of an abandoned underground subway station overgrown by plants, dirty white ceramic tiles, rusty pipes and cables running along the wall, faded torn posters, hanging ivy and moss, no people, no text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22
+  ]
+ },
+ "wall_service": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, dark night scene, dim warm lamp light, deep blue and violet shadows, warm amber and olive highlights, crisp chunky pixels, rich hand placed detail, maintenance corridor wall in an abandoned metro tunnel, riveted metal panels, rusted pipes, electrical boxes, wooden crates and toolboxes against the wall, cables, creeping vines and moss, no people, no text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22
+  ]
+ },
+ "wall_entrance": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, dark night scene, dim warm lamp light, deep blue and violet shadows, warm amber and olive highlights, crisp chunky pixels, rich hand placed detail, ground floor wall of a ruined subway tower, broken arched windows with pale moonlight, cracked concrete, thick tree roots and vines growing through the wall, tall wild grass at the bottom, no people, no text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22
+  ]
+ },
+ "wall_station": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, dark night scene, dim warm lamp light, deep blue and violet shadows, warm amber and olive highlights, crisp chunky pixels, rich hand placed detail, far wall of an abandoned subway platform seen across the tracks, tiled wall with a long faded colored stripe, old benches and a dead vending machine, overgrown with vines and ferns, no people, no text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22
+  ]
+ },
+ "vine_hang": {
+  "prompt": "pixel art, 16-bit game sprite, single object, full view, side view, plain flat light gray background, no ground, no shadow, crisp chunky pixels, dark outline, palette of olive green, moss green, dark teal and warm yellow green highlights, a curtain of hanging ivy vines with many small leaves dangling from the top edge of the image, tapering to thin curling tips at the bottom",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, scenery, ground, pot, human, person, animal",
+  "size": [
+   768,
+   1280
+  ],
+  "seeds": [
+   3,
+   4,
+   5
+  ]
+ },
+ "grass": {
+  "prompt": "pixel art, 16-bit game sprite, single object, full view, side view, plain flat light gray background, no ground, no shadow, crisp chunky pixels, dark outline, palette of olive green, moss green, dark teal and warm yellow green highlights, a dense clump of tall wild grass and reeds with long thin swaying blades, yellow green and olive, a few seed heads",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, scenery, ground, pot, human, person, animal",
+  "size": [
+   1280,
+   768
+  ],
+  "seeds": [
+   3,
+   4,
+   5
+  ]
+ },
+ "fern": {
+  "prompt": "pixel art, 16-bit game sprite, single object, full view, side view, plain flat light gray background, no ground, no shadow, crisp chunky pixels, dark outline, palette of olive green, moss green, dark teal and warm yellow green highlights, a lush fern bush with many arching fronds",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, scenery, ground, pot, human, person, animal",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   3,
+   4
+  ]
+ },
+ "roots": {
+  "prompt": "pixel art, 16-bit game sprite, single object, full view, side view, plain flat light gray background, no ground, no shadow, crisp chunky pixels, dark outline, palette of olive green, moss green, dark teal and warm yellow green highlights, thick twisted tree roots and vines hanging down from the top edge of the image",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, scenery, ground, pot, human, person, animal",
+  "size": [
+   768,
+   1280
+  ],
+  "seeds": [
+   3,
+   4
+  ]
+ },
+ "hero": {
+  "prompt": "pixel art character sprite, detailed modern 16-bit indie game style, chunky cute proportions with a big head about one third of the body height, full body, side view facing right, standing, thick dark outline, warm cinematic shading, plain flat light gray background, no ground shadow, a small young scavenger, rusty brown wide brimmed hat, teal gas mask with two round glowing green lenses and a filter canister, dark olive green patched long coat, heavy brown boots, holding a small terracotta pot with a little carnivorous sprout in one hand, a pruning sickle hanging on the belt",
+  "negative": "3d render, realistic photo, blurry, smooth shading, text, watermark, signature, multiple characters, cropped, frame, border, scenery, front view, back view",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   101,
+   202,
+   303,
+   404,
+   505,
+   606
+  ]
+ }
+}

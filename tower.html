@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">A/D 이동 · Space 점프 · S 웅크리기 · W 문·기록·호출 · J/클릭 칼 · 엘리베이터 위에서 W/S 도르래 · P 도트 배경 켜기/끄기</div>
+<div id="help">A/D 이동 · Space 점프 · S 웅크리기(조용히) · 상자에 걸어가 밀기 · E 누른 채 당기기 · W 지렛대·호출 · 엘리베이터 위 W/S · P 도트 배경</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -54,21 +54,23 @@ fill(30, 32, 9, 9, '.'); fill(14, 15, 8, 8); put(15, 7); fill(50, 53, 6, 6); fil
 // B2 환풍구 층: 20·60칸 벽으로 막힘 → 21~59 구간 (바깥쪽 61~19 구간은 엘리베이터로만)
 fill(20, 20, 10, 18); fill(60, 60, 10, 18);
 fill(50, 52, 19, 19, '.'); fill(36, 39, 16, 16); fill(26, 27, 18, 18);
-// B3 정비 통로: 한 바퀴 이어짐, 작은 언덕
-fill(40, 41, 28, 28); fill(42, 43, 27, 28); fill(44, 45, 26, 28); fill(46, 47, 27, 28);
+// B3 정비 통로: 한 바퀴 이어짐. B2 구멍(50~52) 아래는 2칸 높이 벽(47·57칸)에 갇힌 구덩이 — 덩굴 뭉치가 지킴
+fill(47, 47, 27, 28); fill(57, 57, 27, 28);
 fill(70, 72, 29, 29, '.'); fill(14, 17, 25, 25);
 // B4 무너진 층: 5~14칸 바닥이 끊김
-fill(5, 14, 39, 39, '!'); fill(56, 58, 38, 38); put(57, 37); fill(30, 31, 30, 31);
-// B5 개찰구: 한 바퀴 이어짐
-fill(40, 42, 49, 49, '.'); fill(20, 23, 46, 46); fill(70, 73, 46, 46); fill(60, 60, 47, 48);
-// B6 지하철 1역 승강장: 바닥 (승강로도 막힘)
+fill(5, 14, 39, 39, '!'); fill(56, 58, 38, 38); put(57, 37);
+put(26, 38); put(35, 38);                             // 덩굴 뭉치가 오가는 구역(27~34)의 낮은 턱 — 위에는 줄에 매달린 잔해(30~31칸)
+// B5 개찰구: 한 바퀴 이어짐. 승강장(B6)으로는 엘리베이터로만
+fill(20, 23, 46, 46); fill(70, 73, 46, 46); fill(60, 60, 47, 48);
+// B6 지하철 1역 승강장: 바닥 (승강로도 막힘). 엘리베이터 아래 구역(82~94)을 2칸 벽이 둘러쌈 — 덩굴 뭉치가 지킴
+fill(81, 81, 57, 58); fill(95, 95, 57, 58);
 
 const FLOORS = [
   ['B1 · 지상 출입층', '지하철 탑 — 제3구역 지하철 역'],
   ['B2 · 환풍구 층', '벽으로 막혀 있다'],
-  ['B3 · 정비 통로', '한 바퀴 이어진 길'],
+  ['B3 · 정비 통로', '구덩이 속에 무언가 있다'],
   ['B4 · 무너진 층', '바닥이 끊겼다'],
-  ['B5 · 개찰구', ''],
+  ['B5 · 개찰구', '엘리베이터만 아래로 간다'],
   ['지하철 1역 승강장', '피난 열차는 오지 않았다'],
 ];
 
@@ -87,6 +89,15 @@ function isStop(col, b) {
   for (let y = b * BAND; y < floorRow(b); y++) if (map[y][col] !== '#') return false;
   return true;
 }
+// 상자·잔해와 겹치는지 (둘레 감김 고려). 자기 자신은 뺌
+function propHit(e) {
+  for (const o of props) {
+    if (o === e) continue;
+    const dx = wd(o.x - e.x);
+    if (dx < e.w && dx + o.w > 0 && o.y < e.y + e.h && o.y + o.h > e.y) return { o, ox: e.x + dx };
+  }
+  return null;
+}
 function move(e, dt) {
   let dx = e.vx * dt, dy = e.vy * dt;
   const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 6) || 1;
@@ -99,10 +110,17 @@ function move(e, dt) {
       else e.x = (Math.floor(e.x / T) + 1) * T + 0.01;
       e.vx = 0; dx = 0;
     }
+    let ph = propHit(e);
+    if (ph && dx) { e.x = dx > 0 ? ph.ox - e.w - 0.01 : ph.ox + ph.o.w + 0.01; e.hitProp = ph.o; e.vx = 0; dx = 0; }
     e.y += dy;
     if (hitBox(e.x, e.y, e.w, e.h)) {
       if (dy > 0) { e.y = Math.floor((e.y + e.h) / T) * T - e.h - 0.01; e.onGround = true; }
       else e.y = (Math.floor(e.y / T) + 1) * T + 0.01;
+      e.vy = 0; dy = 0;
+    }
+    ph = propHit(e);
+    if (ph && dy) {
+      if (dy > 0) { e.y = ph.o.y - e.h - 0.01; e.onGround = true; } else e.y = ph.o.y + ph.o.h + 0.01;
       e.vy = 0; dy = 0;
     }
   }
@@ -116,37 +134,53 @@ const INTERACTS = [
   { col: 60, b: 2, kind: 'door', label: '정비 창고', text: '문틈으로 덩굴이 꽉 차 있다.' },
   { col: 27, b: 3, kind: 'note', label: '벽 낙서', text: '「피난 열차는 오지 않는다」' },
   { col: 8, b: 4, kind: 'door', label: '역무실', text: '잠겨 있다. 유리창 너머로 꺼진 모니터가 보인다.' },
-  { col: 44, b: 5, kind: 'train', label: '멈춘 열차', text: '열차는 칠 년째 멈춰 있다. 시제품은 여기까지 — 엘리베이터로 다시 올라갈 수 있다.' },
+  { col: 44, b: 5, kind: 'train', label: '멈춘 열차', text: '열차는 칠 년째 멈춰 있다. 시제품은 여기까지.' },
+  { col: 40, b: 3, kind: 'lever', label: '녹슨 지렛대', text: '줄이 풀리며 천장의 잔해가 떨어졌다.' },
 ];
-for (let b = 0; b < NB; b++) INTERACTS.push({ col: 86, b, kind: 'call', label: '엘리베이터 호출', text: '도르래 줄을 당겼다.' });
+// 엘리베이터는 B5~승강장만 다님 (위쪽 줄은 끊김). 위층 승강로는 그냥 깊은 구멍
+for (const b of [NB - 2, NB - 1]) INTERACTS.push({ col: 86, b, kind: 'call', label: '엘리베이터 호출', text: '도르래 줄을 당겼다.' });
 
 // ---------- 상태 ----------
 const qs = new URLSearchParams(location.search);
 const at = (qs.get('at') || '').split(',').map(Number);
 const START = at.length === 2 && at.every(Number.isFinite) ? { x: at[0] * T, y: at[1] * T - 19 } : { x: 6 * T, y: floorRow(0) * T - 19 };
-const P = { x: START.x, y: START.y, w: 8, h: 19, vx: 0, vy: 0, face: 1, hp: 100, inv: 0, coyote: 0, buffer: 0, slashCd: 0, act: null, onGround: false, onElev: false, walkT: 0, landT: 0, near: null };
+const P = { x: START.x, y: START.y, w: 8, h: 19, vx: 0, vy: 0, face: 1, inv: 0, coyote: 0, buffer: 0, act: null, onGround: false, onElev: false, walkT: 0, landT: 0, near: null, fallFrom: null, grab: null };
 const STAND_H = 19, CROUCH_H = 14;
 function standUp() {                                   // 머리 위가 비었을 때만 일어섬
   if (!P.crouch) return true;
   if (hitBox(P.x, P.y - (STAND_H - P.h), P.w, STAND_H)) return false;
   P.y -= STAND_H - P.h; P.h = STAND_H; P.crouch = false; return true;
 }
-const elev = { x: SHAFT * T, w: 2 * T, y: floorRow(0) * T, target: null };
-const ELEV_MIN = floorRow(0) * T, ELEV_MAX = floorRow(NB - 1) * T;
-const enemies = [[25, 2], [55, 2], [40, 3], [24, 3], [10, 4], [62, 4], [30, 5], [75, 5]].map(([c, b]) =>
-  ({ x: c * T, y: floorRow(b) * T - 12, w: 14, h: 12, vx: 0, vy: 0, dir: Math.random() < .5 ? 1 : -1, hp: 3, flash: 0, stun: 0, t: Math.random() * 2, onGround: false }));
+const ELEV_MIN = floorRow(NB - 2) * T, ELEV_MAX = floorRow(NB - 1) * T;
+const elev = { x: SHAFT * T, w: 2 * T, y: ELEV_MIN, target: null, vy: 0 };
+// 덩굴 뭉치: 무기로는 못 이김. 닿으면 즉사. 떨어지는 상자·잔해, 내려오는 엘리베이터에 깔리거나 높이 떨어지면 죽음
+const enemies = [[52, 2], [30, 3], [90, 5]].map(([c, b]) =>
+  ({ x: c * T, y: floorRow(b) * T - 12, w: 14, h: 12, vx: 0, vy: 0, dir: 1, hp: 1, flash: 0, stun: 0, t: c * 0.37, onGround: false, fallFrom: null }));
+// 밀고 당기는 상자(B2), 줄에 매달린 잔해(B4, 지렛대로 떨어뜨림)
+const props = [
+  { kind: 'crate', x: 44 * T, y: floorRow(1) * T - T, w: T, h: T, vx: 0, vy: 0, held: false },
+  { kind: 'debris', x: 30 * T, y: 30 * T, w: 2 * T, h: 2 * T, vx: 0, vy: 0, held: true },
+];
+// 기록 지점: 층에 처음 내려선 곳. 죽으면 그때의 상태(적·상자·엘리베이터)로 되돌림
+let checkpoint = { x: START.x, y: START.y, band: 0, snap: null };
+const snapshot = () => JSON.parse(JSON.stringify({ enemies, props: props.map(({ mesh, rope, ...o }) => o), elev }));
+function restore(sn) {
+  sn.enemies.forEach((e, i) => Object.assign(enemies[i], e));
+  sn.props.forEach((o, i) => Object.assign(props[i], o));
+  Object.assign(elev, sn.elev);
+}
+checkpoint.snap = snapshot();
 let pixelMode = true;
-let state = 'play', timeNow = 0, camX = START.x, camY = START.y, dialog = null, banner = null, lastBand = -1, slash = 0;
+let state = 'play', timeNow = 0, camX = START.x, camY = START.y, dialog = null, banner = null, lastBand = -1, deathCause = '';
 
 // ---------- 입력 ----------
 const keys = {};
-let jumpP = false, upP = false, atkP = false, enterP = false;
+let jumpP = false, upP = false, enterP = false;
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (!keys[k]) {
     if (k === ' ') jumpP = true;
     if (k === 'w' || k === 'arrowup') upP = true;
-    if (k === 'j' || k === 'k') atkP = true;
     if (k === 'enter') enterP = true;
     if (k === 'p') pixelMode = !pixelMode;           // 도트 배경 켜고 끄기 (비교용)
   }
@@ -155,7 +189,6 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-document.getElementById('wrap').addEventListener('mousedown', e => { if (e.button === 0) atkP = true; });
 const held = (...ks) => ks.some(k => keys[k]);
 
 // ---------- 카메라 회전 범위 ----------
@@ -176,19 +209,25 @@ function camBounds() {
 }
 
 // ---------- 갱신 ----------
-function hurt(fromX, dmg) {
-  if (P.inv > 0 || state !== 'play') return;
-  P.hp -= dmg; P.inv = 0.9;
-  P.vx = (wd(P.x - fromX) >= 0 ? 1 : -1) * 150; P.vy = -150;
-  if (P.hp <= 0) { P.hp = 0; state = 'dying'; deadT = 0; }   // 1.4초 쓰러진 모습 → CMD 화면
+// Limbo처럼: 한 번에 죽고, 잠깐 어두워진 뒤 마지막 기록 지점에서 바로 다시 (CMD 한 줄만)
+const DEATH = { blob: '덩굴 뭉치에게 먹힘', fall: '높은 곳에서 떨어짐', crush: '깔림' };
+function die(cause) {
+  if (state !== 'play' || P.inv > 0) return;
+  state = 'dying'; deadT = 0; deathCause = cause; P.grab = null;
 }
 let deadT = 0;
 function respawn() {
-  Object.assign(P, { x: START.x, y: START.y, vx: 0, vy: 0, hp: 100, inv: 1, act: null, h: STAND_H, crouch: false });
-  camX = P.x; camY = P.y; state = 'play'; lastBand = -1;
+  restore(checkpoint.snap);
+  Object.assign(P, { x: checkpoint.x, y: checkpoint.y, vx: 0, vy: 0, inv: 0.6, act: null, h: STAND_H, crouch: false, fallFrom: null, grab: null, onElev: false });
+  camX = P.x; camY = P.y; state = 'play';
 }
 function interact(o) {
   if (o.kind === 'call') { elev.target = floorRow(o.b) * T; dialog = { text: o.text, t: 2 }; return; }
+  if (o.kind === 'lever') {
+    const d = props.find(p => p.kind === 'debris');
+    if (d.held) { d.held = false; dialog = { text: `${o.label} — ${o.text}`, t: 3 }; } else dialog = { text: '지렛대는 이미 당겨져 있다.', t: 2 };
+    return;
+  }
   dialog = { text: `${o.label} — ${o.text}`, t: 4 };
 }
 
@@ -210,6 +249,13 @@ function update(dt) {
     elev.y += Math.abs(d) <= sp ? d : Math.sign(d) * sp;
   }
   elev.y = Math.max(ELEV_MIN, Math.min(ELEV_MAX, elev.y));
+  elev.vy = (elev.y - ey0) / dt;
+  // 내려오는 엘리베이터 발판 밑에 있으면 깔림
+  if (elev.vy > 1) {
+    const under = e => Math.abs(wd(e.x + e.w / 2 - (elev.x + elev.w / 2))) < elev.w / 2 + e.w / 2 - 2 && e.y < elev.y + 5 && e.y + e.h > elev.y + 2;
+    for (const e of enemies) if (e.hp > 0 && under(e)) { e.hp = 0; e.squash = 1; dialog = { text: '덩굴 뭉치가 엘리베이터에 깔렸다.', t: 2.5 }; }
+    if (!P.onElev && under(P)) die('crush');
+  }
   if (P.onElev && Math.abs(elev.y - ey0) > 0.001) {      // 움직이는 동안만 발판 위에 붙잡아 둠 (층에 서 있으면 걸어 나갈 수 있음)
     P.y += elev.y - ey0;
     P.x = Math.min(Math.max(P.x, elev.x + 1 + Math.round((pcx - elev.x) / C) * C), elev.x + elev.w - P.w - 1 + Math.round((pcx - elev.x) / C) * C);
@@ -224,12 +270,23 @@ function update(dt) {
 
   const dir = (held('d', 'arrowright') ? 1 : 0) - (held('a', 'arrowleft') ? 1 : 0);
   if (dir) P.face = dir;
-  if (P.act) { P.face = P.act.face; if ((P.act.t += dt) >= P.act.dur) P.act = null; }
+  if (P.grab) P.face = wd(P.grab.x + P.grab.w / 2 - (P.x + P.w / 2)) > 0 ? 1 : -1;   // 상자를 잡고 있으면 상자 쪽을 봄
   // 웅크리기 (S·↓, 땅에서. 엘리베이터 위에서는 S가 도르래): 작고 느리게, 조용히 → 덩굴 뭉치가 늦게 알아챔
   const wantCrouch = P.onGround && !P.onElev && held('s', 'arrowdown');
   if (wantCrouch && !P.crouch) { P.y += P.h - CROUCH_H; P.h = CROUCH_H; P.crouch = true; }
   else if (!wantCrouch && P.crouch) standUp();
-  const accel = P.onGround ? 900 : 520, cap = P.crouch ? 40 : 92;
+  // 상자 밀기(걸어서 부딪힘)·당기기(E·Shift를 누른 채 반대로): 상자를 움직이는 동안은 느림
+  const crateNear = side => props.find(o => o.kind === 'crate' && Math.abs(o.y + o.h - (P.y + P.h)) < 3 &&
+    Math.abs(wd(side > 0 ? o.x - (P.x + P.w) : P.x - (o.x + o.w))) < 2.5);
+  const grabKey = held('e', 'shift');
+  if (P.grab && (!grabKey || !P.onGround || !crateNear(P.face))) P.grab = null;
+  if (!P.grab && grabKey && P.onGround) P.grab = crateNear(P.face) || null;
+  let pushing = null;
+  if (P.onGround && dir) {
+    const c = P.grab || crateNear(dir);
+    if (c && (c === P.grab || crateNear(dir) === c) && c.vy === 0) { pushing = c; c.vx = dir * 40; }
+  }
+  const accel = P.onGround ? 900 : 520, cap = P.crouch || pushing ? 40 : 92;
   if (dir) {
     const nv = P.vx + dir * accel * dt;
     if (Math.abs(nv) <= cap || Math.sign(nv) !== dir) P.vx = nv;
@@ -244,8 +301,25 @@ function update(dt) {
   if (!jumpHeld && P.vy < -100) P.vy += 1400 * dt;
   P.vy = Math.min(P.vy + 900 * dt, 400);
 
+  // 상자·잔해: 떨어지며 아래 것을 깔아뭉갬
+  for (const o of props) {
+    if (o.held) continue;
+    if (o !== pushing) o.vx = 0;
+    o.vy = Math.min(o.vy + 900 * dt, 420);
+    const fallV = o.vy;
+    move(o, dt); o.x = mod(o.x, C);
+    if (fallV > 90) {
+      const hit = e => { const dx = wd(e.x - o.x); return dx < o.w && dx + e.w > 0 && e.y < o.y + o.h + 2 && e.y + e.h > o.y; };
+      for (const e of enemies) if (e.hp > 0 && hit(e)) { e.hp = 0; e.squash = 1; dialog = { text: o.kind === 'crate' ? '떨어진 상자에 덩굴 뭉치가 깔렸다.' : '잔해가 덩굴 뭉치를 덮쳤다.', t: 2.5 }; }
+      if (hit(P)) die('crush');
+    }
+  }
+  if (pushing) {                                       // 밀 때는 상자가 먼저 움직이고, 당길 때는 사람이 먼저
+    const pullDir = wd(pushing.x - P.x) * dir < 0;
+    if (pullDir) { P.vx = dir * 40; move(P, dt); pushing.x = mod(dir > 0 ? P.x - pushing.w - 0.05 : P.x + P.w + 0.05, C); P.vx = dir * 40; }
+  }
   const wasGround = P.onGround, prevBottom = P.y + P.h;
-  move(P, dt);
+  if (!(pushing && wd(pushing.x - P.x) * dir < 0)) move(P, dt);
   // 엘리베이터 발판 (위에서만 밟힘)
   P.onElev = false;
   const ecx = elev.x + elev.w / 2;
@@ -255,18 +329,15 @@ function update(dt) {
   if (P.onGround && !wasGround) P.landT = 0.08;
   P.landT -= dt;
   P.walkT = P.onGround && Math.abs(P.vx) > 10 ? P.walkT + dt : 0;
-  if (P.y > H * T + 200) { P.y = START.y; P.x = START.x; }
-
-  // 칼 (J·K·왼쪽 클릭)
-  P.slashCd -= dt; slash -= dt;
-  if (atkP && P.slashCd <= 0) {
-    P.slashCd = 0.28; P.act = { name: 'whip', t: 0, dur: 0.22, face: P.face }; slash = 0.12;
-    const px = P.x + P.w / 2, py = P.y + P.h / 2;
-    for (const e of enemies) {
-      if (e.hp <= 0) continue;
-      const dx = wd(e.x + e.w / 2 - px) * P.face, dy = e.y + e.h / 2 - py;
-      if (dx > -4 && dx < 24 && Math.abs(dy) < 16) { e.hp--; e.flash = 0.15; e.stun = 0.35; e.vx = P.face * 130; e.vy = -110; }
-    }
+  // 떨어진 높이: 15칸(240px)보다 높으면 죽음 (한 층 = 160px은 괜찮음)
+  if (!P.onGround && P.fallFrom === null) P.fallFrom = P.y;
+  if (!P.onGround && P.vy < 0) P.fallFrom = Math.min(P.fallFrom, P.y);
+  if (P.onGround && P.fallFrom !== null) { if (P.y - P.fallFrom > 240) die('fall'); P.fallFrom = null; }
+  // 기록 지점: 새 층에 내려서면 (근처에 덩굴 뭉치가 없을 때)
+  const pb = bandOf(P.y + P.h / 2);
+  if (state === 'play' && P.onGround && !P.onElev && pb !== checkpoint.band &&
+      !enemies.some(e => e.hp > 0 && bandOf(e.y + e.h / 2) === pb && Math.abs(wd(e.x - P.x)) < 120)) {
+    checkpoint = { x: P.x, y: P.y, band: pb, snap: snapshot() };
   }
 
   // 덩굴 뭉치: 걸어 다니다 벽·낭떠러지에서 돎, 닿으면 피해
@@ -274,17 +345,20 @@ function update(dt) {
     if (e.hp <= 0) continue;
     e.t += dt; e.flash -= dt; e.stun -= dt;
     const ndx = wd(P.x + P.w / 2 - (e.x + e.w / 2)), ndy = P.y + P.h - (e.y + e.h);
-    const chase = e.stun <= 0 && Math.abs(ndx) < (P.crouch ? 28 : 72) && Math.abs(ndy) < 20;
+    const chase = state === 'play' && Math.abs(ndx) < (P.crouch ? 28 : 72) && Math.abs(ndy) < 20;
     if (chase) e.dir = Math.sign(ndx) || e.dir;
     if (e.stun <= 0) {
       const ahead = e.dir > 0 ? e.x + e.w + 1 : e.x - 1;
       if (e.onGround && (!solidP(ahead, e.y + e.h + 2) || solidP(ahead, e.y + e.h / 2))) e.dir *= -1;
       e.vx = e.dir * (chase ? 50 : 28);
     } else e.vx *= 1 - 4 * dt;
+    if (e.hitProp) { e.dir *= -1; e.hitProp = null; }
     e.vy = Math.min(e.vy + 900 * dt, 400);
+    if (!e.onGround && e.fallFrom === null) e.fallFrom = e.y;
     move(e, dt); e.x = mod(e.x, C);
+    if (e.onGround && e.fallFrom !== null) { if (e.y - e.fallFrom > 120) { e.hp = 0; e.squash = 1; } e.fallFrom = null; }   // 덩굴 뭉치는 높이 떨어지면 터짐
     const dx = wd(e.x + e.w / 2 - (P.x + P.w / 2)), dy = (e.y + e.h / 2) - (P.y + P.h / 2);
-    if (Math.abs(dx) < (e.w + P.w) / 2 - 2 && Math.abs(dy) < (e.h + P.h) / 2 - 2) hurt(e.x + e.w / 2, 12);
+    if (e.hp > 0 && Math.abs(dx) < (e.w + P.w) / 2 - 2 && Math.abs(dy) < (e.h + P.h) / 2 - 2) die('blob');
   }
   P.inv -= dt;
 
@@ -311,8 +385,8 @@ catch (e) { document.getElementById('err').style.display = 'grid'; throw e; }
 renderer.setPixelRatio(1); renderer.setSize(VW * RS, VH * RS, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#050908');
-scene.fog = new THREE.Fog('#050908', DIST - 20, DIST + 360);       // 어둡고 짙은 안개: 멀리 있는 층·벽은 어둠에 묻힘
+scene.background = new THREE.Color('#121c24');
+scene.fog = new THREE.Fog('#1f2e3a', DIST - 10, DIST + 340);       // 공기 원근: 멀수록 푸르스름한 안개에 묻혀 밝고 흐려짐, 가까운 발판·식물은 어두운 실루엣
 const camera = new THREE.PerspectiveCamera(2 * Math.atan((VH / 2) / DIST) * 180 / Math.PI, VW / VH, 1, 3000);
 
 const P3 = (r, x, y) => [r * Math.sin(x / RP), -y, -r * Math.cos(x / RP)];
@@ -335,6 +409,15 @@ const noise = (g, w, h, cols, n, seed) => { for (let i = 0; i < n; i++) px(g, Ma
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 
 const [tilesImg, heroImg, blobImg] = await Promise.all(['assets/world/tiles.png', 'assets/hero/hero_sheet.png', 'assets/enemies/blob.png'].map(loadImg));
+// Kaggle에서 만든 도트 그림 (tools/tower-art): 층별 벽(가로로 이어짐) · 덩굴 커튼 · 긴 풀 · 고사리
+const ART = {};
+await Promise.all(['wall_entrance_s11', 'wall_service_s11', 'wall_subway_s11', 'wall_station_s11', 'vine_hang_s4', 'vine_hang_s5', 'grass_s3', 'fern_s4']
+  .map(async n => { ART[n] = await loadImg(`assets/tower/${n}.png`); }));
+function artTex(n, repX = 1) {
+  const t = new THREE.Texture(ART[n]); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  if (repX !== 1) { t.wrapS = THREE.RepeatWrapping; t.repeat.x = repX; }
+  t.needsUpdate = true; return t;
+}
 
 // 블록 텍스처 묶음: 앞면 3종(tiles.png 1구역) · 이끼 윗면 · 어두운 옆면
 const ATL = 5;
@@ -377,12 +460,17 @@ const atlas = canvasTex(32 * ATL, 32, g => {
 
 // 바깥 벽 (원통 안쪽 면): 타일 벽 + 아래쪽 띠
 {
-  const wallTex = W3.wallTex();                         // 때 묻은 흰 타일 + 이끼 (1구역 지하철 뒷벽과 같음)
-  wallTex.repeat.set(Math.round(2 * Math.PI * ROUT / 128), (H + 4) * T / 128);
-  const WALL_Y0 = -2 * T, WALL_Y1 = (floorRow(NB - 2) + 1) * T;    // 꼭대기 ~ 승강장 천장
-  const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROUT, ROUT, WALL_Y1 - WALL_Y0, WC, 1, true), new THREE.MeshLambertMaterial({ map: wallTex, side: THREE.BackSide, color: '#8f948a' }));
-  wallTex.repeat.y = (WALL_Y1 - WALL_Y0) / 128;
-  wall.position.y = -(WALL_Y0 + WALL_Y1) / 2; scene.add(wall);
+  // 층마다 도트 벽 그림을 한 바퀴 감음 (그림 1장 = 384px, 가로로 이어지는 그림이라 이음새 없음. 원통 안쪽 면이라 가로를 거꾸로)
+  const WALL_TINT = '#7f8fa0';                          // 벽 그림의 따뜻한 색을 푸르스름하게 눌러 차분하게 (참고: Iron Bramble)
+  const BAND_WALL = ['wall_entrance_s11', 'wall_service_s11', 'wall_subway_s11', 'wall_service_s11', 'wall_subway_s11'];
+  const reps = Math.round(2 * Math.PI * ROUT / 384);
+  BAND_WALL.forEach((n, b) => {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(ROUT, ROUT, BAND * T, WC * 2, 1, true),
+      new THREE.MeshLambertMaterial({ map: artTex(n, -reps), side: THREE.BackSide, color: WALL_TINT }));
+    w.position.y = -(b * BAND * T + BAND * T / 2); scene.add(w);
+  });
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(ROUT, ROUT, 2 * T, WC, 1, true), new THREE.MeshLambertMaterial({ color: '#1a1f1c', side: THREE.BackSide }));
+  cap.position.y = T; scene.add(cap);
   // 천장(가운데 구멍으로 지상 빛) · 바닥 물웅덩이
   const ceil = new THREE.Mesh(new THREE.RingGeometry(70, ROUT + 2, WC), new THREE.MeshLambertMaterial({ color: '#25302c', side: THREE.DoubleSide }));
   ceil.rotation.x = Math.PI / 2; ceil.position.y = T * 0.5; scene.add(ceil);
@@ -469,8 +557,8 @@ const stationLights = [];
   // 승강장 앞(중정 쪽) 아래는 어두운 바닥
   flatRing(0, RIN + 1, FL + T, lam({ color: '#141712' }));
   // 역 벽: 1구역 뒷벽과 같은 때 묻은 타일, 어둡게
-  const stWallTex = W3.wallTex(); stWallTex.repeat.set(-Math.round(2 * Math.PI * ST_R / 128), (TR - CE + 4) / 128);
-  const stWall = new THREE.Mesh(new THREE.CylinderGeometry(ST_R, ST_R, TR - CE + 4, WC * 2, 1, true), lam({ map: stWallTex, side: THREE.BackSide, color: '#7d8278' }));
+  const stWallTex = artTex('wall_station_s11', -Math.round(2 * Math.PI * ST_R / 384));
+  const stWall = new THREE.Mesh(new THREE.CylinderGeometry(ST_R, ST_R, TR - CE + 4, WC * 2, 1, true), lam({ map: stWallTex, side: THREE.BackSide, color: '#7f8fa0' }));
   stWall.position.y = -(CE + TR) / 2; scene.add(stWall);
   // 선로 홈: 승강장 끝에서 떨어지는 벽 + 자갈 바닥 + 침목·레일
   const gravel = repTex(canvasTex(32, 32, g => { px(g, 0, 0, 32, 32, '#2e2e28'); noise(g, 32, 32, ['#3c3c34', '#22221e', '#46463c', '#3f5a2c'], 420, 14); }), 60, 4);
@@ -568,58 +656,44 @@ const lamps = [];
         const back = new THREE.Mesh(new THREE.BoxGeometry(30, 14, 2), benchMat); placeOnRing(back, bx * T + T, fl - 17, RP + 31); scene.add(back);
       }
     }
-    // 벽을 두르는 배관 (층마다 한 바퀴)
-    const pipe = new THREE.Mesh(new THREE.TorusGeometry((b === NB - 1 ? ST_R : ROUT) - 5, 3, 6, WC), new THREE.MeshLambertMaterial({ color: '#5c6563' }));
-    pipe.rotation.x = Math.PI / 2; pipe.position.y = -(top + 12); scene.add(pipe);
   }
-  // ---------- 식물 (무성하게): 같은 그림끼리 한 번에 그리는 InstancedMesh ----------
-  // 바닥: 고사리 덤불·큰 잎 / 천장: 길게 늘어진 덩굴 / 층 바닥 앞면(중정 쪽): 아래로 드리운 덩굴 커튼 / 바깥 벽·기둥: 타고 오른 덩굴
-  const plantMat = t => new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
-  const fernMats = [3, 4, 5, 6].map(sd => plantMat(W3.fernTex(sd)));
-  const leafMats = [1, 2].map(sd => plantMat(W3.bigLeafTex(sd)));
-  const vineMats = [1, 2, 3, 4].map(sd => plantMat(W3.vineTex(sd)));
-  const plane = new THREE.PlaneGeometry(1, 1), hang = new THREE.PlaneGeometry(1, 1).translate(0, -0.5, 0);   // hang: 윗변이 기준(천장에 매달림)
+  // ---------- 식물: Kaggle에서 만든 도트 스프라이트 (덩굴 커튼 2종 · 긴 풀 · 고사리), InstancedMesh로 ----------
+  // 덩굴은 몇 군데에 뭉쳐 늘어지게(고르게 줄 세우지 않음), 풀은 바닥을 따라 덤불로, 일부는 좌우를 뒤집어 반복이 덜 보이게
+  const plantMat = n => new THREE.MeshLambertMaterial({ map: artTex(n), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+  const SPR = Object.fromEntries(['vine_hang_s4', 'vine_hang_s5', 'grass_s3', 'fern_s4'].map(n => [n, { mat: plantMat(n), w: ART[n].width, h: ART[n].height }]));
+  const plane = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), hang = new THREE.PlaneGeometry(1, 1).translate(0, -0.5, 0);   // plane: 아랫변 기준(바닥) · hang: 윗변 기준(천장)
   const groups = new Map();
-  const add = (mat, geo, x, y, r, sx, sy, ry = 0) => {
-    const k = mat.uuid + geo.uuid; if (!groups.has(k)) groups.set(k, { mat, geo, list: [] });
-    groups.get(k).list.push([x, y, r, sx, sy, ry]);
+  const add = (n, geo, x, y, r, sc, flip = false, ry = 0) => {
+    const k = n + geo.uuid; if (!groups.has(k)) groups.set(k, { mat: SPR[n].mat, geo, list: [] });
+    groups.get(k).list.push([x, y, r, SPR[n].w * sc * (flip ? -1 : 1), SPR[n].h * sc, ry]);
   };
   const outerR = b => (b === NB - 1 ? PLAT_R - 10 : ROUT - 4);
   let n = 0;
   const rnd = () => hash(n++, 913);
   for (let b = 0; b < NB; b++) {
     const fl = floorRow(b) * T, top = b * BAND * T;
-    // 바닥 고사리 덤불 (칸마다 여러 포기, 앞뒤 깊이 고루)
+    // 바닥: 긴 풀 덤불 (앞쪽은 작게·뒤쪽은 크게), 가끔 고사리
     for (let col = 0; col < WC; col++) {
       if (!floorOk(b, col)) continue;
-      const cnt = 2 + Math.floor(rnd() * 3);
-      for (let i = 0; i < cnt; i++) {
-        const x = col * T + rnd() * T, r = RP - 6 + rnd() * (outerR(b) - RP + 6), sz = 12 + rnd() * 22, m = fernMats[Math.floor(rnd() * 4)];
-        add(m, plane, x, fl - sz / 2 + 1, r, sz, sz, rnd() * 3); add(m, plane, x, fl - sz / 2 + 1, r, sz, sz, rnd() * 3 + 1.5);
-      }
-      if (rnd() < 0.15) {                               // 큰 잎 (뒤쪽에 몇 장, 비스듬히 엇갈려)
-        const sz = 14 + rnd() * 10, r = RP + 20 + rnd() * (outerR(b) - RP - 20), x = col * T + rnd() * T, m = leafMats[Math.floor(rnd() * 2)];
-        add(m, plane, x, fl - sz / 2 + 2, r, sz * 0.8, sz, 0.7 + rnd() * 0.4); add(m, plane, x + 4, fl - sz / 2 + 3, r + 3, sz * 0.7, sz * 0.9, -0.7 - rnd() * 0.4);
-      }
+      if (rnd() < 0.55) add('grass_s3', plane, col * T + rnd() * T, fl + 1, RP + 4 + rnd() * (outerR(b) - RP - 4), 0.45 + rnd() * 0.5, rnd() < 0.5);
+      if (rnd() < 0.25) add('grass_s3', plane, col * T + rnd() * T, fl + 1, RP - 8 + rnd() * 10, 0.3 + rnd() * 0.25, rnd() < 0.5);
+      if (rnd() < 0.08) add('fern_s4', plane, col * T + rnd() * T, fl + 2, RP + 16 + rnd() * (outerR(b) - RP - 16), 0.6 + rnd() * 0.4, rnd() < 0.5);
     }
-    // 천장에서 늘어진 덩굴 (길이 제각각)
-    for (let col = 0; col < WC; col++) {
-      if (b > 0 && map[b * BAND - 1][col] !== '#') continue;   // 위층 바닥 밑에서만
+    // 천장: 덩굴 커튼 무리 (층마다 열 몇 군데, 한 무리에 1~3장 겹침)
+    for (let k = 0; k < 13; k++) {
+      const col = Math.floor(rnd() * WC);
+      if (b > 0 && map[b * BAND - 1][col] !== '#') continue;
       const cnt = 1 + Math.floor(rnd() * 3);
       for (let i = 0; i < cnt; i++) {
-        const len = 40 + rnd() * 90;
-        add(vineMats[Math.floor(rnd() * 4)], hang, col * T + rnd() * T, top, RP + 4 + rnd() * (outerR(b) - RP - 4), 14 + rnd() * 6, len, (rnd() - 0.5) * 0.8);
+        const nm = rnd() < 0.5 ? 'vine_hang_s4' : 'vine_hang_s5';
+        add(nm, hang, col * T + (rnd() - 0.5) * 40, top - 2, RP + 6 + rnd() * (outerR(b) - RP - 6), 0.5 + rnd() * 0.55, rnd() < 0.5, (rnd() - 0.5) * 0.4);
       }
     }
-    // 바깥 벽을 타고 오른 덩굴 (벽에 붙여 크게)
-    for (let i = 0; i < 46; i++) {
-      const len = 70 + rnd() * 80;
-      add(vineMats[Math.floor(rnd() * 4)], hang, rnd() * C, top + rnd() * 30, (b === NB - 1 ? ST_R : ROUT) - 1.5, 18 + rnd() * 10, len);
-    }
-    // 층 바닥 앞면(중정 쪽)에서 아래로 드리운 덩굴 커튼 — 아래층 화면 위쪽을 가림
-    if (b < NB - 1) for (let col = 0; col < WC; col++) {
-      if (map[floorRow(b)][col] !== '#' || rnd() < 0.3) continue;
-      add(vineMats[Math.floor(rnd() * 4)], hang, col * T + rnd() * T, fl + T - 2, RIN - 1 - rnd() * 3, 14 + rnd() * 6, 24 + rnd() * 46);
+    // 층 바닥 앞면(중정 쪽)에서 드리운 짧은 덩굴 — 가끔
+    if (b < NB - 1) for (let k = 0; k < 9; k++) {
+      const col = Math.floor(rnd() * WC);
+      if (map[floorRow(b)][col] !== '#') continue;
+      add(rnd() < 0.5 ? 'vine_hang_s4' : 'vine_hang_s5', hang, col * T + rnd() * T, fl + T - 3, RIN - 2, 0.3 + rnd() * 0.25, rnd() < 0.5);
     }
   }
   const o = new THREE.Object3D();
@@ -629,29 +703,10 @@ const lamps = [];
     scene.add(im);
   }
 }
-// B1(지상 출입층): 바깥 벽의 아치 창 너머로 바깥 정글이 보이고, 빛줄기가 비스듬히 들어옴
-{
-  const bgImg = await loadImg('assets/ch1-bg-2x.png').catch(() => null);
-  const archMat = new THREE.MeshLambertMaterial({ map: W3.archWindowTex(), transparent: true, alphaTest: 0.5 });
-  const shaftMat = new THREE.MeshBasicMaterial({ map: W3.shaftTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide, opacity: 0.45 });
-  const AW = 48, AH = 72, yb = floorRow(0) * T - 26;
-  [14, 26, 40, 54, 66, 78].forEach((col, i) => {
-    const x = col * T + T / 2;
-    if (bgImg) {                                        // 창 안쪽만 보이게 창틀 바로 뒤에 바깥 그림 조각
-      const t = new THREE.Texture(bgImg); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
-      t.repeat.set(0.16, 0.5); t.offset.set((i * 0.14) % 0.84, 0.3);
-      const far = new THREE.Mesh(new THREE.PlaneGeometry(AW - 4, AH - 4), new THREE.MeshBasicMaterial({ map: t, color: '#c4d2bc', fog: false }));
-      placeOnRing(far, x, yb - 2, ROUT - 0.5); scene.add(far);
-    }
-    const fr = new THREE.Mesh(new THREE.PlaneGeometry(AW, AH), archMat); placeOnRing(fr, x, yb, ROUT - 1.2); scene.add(fr);
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(18, 150), shaftMat);
-    placeOnRing(sh, x - 22, yb - AH / 2 + 40, ROUT - 34); sh.rotation.z = 0.5; scene.add(sh);
-  });
-}
 for (const v of stationLights) lamps.push({ v });
-const lampLights = Array.from({ length: 5 }, () => { const L = new THREE.PointLight('#ffa060', 620, 190, 1.5); scene.add(L); return L; });
+const lampLights = Array.from({ length: 5 }, () => { const L = new THREE.PointLight('#ffc890', 420, 170, 1.6); scene.add(L); return L; });
 const lantern = new THREE.PointLight('#bfe0a8', 200, 90, 1.5); scene.add(lantern);   // 방독면 렌즈 빛
-scene.add(new THREE.HemisphereLight('#6f948c', '#14140f', 0.32));
+scene.add(new THREE.HemisphereLight('#7f9fb8', '#141820', 0.6));   // 푸른 밤빛
 
 // 도트 스프라이트: 걷는 면(RP)에 원통 접선 방향으로 세운 판. 좌우 반전은 scale.x
 function makeSprite(img, fw, fh, ax, ay) {
@@ -666,6 +721,20 @@ function setFrame(m, col, row) { const { t, fw, fh, img } = m.userData; t.offset
 const HERO = { fw: 80, fh: 60, ax: 32, ay: 57, rows: { idle: [0, 4], walk: [1, 8], jump: [2, 6], whip: [4, 4], crouch: [5, 4], cwalk: [6, 8] } };
 const heroMesh = makeSprite(heroImg, HERO.fw, HERO.fh, HERO.ax, HERO.ay);
 const blobMeshes = enemies.map(() => makeSprite(blobImg, 48, 40, 24, 38));
+{
+  const crateTex = canvasTex(32, 32, g => {
+    px(g, 0, 0, 32, 32, '#6a4a2c'); px(g, 0, 0, 32, 3, '#8a6438'); px(g, 0, 29, 32, 3, '#4a3220'); px(g, 0, 0, 3, 32, '#8a6438'); px(g, 29, 0, 3, 32, '#4a3220');
+    for (let i = 0; i < 26; i++) px(g, 3 + i, 3 + i, 2, 2, '#4a3220');
+    noise(g, 32, 32, ['#5a3e24', '#7a5634', '#3f5a2c'], 60, 41);
+  });
+  const rockTex = canvasTex(32, 32, g => { px(g, 0, 0, 32, 32, '#4a4c46'); noise(g, 32, 32, ['#5a5c54', '#3a3c36', '#2c2e2a', '#3f5a2c'], 260, 43); px(g, 4, 10, 18, 1, '#2c2e2a'); px(g, 14, 20, 14, 1, '#2c2e2a'); });
+  const ropeMat = new THREE.MeshLambertMaterial({ color: '#b09a70' });
+  for (const o of props) {
+    o.mesh = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.kind === 'crate' ? 16 : 26), new THREE.MeshLambertMaterial({ map: o.kind === 'crate' ? crateTex : rockTex }));
+    o.rope = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), ropeMat);
+    scene.add(o.mesh, o.rope);
+  }
+}
 const slashMesh = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.MeshBasicMaterial({ map: canvasTex(44, 28, g => {
   g.strokeStyle = '#f2f6e6'; g.lineWidth = 3; g.beginPath(); g.arc(4, 26, 30, -1.25, -0.05); g.stroke();
 }), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
@@ -732,16 +801,21 @@ function render3D() {
   const [name, f] = heroFrame();
   setFrame(heroMesh, f, HERO.rows[name][0]);
   placeOnRing(heroMesh, P.x + P.w / 2, P.y + P.h, RP); heroMesh.scale.x = P.face;
-  heroMesh.visible = state === 'play' ? !(P.inv > 0 && Math.floor(P.inv * 20) % 2 === 0) : state === 'dying' && deadT < 0.6 && Math.floor(deadT * 16) % 2 === 0;
-  slashMesh.visible = slash > 0;
-  if (slash > 0) { placeOnRing(slashMesh, P.x + P.w / 2 + P.face * 12, P.y + P.h / 2 - 2, RP - 2); slashMesh.scale.x = P.face; }
+  heroMesh.visible = state === 'play' || (state === 'dying' && deadT < 0.5 && deathCause !== 'crush');
+  slashMesh.visible = false;
+  for (const o of props) {                              // 상자·잔해 (+ 매달린 줄)
+    placeOnRing(o.mesh, o.x + o.w / 2, o.y + o.h / 2, RP);
+    o.rope.visible = o.held;
+    if (o.held) { const top = Math.floor(o.y / (BAND * T)) * BAND * T, len = o.y - top; o.rope.scale.y = len; placeOnRing(o.rope, o.x + o.w / 2, top + len / 2, RP); }
+  }
   // 적
   enemies.forEach((e, i) => {
     const m = blobMeshes[i];
-    m.visible = e.hp > 0 && !(e.flash > 0 && Math.floor(e.flash * 30) % 2 === 0);
+    if (e.hp <= 0 && e.squash > 0) e.squash = Math.max(0, e.squash - 0.04);   // 깔리면 납작해지며 사라짐
+    m.visible = e.hp > 0 || e.squash > 0;
     if (!m.visible) return;
-    setFrame(m, e.stun > 0 ? 0 : Math.floor(e.t / 0.15) % 4, e.stun > 0 ? 2 : 0);
-    placeOnRing(m, e.x + e.w / 2, e.y + e.h, RP); m.scale.x = e.dir;
+    setFrame(m, e.hp > 0 ? Math.floor(e.t / 0.15) % 4 : 0, e.hp > 0 ? 0 : 2);
+    placeOnRing(m, e.x + e.w / 2, e.y + e.h, RP); m.scale.x = e.dir; m.scale.y = e.hp > 0 ? 1 : 0.25 + 0.3 * e.squash;
   });
   // 엘리베이터
   placeOnRing(elevMesh, elev.x + elev.w / 2, elev.y, (RIN + ROUT) / 2);
@@ -755,7 +829,7 @@ function render3D() {
   // 가까운 벽등에만 빛
   const look = new THREE.Vector3(...P3(RP, camX, camY));
   lamps.sort((a, b) => a.v.distanceToSquared(look) - b.v.distanceToSquared(look));
-  lampLights.forEach((L, i) => { L.position.copy(lamps[i].v); L.color.set('#ffa060'); });   // 역 형광등은 차가운 빛
+  lampLights.forEach((L, i) => { L.position.copy(lamps[i].v); L.color.set('#ffc890'); });   // 역 형광등은 차가운 빛
   lantern.position.set(...P3(RP - 14, P.x + P.w / 2, P.y));
   renderPixel();
 }
@@ -771,9 +845,6 @@ function bubble(text, x, y) {
 }
 function drawHud() {
   hx.clearRect(0, 0, hud.width, hud.height);
-  // 체력
-  hx.fillStyle = 'rgba(0,0,0,.5)'; hx.fillRect(12, 12, 124, 12);
-  hx.fillStyle = '#7fbf5a'; hx.fillRect(14, 14, 120 * P.hp / 100, 8);
   // 원통 지도: 지금 층의 둘레, 화면에 보이는 호, 막힌 곳(빨강), 엘리베이터(노랑), 나(초록)
   const cx = 600, cy = 44, R = 26, ang = x => x / RP - Math.PI / 2;
   hx.lineWidth = 3; hx.strokeStyle = 'rgba(200,220,200,.25)'; hx.beginPath(); hx.arc(cx, cy, R, 0, 7); hx.stroke();
@@ -795,19 +866,20 @@ function drawHud() {
   if (state === 'play') {
     if (P.near) { const p = project(P.near.col * T + T, floorRow(P.near.b) * T - 34); bubble(`W  ${P.near.label}`, p.x, p.y); }
     else if (P.onElev) { const p = project(P.x + P.w / 2, P.y - 6); bubble('W/S  도르래 감기', p.x, p.y); }
+    else if (P.grab) { const p = project(P.x + P.w / 2, P.y - 6); bubble('잡는 중 · 반대로 걸으면 당김', p.x, p.y); }
   }
   if (dialog) {
     hx.fillStyle = 'rgba(8,12,11,.85)'; hx.fillRect(60, 300, 520, 34);
     hx.fillStyle = '#e6efd8'; hx.font = '13px system-ui, sans-serif'; hx.textAlign = 'center'; hx.textBaseline = 'middle';
     hx.fillText(dialog.text, 320, 317);
   }
-  if (state === 'dying') { const k = Math.min(1, deadT / 1.4); hx.fillStyle = `rgba(2,6,4,${(k * k * 0.9).toFixed(3)})`; hx.fillRect(0, 0, hud.width, hud.height); }
-  if (state === 'dead') {
-    hx.fillStyle = 'rgba(2,6,4,.9)'; hx.fillRect(0, 0, hud.width, hud.height);
-    hx.font = '13px ui-monospace, monospace'; hx.fillStyle = '#7fe07a'; hx.textAlign = 'left'; hx.textBaseline = 'top';
-    const lines = ['BANGDOK-OS v0.7', '> 착용자 생체 신호 확인 ...... 없음', `> 마지막 위치: 지하철 탑 ${FLOORS[bandOf(P.y)][0]}`, '> 정화통 기록을 출입층으로 되돌립니다', '', '[Enter] 다시 시작'];
-    const n = Math.floor(deadT * 3);
-    lines.slice(0, n).forEach((l, i) => hx.fillText(l, 40, 60 + i * 22));
+  if (state === 'dying') {                              // 어두워지며 CMD 한 줄 → 마지막 기록 지점에서 다시
+    const k = Math.min(1, deadT / 0.9); hx.fillStyle = `rgba(2,6,4,${(k * 0.95).toFixed(3)})`; hx.fillRect(0, 0, hud.width, hud.height);
+    if (deadT > 0.5) {
+      hx.font = '13px ui-monospace, monospace'; hx.fillStyle = '#7fe07a'; hx.textAlign = 'left'; hx.textBaseline = 'top';
+      const line = `BANGDOK-OS > MOSS-07 신호 끊김 · ${DEATH[deathCause] || ''} · 마지막 기록 지점으로`;
+      hx.fillText(line.slice(0, Math.floor((deadT - 0.5) * 60)) + (Math.floor(deadT * 4) % 2 ? '_' : ''), 40, 170);
+    }
   }
 }
 
@@ -818,15 +890,14 @@ function frame(now) {
   if (state === 'play') update(dt);
   else {
     deadT += dt; timeNow += dt;
-    if (state === 'dying' && deadT >= 1.4) { state = 'dead'; deadT = 0; }
-    else if (state === 'dead' && enterP && deadT > 1) respawn();
+    if (state === 'dying' && deadT >= 1.8) respawn();
   }
   render3D(); drawHud();
-  jumpP = upP = atkP = enterP = false;
+  jumpP = upP = enterP = false;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__tower = { P, elev, enemies, get camX() { return camX; }, map };
+window.__tower = { P, elev, enemies, props, get timeNow() { return timeNow; }, get camX() { return camX; }, get state() { return state; }, get checkpoint() { return checkpoint; }, map };
 </script>
 </body>
 </html>
