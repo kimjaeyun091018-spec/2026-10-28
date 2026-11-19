@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">A/D 이동 · Space 점프 · S 웅크리기 · W 문·기록·호출 · J/클릭 칼 · 엘리베이터 위에서 W/S 도르래</div>
+<div id="help">A/D 이동 · Space 점프 · S 웅크리기 · W 문·기록·호출 · J/클릭 칼 · 엘리베이터 위에서 W/S 도르래 · P 도트 배경 켜기/끄기</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -135,6 +135,7 @@ const elev = { x: SHAFT * T, w: 2 * T, y: floorRow(0) * T, target: null };
 const ELEV_MIN = floorRow(0) * T, ELEV_MAX = floorRow(NB - 1) * T;
 const enemies = [[25, 2], [55, 2], [40, 3], [24, 3], [10, 4], [62, 4], [30, 5], [75, 5]].map(([c, b]) =>
   ({ x: c * T, y: floorRow(b) * T - 12, w: 14, h: 12, vx: 0, vy: 0, dir: Math.random() < .5 ? 1 : -1, hp: 3, flash: 0, stun: 0, t: Math.random() * 2, onGround: false }));
+let pixelMode = true;
 let state = 'play', timeNow = 0, camX = START.x, camY = START.y, dialog = null, banner = null, lastBand = -1, slash = 0;
 
 // ---------- 입력 ----------
@@ -147,6 +148,7 @@ addEventListener('keydown', e => {
     if (k === 'w' || k === 'arrowup') upP = true;
     if (k === 'j' || k === 'k') atkP = true;
     if (k === 'enter') enterP = true;
+    if (k === 'p') pixelMode = !pixelMode;           // 도트 배경 켜고 끄기 (비교용)
   }
   keys[k] = true;
   if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
@@ -668,6 +670,52 @@ const slashMesh = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.Mesh
   g.strokeStyle = '#f2f6e6'; g.lineWidth = 3; g.beginPath(); g.arc(4, 26, 30, -1.25, -0.05); g.stroke();
 }), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
 scene.add(slashMesh);
+// 캐릭터·적·베기 효과는 1번 층: 배경과 따로 원래 해상도로 그림
+for (const m of [heroMesh, slashMesh, ...blobMeshes]) m.layers.set(1);
+
+// ---------- 도트 배경 ----------
+// 본 게임의 그려진 도트 배경처럼: 3D 배경을 게임 해상도(320×180, 1px = 게임 1px)로 그린 뒤
+// 색 단계를 줄이고(채널당 PIX_LEVELS단계) 단계 경계에만 약한 4×4 바이어 디더링을 넣어 픽셀 그대로 키움.
+// 깊이도 같이 옮겨 써서, 원래 해상도로 그리는 캐릭터가 난간·덩굴 뒤에 제대로 가려짐
+const PIX_LEVELS = 14, PIX_DITHER = 0.45;   // 채널당 색 단계, 디더링 세기(0~1: 단계 경계 근처에서만 섞임)
+const lowRT = new THREE.WebGLRenderTarget(VW, VH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: new THREE.DepthTexture(VW, VH) });
+const pixQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  uniforms: { tColor: { value: lowRT.texture }, tDepth: { value: lowRT.depthTexture }, res: { value: new THREE.Vector2(VW, VH) }, levels: { value: PIX_LEVELS }, dither: { value: PIX_DITHER } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float levels; uniform float dither; varying vec2 vUv;
+    float bayer(vec2 p) {                     // 4x4 바이어 행렬 (0~15)/16
+      int x = int(mod(p.x, 4.0)), y = int(mod(p.y, 4.0));
+      int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+      return float(m[y * 4 + x]) / 16.0;
+    }
+    vec3 toSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+    void main() {
+      vec2 px = floor(vUv * res);
+      vec2 uv = (px + 0.5) / res;
+      vec3 c = toSRGB(clamp(texture2D(tColor, uv).rgb, 0.0, 1.0));
+      c = pow(c, vec3(0.92)) * 1.04;                                  // 어두운 쪽을 살짝 살려 단계가 뭉개지지 않게
+      c = floor(c * levels + 0.5 + (bayer(px) - 0.5) * dither) / levels;   // 색 단계 줄이기 + 경계에만 약한 디더링
+      gl_FragColor = vec4(c, 1.0);
+      gl_FragDepth = texture2D(tDepth, uv).r;
+    }`,
+  depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
+}));
+pixQuad.frustumCulled = false;
+const pixScene = new THREE.Scene(); pixScene.add(pixQuad);
+const pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+function renderPixel() {
+  if (!pixelMode) { camera.layers.enableAll(); renderer.render(scene, camera); return; }
+  camera.layers.set(0);                                  // 1) 배경만 낮은 해상도로
+  renderer.setRenderTarget(lowRT); renderer.render(scene, camera);
+  renderer.setRenderTarget(null);                        // 2) 도트로 키워 화면에 (깊이 포함)
+  renderer.autoClear = true; renderer.render(pixScene, pixCam);
+  camera.layers.set(1);                                  // 3) 캐릭터·적을 원래 해상도로 위에
+  const bg = scene.background; scene.background = null;   // 색 배경이 있으면 Three가 화면을 강제로 지우므로 잠깐 뺌
+  renderer.autoClear = false; renderer.render(scene, camera); renderer.autoClear = true;
+  scene.background = bg;
+  camera.layers.enableAll();
+}
 
 function heroFrame() {
   if (P.act) { const n = HERO.rows.whip[1]; return ['whip', Math.min(n - 1, Math.floor(P.act.t / P.act.dur * n))]; }
@@ -709,7 +757,7 @@ function render3D() {
   lamps.sort((a, b) => a.v.distanceToSquared(look) - b.v.distanceToSquared(look));
   lampLights.forEach((L, i) => { L.position.copy(lamps[i].v); L.color.set('#ffa060'); });   // 역 형광등은 차가운 빛
   lantern.position.set(...P3(RP - 14, P.x + P.w / 2, P.y));
-  renderer.render(scene, camera);
+  renderPixel();
 }
 
 // ---------- HUD ----------
