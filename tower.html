@@ -36,7 +36,7 @@ const C = WC * T, RP = C / (2 * Math.PI);            // 둘레 1536px → 캐릭
 const RIN = RP - 18, ROUT = RP + 72;                 // 블록 앞면·난간(중정 쪽) / 바깥 벽. 걷는 면 뒤로 깊이를 둬서 기둥·벤치·열차가 입체로 보임
 // 맨 아래 승강장(B6)은 진짜 역처럼 더 넓음: 걷는 승강장(RIN~PLAT_R) → 선로가 깔린 낮은 바닥(TRENCH만큼 아래) → 역 벽(ST_R)
 const PLAT_R = RP + 34, ST_R = RP + 176, TRENCH = 24;
-const CB = 40, DIST = RP + CB, CAM_LIFT = 44;                       // 카메라는 탑 중심에서 40만큼 뒤 → 걷는 면까지 거리
+const CB = 40, DIST = RP + CB, CAM_LIFT = 0;                        // 카메라는 탑 중심에서 40만큼 뒤 → 걷는 면까지 거리. 높이는 수평(옆에서 똑바로 봄, Limbo·Iron Bramble처럼)
 const mod = (a, n) => ((a % n) + n) % n;
 const wd = a => mod(a + C / 2, C) - C / 2;           // 둘레를 감안한 가로 거리
 const floorRow = b => b * BAND + BAND - 1;
@@ -911,7 +911,7 @@ function render3D() {
   for (const [i, fm] of fans.entries()) fm.rotation.z = timeNow * (3 + i * 0.4);
   // 카메라: 탑 중심 조금 뒤에서 바깥을 봄
   const th = camX / RP;
-  // 조금 위에서 비스듬히 내려다봄 → 바닥 윗면·열차 지붕·선로가 보여 입체감이 남 (HD-2D)
+  // 수평으로 옆에서 봄 (CAM_LIFT를 올리면 위에서 비스듬히 내려다봄)
   camera.position.set(-CB * Math.sin(th), -camY + CAM_LIFT, CB * Math.cos(th));
   camera.lookAt(Math.sin(th) * RP, -camY, -Math.cos(th) * RP);
   // 가까운 벽등에만 빛
