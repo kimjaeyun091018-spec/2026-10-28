@@ -281,7 +281,7 @@ function fireHook() {
     }
     if (enemies.some(e => e.hp > 0 && Math.abs(wd(x - (e.x + e.w / 2))) < e.w / 2 && y > e.y && y < e.y + e.h)) { vineFx = { x, y, t: 0.12 }; return; }
     if (solidP(x, y)) {
-      hook = { x, y };
+      hook = { x, y, shot: 0 };                           // shot: 덩굴이 뻗어 나간 비율 (그림용, 0.1초에 1)
       const htx = Math.floor(x / T), hty = Math.floor(y / T);
       for (let up = 0; up < 2; up++) {                  // 벽 위 모서리가 가까우면(2칸 안) 모서리에 붙임
         const ty = hty - up;
@@ -421,6 +421,7 @@ function update(dt) {
     if (hook && d > 230) hook = null;
   }
   if (vineFx && (vineFx.t -= dt) <= 0) vineFx = null;
+  if (hook && hook.shot < 1) hook.shot = Math.min(1, hook.shot + dt / 0.1);
   if (!jumpHeld && P.vy < -100 && !hook) P.vy += 1400 * dt;
   P.vy = Math.min(P.vy + 900 * dt, 400);
 
@@ -895,9 +896,39 @@ const slashMesh = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), new THREE.Mesh
 }), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
 scene.add(slashMesh);
 // 캐릭터·적·베기 효과는 1번 층: 배경과 따로 원래 해상도로 그림
-const vineMesh = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1), new THREE.MeshBasicMaterial({ color: '#6fae52' }));
-scene.add(vineMesh);
-for (const m of [heroMesh, slashMesh, vineMesh, ...blobMeshes]) m.layers.set(1);
+// ---------- 덩굴 갈고리 그림 ----------
+// 줄기: 두 가닥이 꼬인 줄기에 잎이 번갈아 난 도트(16×8, 주인공과 같은 2배 해상도 → 게임 8×4). 덩굴 길이만큼 이어 붙임
+// 덩굴은 VINE_SEG개 마디로 나눠 그림: 줄이 느슨하면 아래로 처지고, 뻗어 나가거나 감겨 돌아올 때는 물결치듯 흔들림
+const vineTex = canvasTex(16, 8, g => {
+  for (let x = 0; x < 16; x++) {
+    const s1 = Math.sin(x / 16 * Math.PI * 2);
+    px(g, x, Math.round(3.5 + s1 * 1.6), 1, 1, '#3f6a30');       // 꼬인 줄기 두 가닥
+    px(g, x, Math.round(3.5 - s1 * 1.6), 1, 1, '#2a4622');
+  }
+  px(g, 2, 0, 3, 1, '#7fb84f'); px(g, 3, 1, 3, 1, '#5d8f3e'); px(g, 5, 2, 1, 1, '#4a7a34'); px(g, 3, 0, 1, 1, '#a8d870');   // 위로 난 잎
+  px(g, 10, 7, 3, 1, '#7fb84f'); px(g, 10, 6, 3, 1, '#5d8f3e'); px(g, 10, 5, 1, 1, '#4a7a34'); px(g, 11, 7, 1, 1, '#a8d870'); // 아래로 난 잎
+  px(g, 7, 3, 1, 1, '#9fd27a'); px(g, 14, 4, 1, 1, '#9fd27a');                                                       // 마디 반짝임
+});
+vineTex.wrapS = THREE.RepeatWrapping;
+const clawTex = canvasTex(10, 10, g => {                 // 끝: 걸린 곳을 움켜쥐는 잎 갈고리 (오른쪽이 앞)
+  px(g, 0, 4, 4, 2, '#3f6a30');
+  px(g, 4, 2, 2, 6, '#5d8f3e'); px(g, 6, 1, 2, 2, '#7fb84f'); px(g, 6, 7, 2, 2, '#7fb84f');
+  px(g, 8, 0, 2, 2, '#a8d870'); px(g, 8, 8, 2, 2, '#a8d870'); px(g, 7, 4, 3, 2, '#7fb84f'); px(g, 9, 4, 1, 2, '#c8e890');
+});
+const VINE_SEG = 14;
+const vineMat = new THREE.MeshBasicMaterial({ map: vineTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+const vineSegs = Array.from({ length: VINE_SEG }, () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 4), vineMat); scene.add(m); return m; });
+const clawMesh = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshBasicMaterial({ map: clawTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+scene.add(clawMesh);
+for (const m of [heroMesh, slashMesh, clawMesh, ...vineSegs, ...blobMeshes]) m.layers.set(1);
+// 마디 하나를 게임 좌표 (x0,y0)→(x1,y1)에 놓음 (u0~u1: 줄기 그림의 가로 위치 → 마디가 바뀌어도 잎이 이어짐)
+function placeSeg(m, x0, y0, x1, y1, u0, u1) {
+  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+  placeOnRing(m, (x0 + x1) / 2, (y0 + y1) / 2, RP - 3);
+  m.rotation.z = -Math.atan2(dy, dx); m.scale.x = len + 0.4;
+  const uv = m.geometry.attributes.uv;
+  uv.setX(0, u0); uv.setX(1, u1); uv.setX(2, u0); uv.setX(3, u1); uv.needsUpdate = true;
+}
 
 // ---------- 도트 배경 ----------
 // 본 게임의 그려진 도트 배경처럼: 3D 배경을 게임 해상도(320×180, 1px = 게임 1px)로 그린 뒤
@@ -963,12 +994,30 @@ function render3D() {
   slashMesh.visible = false;
   // 덩굴: 화분(손) → 걸린 곳
   const tip = hook || vineFx;
-  vineMesh.visible = !!tip && state === 'play';
-  if (tip) {
+  const showVine = !!tip && state === 'play';
+  for (const m of vineSegs) m.visible = showVine;
+  clawMesh.visible = showVine;
+  if (showVine) {
     const hx0 = P.x + P.w / 2 + P.face * 5, hy0 = P.y + P.h * 0.4;
-    const k = !hook && vineFx.retract ? Math.max(0, vineFx.t / 0.15) : 1;      // 회수: 끝이 손 쪽으로 줄어듦
-    const a = new THREE.Vector3(...P3(RP - 3, hx0, hy0)), bb = new THREE.Vector3(...P3(RP - 3, hx0 + wd(tip.x - hx0) * k, hy0 + (tip.y - hy0) * k));
-    vineMesh.position.copy(a).add(bb).multiplyScalar(0.5); vineMesh.lookAt(bb); vineMesh.scale.z = a.distanceTo(bb);
+    // k: 덩굴이 뻗은 비율 (쏠 때 0→1로 뻗어 나가고, 감겨 돌아올 때 1→0)
+    const k = hook ? (hook.shot ?? 1) : vineFx.retract ? Math.max(0, vineFx.t / 0.15) : 1;
+    const ex = hx0 + wd(tip.x - hx0) * k, ey = hy0 + (tip.y - hy0) * k;
+    const dx = ex - hx0, dy = ey - hy0, dist = Math.hypot(dx, dy) || 1, nx = -dy / dist, ny = dx / dist;
+    const sag = hook ? Math.min(28, Math.max(0, hook.rest - dist) * 0.7) : 0;     // 줄이 느슨하면 처짐
+    const wob = (k < 1 ? 5 * (1 - k) + 2 : 0) + (!hook ? 2 : 0.4);               // 뻗거나 감길 때 물결
+    const pts = [];
+    for (let i = 0; i <= VINE_SEG; i++) {
+      const t = i / VINE_SEG, bell = Math.sin(t * Math.PI);
+      const w = Math.sin(t * Math.PI * 3 - timeNow * 18) * wob * bell;
+      pts.push([hx0 + dx * t + nx * w, hy0 + dy * t + ny * w + sag * bell]);
+    }
+    let u = 0;
+    for (let i = 0; i < VINE_SEG; i++) {
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], l = Math.hypot(x1 - x0, y1 - y0) / 8;
+      placeSeg(vineSegs[i], x0, y0, x1, y1, u, u + l); u += l;
+    }
+    const [lx, ly] = pts[VINE_SEG - 1];
+    placeOnRing(clawMesh, ex, ey, RP - 3.2); clawMesh.rotation.z = -Math.atan2(ey - ly, ex - lx);
   }
   for (const o of props) {                              // 상자·잔해 (+ 매달린 줄)
     placeOnRing(o.mesh, o.x + o.w / 2, o.y + o.h / 2, RP);
