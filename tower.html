@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 쏘기(매달린 채 공중에서도 다시 쏨) · 오른쪽 클릭: 풀기 — 건 뒤 Space를 누르고 있는 동안 당기기 · 끝까지 당긴 뒤 Space로 놓으며 뛰기 · W 감기 · S 풀기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
+<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 쏘기(매달린 채 공중에서도 다시 쏨) · 오른쪽 클릭(J): 풀며 날아가기(떠 있는 동안 다시 쏘기) — 건 뒤 Space를 누르고 있는 동안 당기기 · 끝까지 당긴 뒤 Space로 놓으며 뛰기 · W 감기 · S 풀기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -176,7 +176,7 @@ let state = 'play', timeNow = 0, camX = START.x, camY = START.y, dialog = null, 
 
 // ---------- 입력 ----------
 const keys = {};
-let jumpP = false, upP = false, enterP = false, hookP = false;
+let jumpP = false, upP = false, enterP = false, hookP = false, unhookP = false;
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (!keys[k]) {
@@ -184,6 +184,7 @@ addEventListener('keydown', e => {
     if (k === 'w' || k === 'arrowup') upP = true;
     if (k === 'enter') enterP = true;
     if (k === 'k') hookP = true;                       // 덩굴 갈고리 (앞 위로)
+    if (k === 'j') unhookP = true;                     // 덩굴 풀기 (키보드)
     if (k === 'p') pixelMode = !pixelMode;           // 도트 배경 켜고 끄기 (비교용)
   }
   keys[k] = true;
@@ -240,6 +241,18 @@ function respawn() {
 }
 // 덩굴 쏘기: 마우스 쪽(키보드 K면 앞 위로). 벽·천장에 걸리면 매달림, 상자는 끌어당기고, 매달린 잔해는 줄을 끊음.
 // 덩굴 뭉치에는 걸리지 않고 튕겨 나옴 (무기가 아님)
+// 덩굴 풀기: 공중이면 걸린 쪽으로 몸이 던져져 떠오름(당기던 힘이 이어짐) → 떠 있는 동안 다시 쏴서 덩굴 하나로 이어 가며 이동
+// 덩굴은 손으로 감겨 돌아오는 모습(0.15초)을 보여 줌. 회수 중에도 바로 다시 쏠 수 있음
+const FLING = 170;                                      // 풀 때 던져지는 힘
+function releaseHook() {
+  if (!hook) return;
+  if (!P.onGround) {
+    const cx = P.x + P.w / 2, cy = P.y + P.h * 0.4, dx = wd(hook.x - cx), dy = hook.y - cy, d = Math.hypot(dx, dy) || 1;
+    P.vx += dx / d * FLING; P.vy = Math.min(P.vy, 0) + Math.min(0, dy / d * FLING) - 90;   // 걸린 쪽 + 위로
+  }
+  vineFx = { x: hook.x, y: hook.y, t: 0.15, retract: true };
+  hook = null; P.fallFrom = null;
+}
 const HOOK_RANGE = 200;                                 // 덩굴이 닿는 거리
 const PULL_SPEED = 40, PULL_KICK = 27;                  // Space를 누르고 있는 동안 감기는 속도(px/초)와 누를 때 처음 튀어 나가는 힘 (260·200 → 120·80 → 1/3로)
 function fireHook() {
@@ -374,13 +387,13 @@ function update(dt) {
   // 한 번 클릭(K)으로 걸고, 다시 클릭(K)하면 풀림 (누르고 있을 필요 없음)
   // 왼쪽 클릭(K): 언제든(매달린 채 공중에서도) 마우스 쪽으로 새로 쏨 — 맞으면 그쪽으로 옮겨 걸리고 흔들리던 힘은 이어짐, 빗나가면 풀림
   // 오른쪽 클릭: 풀기
-  if (mouse.rpressed) hook = null;
+  if (mouse.rpressed || unhookP) releaseHook();        // 오른쪽 클릭(J): 풀기 → 공중으로 날아감
   if (mouse.pressed || hookP) { hook = null; fireHook(); }
   // Space(점프)를 누르고 있는 동안만 덩굴이 감겨 몸이 당겨짐 (떼면 그 길이에서 멈춤)
   // 다 당겨진 곳(걸린 곳 바로 앞)에서 Space를 새로 누르면 덩굴을 놓으며 튀어 오름
   if (hook && jumpP) {
     const cx0 = P.x + P.w / 2, hd = Math.hypot(wd(hook.x - cx0), hook.y - (P.y + P.h * 0.4)) || 1;
-    if (hook.rest <= 24) { hook = null; P.vy = Math.min(P.vy, 0) - 220; }
+    if (hook.rest <= 24) { releaseHook(); P.vy = Math.min(P.vy, -220); }
     else { P.onElev = false; P.vx += wd(hook.x - cx0) / hd * PULL_KICK; P.vy = Math.min(P.vy, 0) + (hook.y - (P.y + P.h * 0.4)) / hd * PULL_KICK * 1.3; }
     P.buffer = 0; jumpP = false;
   }
@@ -911,7 +924,8 @@ function render3D() {
   vineMesh.visible = !!tip && state === 'play';
   if (tip) {
     const hx0 = P.x + P.w / 2 + P.face * 5, hy0 = P.y + P.h * 0.4;
-    const a = new THREE.Vector3(...P3(RP - 3, hx0, hy0)), bb = new THREE.Vector3(...P3(RP - 3, hx0 + wd(tip.x - hx0), tip.y));
+    const k = !hook && vineFx.retract ? Math.max(0, vineFx.t / 0.15) : 1;      // 회수: 끝이 손 쪽으로 줄어듦
+    const a = new THREE.Vector3(...P3(RP - 3, hx0, hy0)), bb = new THREE.Vector3(...P3(RP - 3, hx0 + wd(tip.x - hx0) * k, hy0 + (tip.y - hy0) * k));
     vineMesh.position.copy(a).add(bb).multiplyScalar(0.5); vineMesh.lookAt(bb); vineMesh.scale.z = a.distanceTo(bb);
   }
   for (const o of props) {                              // 상자·잔해 (+ 매달린 줄)
@@ -1015,7 +1029,7 @@ function frame(now) {
     if (state === 'dying' && deadT >= 1.8) respawn();
   }
   render3D(); drawHud();
-  jumpP = upP = enterP = hookP = false; mouse.pressed = mouse.rpressed = false;
+  jumpP = upP = enterP = hookP = unhookP = false; mouse.pressed = mouse.rpressed = false;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
