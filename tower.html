@@ -42,15 +42,20 @@ const wd = a => mod(a + C / 2, C) - C / 2;           // 둘레를 감안한 가�
 const floorRow = b => b * BAND + BAND - 1;
 
 // ---------- 지도 (펼친 원통) ----------
-// '#' 막힘, '.' 빈칸, '!' 끊긴 바닥(낭떠러지: 지나갈 수 없고 카메라 회전이 멈춤)
+// '#' 막힘, '.' 빈칸, '!' 끊긴 바닥(낭떠러지: 지나갈 수 없고 카메라 회전이 멈춤), 'x' 가시 덩굴(닿으면 죽음, 막히지 않음)
 const map = Array.from({ length: H }, () => Array(WC).fill('.'));
 const put = (x, y, c = '#') => { if (y >= 0 && y < H) map[y][mod(x, WC)] = c; };
 const fill = (x0, x1, y0, y1, c = '#') => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, c); };
 for (let b = 0; b < NB; b++) fill(0, WC - 1, floorRow(b), floorRow(b));
 const SHAFT = 88;                                     // 인력 엘리베이터 승강로 (88~89칸)
 for (let b = 0; b < NB - 1; b++) fill(SHAFT, SHAFT + 1, floorRow(b), floorRow(b), '.');
-// B1 지상 출입층: 한 바퀴 이어짐
-fill(30, 32, 9, 9, '.'); fill(14, 15, 8, 8); put(15, 7); fill(50, 53, 6, 6); fill(66, 67, 8, 8);
+// B1 지상 출입층: 0칸 벽으로 막힘(반대쪽으로 돌아가 퍼즐을 건너뛰지 못하게)
+// 퍼즐 1 「덩굴 다리」(PUZZLES.md): 시작(6칸)과 내려가는 구멍(30~32칸) 사이에 9칸 넓이 구멍(10~18칸) — 걸어서도 뛰어서도 못 건넘.
+// 위의 쇠 들보(14~16칸, 2줄)에 덩굴을 걸고 Space로 끌어올려 흔들어 건넘. 떨어지면 아래(B2 바닥)의 가시 덩굴에 찔려 죽음
+fill(0, 0, 0, 8);
+fill(10, 18, 9, 9, '.'); fill(14, 16, 2, 2);
+fill(9, 19, 18, 18, 'x');
+fill(30, 32, 9, 9, '.'); fill(50, 53, 6, 6); fill(66, 67, 8, 8);
 // B2 환풍구 층: 20·60칸 벽으로 막힘 → 21~59 구간 (바깥쪽 61~19 구간은 엘리베이터로만)
 fill(20, 20, 10, 18); fill(60, 60, 10, 18);
 fill(50, 52, 19, 19, '.'); fill(36, 39, 16, 16); fill(26, 27, 18, 18);
@@ -66,7 +71,7 @@ fill(20, 23, 46, 46); fill(70, 73, 46, 46); fill(60, 60, 47, 48);
 fill(81, 81, 57, 58); fill(95, 95, 57, 58);
 
 const FLOORS = [
-  ['B1 · 지상 출입층', '지하철 탑 — 제3구역 지하철 역'],
+  ['B1 · 지상 출입층', '건널 수 없는 구멍'],
   ['B2 · 환풍구 층', '벽으로 막혀 있다'],
   ['B3 · 정비 통로', '구덩이 속에 무언가 있다'],
   ['B4 · 무너진 층', '바닥이 끊겼다'],
@@ -225,7 +230,7 @@ function camBounds() {
 
 // ---------- 갱신 ----------
 // Limbo처럼: 한 번에 죽고, 잠깐 어두워진 뒤 마지막 기록 지점에서 바로 다시 (CMD 한 줄만)
-const DEATH = { blob: '덩굴 뭉치에게 먹힘', fall: '높은 곳에서 떨어짐', crush: '깔림' };
+const DEATH = { blob: '덩굴 뭉치에게 먹힘', fall: '높은 곳에서 떨어짐', crush: '깔림', thorn: '가시 덩굴에 찔림' };
 function die(cause) {
   if (state !== 'play' || P.inv > 0) return;
   state = 'dying'; deadT = 0; deathCause = cause; P.grab = null; hook = null;
@@ -245,8 +250,12 @@ const FLING = 170;                                      // 풀 때 던져지는 
 function releaseHook() {
   if (!hook) return;
   if (!P.onGround) {
-    const cx = P.x + P.w / 2, cy = P.y + P.h * 0.4, dx = wd(hook.x - cx), dy = hook.y - cy, d = Math.hypot(dx, dy) || 1;
-    P.vx += dx / d * FLING; P.vy = Math.min(P.vy, 0) + Math.min(0, dy / d * FLING) - 90;   // 걸린 쪽 + 위로
+    // 흔들리던 방향으로 기세를 더해 날아감 (거의 멈춰 있으면 걸린 쪽으로). 그리고 조금 위로
+    const sp = Math.hypot(P.vx, P.vy);
+    let ux, uy;
+    if (sp > 30) { ux = P.vx / sp; uy = P.vy / sp; }
+    else { const cx = P.x + P.w / 2, cy = P.y + P.h * 0.4, dx = wd(hook.x - cx), dy = hook.y - cy, d = Math.hypot(dx, dy) || 1; ux = dx / d; uy = dy / d; }
+    P.vx += ux * FLING; P.vy = Math.min(P.vy + Math.min(0, uy * FLING), 0) - 90;
   }
   vineFx = { x: hook.x, y: hook.y, t: 0.15, retract: true };
   hook = null; P.fallFrom = null;
@@ -390,7 +399,7 @@ function update(dt) {
   // 다 당겨진 곳(걸린 곳 바로 앞)에서 Space를 새로 누르면 덩굴을 놓으며 튀어 오름
   if (hook && jumpP) {
     const cx0 = P.x + P.w / 2, hd = Math.hypot(wd(hook.x - cx0), hook.y - (P.y + P.h * 0.4)) || 1;
-    if (hook.rest <= 24) { releaseHook(); P.vy = Math.min(P.vy, -220); }
+    if (hook.rest <= 34) { releaseHook(); P.vy = Math.min(P.vy, -220); }   // 걸린 곳 가까이(34px 안)까지 당겼으면 놓으며 뜀
     else { P.onElev = false; P.vx += wd(hook.x - cx0) / hd * PULL_KICK; P.vy = Math.min(P.vy, 0) + (hook.y - (P.y + P.h * 0.4)) / hd * PULL_KICK * 1.3; }
     P.buffer = 0; jumpP = false;
   }
@@ -452,6 +461,11 @@ function update(dt) {
   if (!P.onGround && P.fallFrom === null) P.fallFrom = P.y;
   if (!P.onGround && P.vy < 0) P.fallFrom = Math.min(P.fallFrom, P.y);
   if (P.onGround && P.fallFrom !== null) { if (P.y - P.fallFrom > 240) die('fall'); P.fallFrom = null; }
+  // 가시 덩굴('x' 칸)에 닿으면 죽음
+  if (state === 'play') {
+    const x0 = Math.floor(P.x / T), x1 = Math.floor((P.x + P.w - 0.01) / T), y0 = Math.floor(P.y / T), y1 = Math.floor((P.y + P.h - 0.01) / T);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (tileAt(tx, ty) === 'x') die('thorn');
+  }
   // 기록 지점: 새 층에 내려서면 (근처에 덩굴 뭉치가 없을 때)
   const pb = bandOf(P.y + P.h / 2);
   if (state === 'play' && P.onGround && !P.onElev && pb !== checkpoint.band &&
@@ -800,6 +814,37 @@ const lamps = [];
   }
 }
 for (const v of stationLights) lamps.push({ v });
+// 퍼즐 1 「덩굴 다리」의 쇠 들보(14~16칸, 2줄): 천장에 매단 쇠사슬 두 줄 + 들보를 비추는 작은 등 → 화면만 보고 "저기에 걸면 된다"를 알게
+{
+  const chainMat = new THREE.MeshLambertMaterial({ color: '#8a8f94' });
+  for (const cx of [14 * T + 4, 17 * T - 4]) {
+    const ch = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2 * T, 1.5), chainMat); placeOnRing(ch, cx, T, RP); scene.add(ch);
+  }
+  const bulb = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 3), new THREE.MeshBasicMaterial({ color: '#ffe0a8' }));
+  placeOnRing(bulb, 15 * T + 8, 3 * T + 4, RIN - 2); scene.add(bulb);
+  lamps.push({ v: new THREE.Vector3(...P3(RIN - 10, 15 * T + 8, 3 * T + 14)) });
+}
+// 가시 덩굴 ('x' 칸): 검붉은 가시 줄기를 칸마다 깊이를 달리해 세 장씩
+{
+  const thornTex = canvasTex(32, 32, g => {
+    for (let k = 0; k < 6; k++) {
+      let x = 3 + k * 5 + Math.floor(hash(k, 61) * 3), y = 31;
+      const lean = (hash(k, 62) - 0.5) * 0.8;
+      for (let i = 0; i < 18 + hash(k, 63) * 12; i++) {
+        px(g, Math.round(x), y, 1, 1, i > 20 ? '#7a2a22' : '#3a1c18');
+        if (i % 4 === 2) { px(g, Math.round(x) - 1, y - 1, 1, 1, '#a8443a'); px(g, Math.round(x) + 1, y, 1, 1, '#a8443a'); }
+        x += lean; y--;
+      }
+    }
+  });
+  const mat = new THREE.MeshLambertMaterial({ map: thornTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+  const list = [];
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < WC; tx++) if (map[ty][tx] === 'x')
+    for (let k = 0; k < 3; k++) list.push([tx * T + T / 2 + (hash(tx, k) - 0.5) * 6, (ty + 1) * T, RIN + 6 + k * (ROUT - RIN - 12) / 2, hash(ty, tx + k) * 1.2]);
+  const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(20, 20).translate(0, 10, 0), mat, list.length), o = new THREE.Object3D();
+  list.forEach(([x, y, r, ry], i) => { placeOnRing(o, x, y, r); o.rotation.y += ry; o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+  scene.add(im);
+}
 // 꺼져 가는 네온 (분홍·청록): 층마다 몇 개, 바깥 벽에 붙어 가끔 깜빡임. 가까우면 그 색 빛도 냄
 const neons = [];
 {
