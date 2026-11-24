@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K) 누르고 있기: 덩굴 갈고리 — W 감기 · S 풀기 · Space 놓기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
+<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 걸기, 다시 클릭하면 풀기 — W 감기 · S 풀기 · Space 놓으며 뛰기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -197,7 +197,10 @@ const wrapEl = document.getElementById('wrap');
 const mousePos = e => { const r = wrapEl.getBoundingClientRect(); mouse.x = (e.clientX - r.left) / r.width * 640; mouse.y = (e.clientY - r.top) / r.height * 360; };
 wrapEl.addEventListener('mousemove', mousePos);
 // 클릭하면 게임이 키보드 포커스를 받음 (아티팩트처럼 틀(iframe) 안에서 열릴 때 필요. 기본 동작을 막으면 포커스가 안 옴)
-wrapEl.addEventListener('mousedown', e => { mousePos(e); window.focus(); if (e.button === 0) { mouse.down = true; mouse.pressed = true; } });
+wrapEl.addEventListener('mousedown', e => {
+  mousePos(e); const hadFocus = document.hasFocus(); window.focus();
+  if (e.button === 0) { mouse.down = true; mouse.pressed = hadFocus; }   // 포커스를 받는 첫 클릭으로는 덩굴을 쏘지 않음
+});
 window.focus();
 addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 wrapEl.addEventListener('contextmenu', e => e.preventDefault());
@@ -367,8 +370,8 @@ function update(dt) {
   if (P.buffer > 0 && P.coyote > 0 && standUp()) { P.vy = -285; P.buffer = 0; P.coyote = 0; P.onElev = false; }
   const jumpHeld = held(' ') || (!P.onElev && !hook && held('w', 'arrowup'));
   // ---------- 덩굴 갈고리: 무기가 아닌 이동·퍼즐 도구 (산나비·Iron Bramble처럼 흔들고 날아감) ----------
-  if ((mouse.pressed || hookP) && !hook) fireHook();
-  if (hook && !(mouse.down || held('k'))) hook = null;
+  // 한 번 클릭(K)으로 걸고, 다시 클릭(K)하면 풀림 (누르고 있을 필요 없음)
+  if (mouse.pressed || hookP) { if (hook) hook = null; else fireHook(); }
   if (hook && jumpP) { hook = null; P.vy = Math.min(P.vy, 0) - 220; P.buffer = 0; jumpP = false; }   // Space: 놓으며 튀어 오름
   if (hook) {
     // 걸리면 빠르게 감겨 몸이 걸린 곳으로 끌려감 (W: 더 빨리·끝까지 · S: 풀어 내려감 · 그냥 두면 16까지)
