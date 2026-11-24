@@ -1,5 +1,5 @@
 # Kaggle GPU에서 실행: 원통 탑 도트 그림 생성 (SDXL + 픽셀아트 LoRA)
-# 2차(지금 내용): 무너진 미래 도시 벽 4종 · 자기부상 열차 옆면 · 잠수부 헬멧 주인공 시안. 1차(벽돌 지하철·덩굴·풀·고사리·첫 주인공 시안)는 assets/tower/prompts.json
+# 1차(벽돌 지하철·덩굴·풀·고사리·첫 주인공 시안) assets/tower/prompts.json, 2차(미래 도시 벽·자기부상 열차·잠수부 헬멧 시안) prompts_run2.json, 3차는 아래(prompts_run3.json)
 #  1) 층별 벽 그림 — 가로로 이어지는(원통을 감싸도 이음새가 없는) 그림: 합성곱 패딩을 가로만 순환으로 바꿔 생성
 #  2) 식물 스프라이트 — 덩굴 커튼·긴 풀 덤불·고사리·늘어진 뿌리 (밝은 회색 배경, 나중에 배경을 빼고 도트로 줄임)
 #  3) 주인공 모스 시안 — 큰 머리·굵은 외곽선·따뜻한 음영의 요즘 인디 도트 화풍 (특정 게임 캐릭터를 따라 그리지 않음)
@@ -32,26 +32,18 @@ def tile_x(on):
                 elif 'forward' in m.__dict__:
                     del m.forward
 
-BG = ('pixel art, detailed 16-bit indie game background, flat side view of a wall seen straight on, the whole image filled edge to edge, '
+# 3차(지금 내용): 탑 바깥(거리 먼 배경·가까운 배경·지붕 하늘)과 벽 너머 방(사무실·기계실) — 모두 가로로 이어지는 그림
+BG = ('pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, '
       'dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, '
       'crisp chunky pixels, rich hand placed detail')
-WALLS = {   # 무너진 미래 도시 + 식물 아포칼립스
-    'neo_entrance': 'ground floor wall of a ruined futuristic skyscraper metro tower, shattered glass panels, broken holographic billboard frames, dead neon tube signs, steel beams, giant tree roots and vines bursting through the wall, tall wild grass at the bottom, no people, no readable text',
-    'neo_service': 'maintenance level wall inside a ruined futuristic metro tower, sleek metal panels and hexagonal vents, thick bundles of cables, broken server racks and glowing status lights, pipes, creeping vines and moss covering everything, no people, no readable text',
-    'neo_subway': 'interior wall of an abandoned futuristic underground metro concourse, smooth white composite panels cracked open, dead neon line maps, broken advertising screens, emergency lights, thick roots and hanging ivy, no people, no readable text',
-    'neo_station': 'far wall of an abandoned futuristic maglev subway platform, sleek curved panels with a faded glowing stripe, broken digital timetable screens, overgrown with vines ferns and roots, no people, no readable text',
+SCENES = {
+    'out_skyline': 'distant skyline of a ruined futuristic city seen from far away, several giant cylindrical towers and a large research dome in the middle, giant trees and vines growing over the buildings, layered fog, big pale moon, no people, no readable text',
+    'out_street': 'ruined street facades of a futuristic city at ground level, broken neon signs, empty holographic billboard frames, shattered shop windows, cables hanging, overgrown with thick vines roots and tall grass, no people, no readable text',
+    'out_roof': 'night sky above the rooftops of a ruined futuristic city, antennas, water tanks, broken satellite dishes, distant cylindrical towers, overgrown with moss and vines, moonlight, no people, no readable text',
+    'room_office': 'interior back wall of an abandoned small office inside a futuristic tower, dead computer screens, filing cabinets, a desk, peeling posters, a cracked window, vines creeping in, dim emergency light, no people, no readable text',
+    'room_machine': 'interior back wall of an abandoned machine room inside a futuristic tower, big gears, pipes, control panels with a few blinking lights, a maintenance ladder, roots breaking through the wall, no people, no readable text',
 }
-NEG_BG = 'blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, vanishing point, perspective, frame, border, empty background, plain gray background'
-SPR = ('pixel art, 16-bit game sprite, single object, full view, strict side view, plain flat light gray background, '
-       'no ground, no shadow, crisp chunky pixels, dark outline, muted palette')
-NEG_SPR = '3d render, realistic photo, blurry, smooth shading, text, watermark, signature, frame, border, scenery, ground, people, person'
-TRAIN = 'a long sleek futuristic maglev subway train car seen exactly from the side, rounded aerodynamic body, long dark window band, abandoned and dirty, overgrown with moss and hanging vines, one cracked window, faded cyan stripe'
-CHR = ('pixel art character sprite, detailed modern 16-bit indie metroidvania style, small slim character about three heads tall with a big head, '
-       'full body, strict side view facing right, standing, thick dark outline, muted moody palette, plain flat light gray background, no ground shadow')
-HERO = ('a lone survivor wearing a big round old brass deep sea diving helmet with one round glass porthole glowing faint green and rivets, '
-        'a breathing hose from the helmet to a small tank on the back, long tattered dark teal raincoat flowing behind, thin legs, heavy boots, '
-        'carrying a small glass pot with a little carnivorous sprout')
-NEG_CHR = '3d render, realistic photo, blurry, smooth shading, text, watermark, signature, multiple characters, character sheet, cropped, frame, border, scenery, front view, back view, chibi, fat'
+NEG_BG = 'blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, empty background, plain gray background'
 meta = {}
 def gen(name, prompt, neg, w, h, seeds, steps=30, cfg=7.0):
     meta[name] = {'prompt': prompt, 'negative': neg, 'size': [w, h], 'seeds': list(seeds)}
@@ -61,10 +53,8 @@ def gen(name, prompt, neg, w, h, seeds, steps=30, cfg=7.0):
         im.save(f'/kaggle/working/{name}_s{seed}.png')
         print('saved', name, seed, round(time.time() - t0), flush=True)
 tile_x(True)
-for name, desc in WALLS.items():
-    gen('wall_' + name, f'{BG}, {desc}', NEG_BG, 1536, 640, (11, 22, 33))
+for name, desc in SCENES.items():
+    gen(name, f'{BG}, {desc}', NEG_BG, 1536, 640, (11, 22, 33))
 tile_x(False)
-gen('train', f'{SPR}, {TRAIN}', NEG_SPR, 1536, 512, (7, 8, 9))
-gen('hero', f'{CHR}, {HERO}', NEG_CHR, 1024, 1024, (101, 202, 303, 404, 505, 606, 707, 808))
 json.dump(meta, open('/kaggle/working/prompts.json', 'w'), indent=1)
 print('done', round(time.time() - t0))

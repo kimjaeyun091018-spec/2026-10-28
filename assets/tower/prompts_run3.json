@@ -1,0 +1,67 @@
+{
+ "out_skyline": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, distant skyline of a ruined futuristic city seen from far away, several giant cylindrical towers and a large research dome in the middle, giant trees and vines growing over the buildings, layered fog, big pale moon, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "out_street": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, ruined street facades of a futuristic city at ground level, broken neon signs, empty holographic billboard frames, shattered shop windows, cables hanging, overgrown with thick vines roots and tall grass, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "out_roof": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, night sky above the rooftops of a ruined futuristic city, antennas, water tanks, broken satellite dishes, distant cylindrical towers, overgrown with moss and vines, moonlight, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "room_office": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, interior back wall of an abandoned small office inside a futuristic tower, dead computer screens, filing cabinets, a desk, peeling posters, a cracked window, vines creeping in, dim emergency light, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "room_machine": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, dark night scene, dim cold blue light with a few glowing neon accents in pink and cyan, deep blue and violet shadows, muted colors, crisp chunky pixels, rich hand placed detail, interior back wall of an abandoned machine room inside a futuristic tower, big gears, pipes, control panels with a few blinking lights, a maintenance ladder, roots breaking through the wall, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, empty background, plain gray background",
+  "size": [
+   1536,
+   640
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ }
+}
