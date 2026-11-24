@@ -236,6 +236,7 @@ function respawn() {
 }
 // 덩굴 쏘기: 마우스 쪽(키보드 K면 앞 위로). 벽·천장에 걸리면 매달림, 상자는 끌어당기고, 매달린 잔해는 줄을 끊음.
 // 덩굴 뭉치에는 걸리지 않고 튕겨 나옴 (무기가 아님)
+const HOOK_RANGE = 200;                                 // 덩굴이 닿는 거리
 function fireHook() {
   let ax, ay;
   if (mouse.pressed) { const pp = project(P.x + P.w / 2, P.y + P.h * 0.4); ax = mouse.x - pp.x; ay = mouse.y - pp.y; }
@@ -243,7 +244,7 @@ function fireHook() {
   const l = Math.hypot(ax, ay) || 1; ax /= l; ay /= l;
   if (Math.abs(ax) > 0.15) P.face = Math.sign(ax);
   const ox = P.x + P.w / 2, oy = P.y + P.h * 0.4;
-  for (let t = 6; t < 160; t += 2) {
+  for (let t = 6; t < HOOK_RANGE; t += 2) {
     const x = ox + ax * t, y = oy + ay * t;
     for (const o of props) {
       const dx = wd(x - o.x);
@@ -265,11 +266,14 @@ function fireHook() {
           hook.x = side < 0 ? htx * T + 1 : (htx + 1) * T - 1; hook.y = ty * T + 1; hook.ledge = { tx: htx, ty, side }; break;
         }
       }
-      hook.rest = Math.hypot(wd(hook.x - ox), hook.y - oy) * 0.7;
+      const hd = Math.hypot(wd(hook.x - ox), hook.y - oy) || 1;
+      hook.rest = hd;
+      P.vx += wd(hook.x - ox) / hd * 200; P.vy = Math.min(P.vy, 0) + (hook.y - oy) / hd * 260;   // 걸리는 순간 걸린 쪽으로 휙 당겨짐
+      P.onElev = false;
       return;
     }
   }
-  vineFx = { x: ox + ax * 160, y: oy + ay * 160, t: 0.15 };
+  vineFx = { x: ox + ax * HOOK_RANGE, y: oy + ay * HOOK_RANGE, t: 0.15 };
 }
 // 덩굴 줄: 걸린 곳에서 rest보다 멀어지면 줄 길이로 끌어당기고, 바깥쪽 속도는 없앰 (매달려 흔들림·감아 올라감)
 function ropeConstrain() {
@@ -367,9 +371,10 @@ function update(dt) {
   if (hook && !(mouse.down || held('k'))) hook = null;
   if (hook && jumpP) { hook = null; P.vy = Math.min(P.vy, 0) - 220; P.buffer = 0; jumpP = false; }   // Space: 놓으며 튀어 오름
   if (hook) {
-    if (held('w', 'arrowup')) hook.rest = Math.max(4, hook.rest - 150 * dt);            // W: 감아 올라감
-    else if (held('s', 'arrowdown')) hook.rest = Math.min(150, hook.rest + 90 * dt);    // S: 풀어 내려감
-    else hook.rest = Math.max(Math.min(hook.rest, 18), hook.rest - 70 * dt);
+    // 걸리면 빠르게 감겨 몸이 걸린 곳으로 끌려감 (W: 더 빨리·끝까지 · S: 풀어 내려감 · 그냥 두면 16까지)
+    if (held('w', 'arrowup')) hook.rest = Math.max(4, hook.rest - 340 * dt);
+    else if (held('s', 'arrowdown')) hook.rest = Math.min(190, hook.rest + 110 * dt);
+    else hook.rest = Math.max(Math.min(hook.rest, 16), hook.rest - 260 * dt);
     const cx = P.x + P.w / 2, hx = cx + wd(hook.x - cx);
     const dx = hx - cx, dy = hook.y - (P.y + P.h * 0.4), d = Math.hypot(dx, dy) || 1;
     P.vx *= 1 - 0.4 * dt; P.vy *= 1 - 0.4 * dt;           // 덩굴은 길이가 정해진 줄: 이동 뒤 ropeConstrain()이 줄 길이 안으로 붙잡음 (진자처럼 흔들림)
@@ -379,7 +384,7 @@ function update(dt) {
       const base = P.x + wd(L.tx * T - P.x), nx = L.side < 0 ? base + 1 : base + T - P.w - 1, ny = L.ty * T - P.h - 0.01;
       if (!hitBox(nx, ny, P.w, P.h)) { P.x = nx; P.y = ny; P.vx = P.vy = 0; hook = null; }
     }
-    if (hook && d > 190) hook = null;
+    if (hook && d > 230) hook = null;
   }
   if (vineFx && (vineFx.t -= dt) <= 0) vineFx = null;
   if (!jumpHeld && P.vy < -100 && !hook) P.vy += 1400 * dt;
@@ -460,7 +465,8 @@ function update(dt) {
   let tx = P.x + P.w / 2 + P.face * 10;
   if (!cb.ring) tx = (cb.R - cb.L < 2 * HALF) ? (cb.L + cb.R) / 2 : Math.max(cb.L + HALF, Math.min(cb.R - HALF, tx));
   camX += (tx - camX) * Math.min(1, dt * 6);
-  const ty = Math.max(VH / 2 - 2 * T, Math.min(H * T - VH / 2 + 2 * T, P.y + P.h / 2 - 16));
+  const look = hook ? (hook.y - (P.y + P.h / 2)) * 0.35 : 0;   // 매달린 동안은 걸린 곳 쪽으로 화면을 조금 옮겨 덩굴 끝이 보이게
+  const ty = Math.max(VH / 2 - 2 * T, Math.min(H * T - VH / 2 + 2 * T, P.y + P.h / 2 - 16 + look));
   camY += (ty - camY) * Math.min(1, dt * 6);
   camInfo = cb;
 }
@@ -998,7 +1004,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__tower = { P, elev, enemies, props, project: (x, y) => project(x, y), get hook() { return hook; }, get timeNow() { return timeNow; }, get camX() { return camX; }, get state() { return state; }, get checkpoint() { return checkpoint; }, map };
+window.__tower = { P, elev, enemies, props, mouse, get vineFx() { return vineFx; }, project: (x, y) => project(x, y), get hook() { return hook; }, get timeNow() { return timeNow; }, get camX() { return camX; }, get state() { return state; }, get checkpoint() { return checkpoint; }, map };
 </script>
 </body>
 </html>
