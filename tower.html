@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 걸기·다시 클릭하면 풀기 — 건 뒤 Space를 누르고 있는 동안 당기기 · 끝까지 당긴 뒤 Space로 놓으며 뛰기 · W 감기 · S 풀기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
+<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 쏘기(매달린 채 공중에서도 다시 쏨) · 오른쪽 클릭: 풀기 — 건 뒤 Space를 누르고 있는 동안 당기기 · 끝까지 당긴 뒤 Space로 놓으며 뛰기 · W 감기 · S 풀기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -192,7 +192,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = false; });
 // 마우스: 덩굴 갈고리 조준(HUD 640×360 좌표)과 누르기
-const mouse = { x: 0, y: 0, down: false, pressed: false };
+const mouse = { x: 0, y: 0, down: false, pressed: false, rpressed: false };
 const wrapEl = document.getElementById('wrap');
 const mousePos = e => { const r = wrapEl.getBoundingClientRect(); mouse.x = (e.clientX - r.left) / r.width * 640; mouse.y = (e.clientY - r.top) / r.height * 360; };
 wrapEl.addEventListener('mousemove', mousePos);
@@ -200,6 +200,7 @@ wrapEl.addEventListener('mousemove', mousePos);
 wrapEl.addEventListener('mousedown', e => {
   mousePos(e); const hadFocus = document.hasFocus(); window.focus();
   if (e.button === 0) { mouse.down = true; mouse.pressed = hadFocus; }   // 포커스를 받는 첫 클릭으로는 덩굴을 쏘지 않음
+  if (e.button === 2) mouse.rpressed = true;                             // 오른쪽 클릭: 덩굴 풀기
 });
 window.focus();
 addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
@@ -371,7 +372,10 @@ function update(dt) {
   const jumpHeld = held(' ') || (!P.onElev && !hook && held('w', 'arrowup'));
   // ---------- 덩굴 갈고리: 무기가 아닌 이동·퍼즐 도구 (산나비·Iron Bramble처럼 흔들고 날아감) ----------
   // 한 번 클릭(K)으로 걸고, 다시 클릭(K)하면 풀림 (누르고 있을 필요 없음)
-  if (mouse.pressed || hookP) { if (hook) hook = null; else fireHook(); }
+  // 왼쪽 클릭(K): 언제든(매달린 채 공중에서도) 마우스 쪽으로 새로 쏨 — 맞으면 그쪽으로 옮겨 걸리고 흔들리던 힘은 이어짐, 빗나가면 풀림
+  // 오른쪽 클릭: 풀기
+  if (mouse.rpressed) hook = null;
+  if (mouse.pressed || hookP) { hook = null; fireHook(); }
   // Space(점프)를 누르고 있는 동안만 덩굴이 감겨 몸이 당겨짐 (떼면 그 길이에서 멈춤)
   // 다 당겨진 곳(걸린 곳 바로 앞)에서 Space를 새로 누르면 덩굴을 놓으며 튀어 오름
   if (hook && jumpP) {
@@ -1011,7 +1015,7 @@ function frame(now) {
     if (state === 'dying' && deadT >= 1.8) respawn();
   }
   render3D(); drawHud();
-  jumpP = upP = enterP = hookP = false; mouse.pressed = false;
+  jumpP = upP = enterP = hookP = false; mouse.pressed = mouse.rpressed = false;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
