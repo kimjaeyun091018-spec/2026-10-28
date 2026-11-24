@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 걸기·다시 클릭하면 풀기 — 건 뒤 Space로 당기기 · 한 번 더 Space로 놓으며 뛰기 · W 감기 · S 풀기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
+<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K): 덩굴 걸기·다시 클릭하면 풀기 — 건 뒤 Space를 누르고 있는 동안 당기기 · 끝까지 당긴 뒤 Space로 놓으며 뛰기 · W 감기 · S 풀기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -240,7 +240,7 @@ function respawn() {
 // 덩굴 쏘기: 마우스 쪽(키보드 K면 앞 위로). 벽·천장에 걸리면 매달림, 상자는 끌어당기고, 매달린 잔해는 줄을 끊음.
 // 덩굴 뭉치에는 걸리지 않고 튕겨 나옴 (무기가 아님)
 const HOOK_RANGE = 200;                                 // 덩굴이 닿는 거리
-const PULL_SPEED = 120, PULL_KICK = 80;                 // Space로 당길 때 감기는 속도(px/초)와 처음 튀어 나가는 힘 (전에는 260·200, 너무 빨랐음)
+const PULL_SPEED = 40, PULL_KICK = 27;                  // Space를 누르고 있는 동안 감기는 속도(px/초)와 누를 때 처음 튀어 나가는 힘 (260·200 → 120·80 → 1/3로)
 function fireHook() {
   let ax, ay;
   if (mouse.pressed) { const pp = project(P.x + P.w / 2, P.y + P.h * 0.4); ax = mouse.x - pp.x; ay = mouse.y - pp.y; }
@@ -372,19 +372,19 @@ function update(dt) {
   // ---------- 덩굴 갈고리: 무기가 아닌 이동·퍼즐 도구 (산나비·Iron Bramble처럼 흔들고 날아감) ----------
   // 한 번 클릭(K)으로 걸고, 다시 클릭(K)하면 풀림 (누르고 있을 필요 없음)
   if (mouse.pressed || hookP) { if (hook) hook = null; else fireHook(); }
-  // Space(점프): 걸어 둔 덩굴로 몸을 휙 당김 → 다 당겨진 뒤 한 번 더 누르면 덩굴을 놓으며 튀어 오름
+  // Space(점프)를 누르고 있는 동안만 덩굴이 감겨 몸이 당겨짐 (떼면 그 길이에서 멈춤)
+  // 다 당겨진 곳(걸린 곳 바로 앞)에서 Space를 새로 누르면 덩굴을 놓으며 튀어 오름
   if (hook && jumpP) {
     const cx0 = P.x + P.w / 2, hd = Math.hypot(wd(hook.x - cx0), hook.y - (P.y + P.h * 0.4)) || 1;
-    if (!hook.pulling) {
-      hook.pulling = true; P.onElev = false;
-      P.vx += wd(hook.x - cx0) / hd * PULL_KICK; P.vy = Math.min(P.vy, 0) + (hook.y - (P.y + P.h * 0.4)) / hd * PULL_KICK * 1.3;
-    } else if (hook.rest <= 24) { hook = null; P.vy = Math.min(P.vy, 0) - 220; }
+    if (hook.rest <= 24) { hook = null; P.vy = Math.min(P.vy, 0) - 220; }
+    else { P.onElev = false; P.vx += wd(hook.x - cx0) / hd * PULL_KICK; P.vy = Math.min(P.vy, 0) + (hook.y - (P.y + P.h * 0.4)) / hd * PULL_KICK * 1.3; }
     P.buffer = 0; jumpP = false;
   }
+  if (hook) hook.pulling = held(' ');
   if (hook) {
     // 당기는 중이면 빠르게 감김(W 더 빨리). 걸어만 둔 동안은 줄 길이 그대로 — W 천천히 감기 · S 풀어 내려가기
     if (hook.pulling) hook.rest = Math.max(held('w', 'arrowup') ? 4 : 16, hook.rest - (held('w', 'arrowup') ? PULL_SPEED * 1.4 : PULL_SPEED) * dt);
-    else if (held('w', 'arrowup')) hook.rest = Math.max(4, hook.rest - 120 * dt);
+    else if (held('w', 'arrowup')) hook.rest = Math.max(4, hook.rest - PULL_SPEED * dt);   // W로 감기도 같은 속도
     else if (held('s', 'arrowdown')) hook.rest = Math.min(190, hook.rest + 110 * dt);
     const cx = P.x + P.w / 2, hx = cx + wd(hook.x - cx);
     const dx = hx - cx, dy = hook.y - (P.y + P.h * 0.4), d = Math.hypot(dx, dy) || 1;
