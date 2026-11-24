@@ -6,7 +6,7 @@
 <title>원통 탑 시제품</title>
 <style>
   :root { --bg: #0b0f0e; --fg: #cfe3c8; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; user-select: none; -webkit-user-select: none; background: var(--bg); color: var(--fg); overflow: hidden; font-family: system-ui, sans-serif; }
   #wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); aspect-ratio: 16 / 9; width: min(100vw, calc(100vh * 16 / 9)); }
   #wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
   #help { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); font-size: 12px; opacity: .7; pointer-events: none; white-space: nowrap; }
@@ -18,7 +18,7 @@
   <canvas id="c3" width="640" height="360"></canvas>
   <canvas id="hud" width="640" height="360"></canvas>
 </div>
-<div id="help">A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K) 누르고 있기: 덩굴 갈고리 — W 감기 · S 풀기 · Space 놓기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
+<div id="help">화면을 한 번 클릭한 뒤 조작 · A/D 이동 · Space 점프 · 왼쪽 클릭(또는 K) 누르고 있기: 덩굴 갈고리 — W 감기 · S 풀기 · Space 놓기 · S 웅크리기 · E 누른 채 상자 당기기 · W 지렛대·호출 · P 도트 배경</div>
 <div id="err">이 브라우저에서는 3D(WebGL)를 쓸 수 없어 원통 탑 시제품을 열 수 없어요.</div>
 <script type="module">
 // 원통 탑 시제품 (plant-world-tower 브랜치)
@@ -196,7 +196,9 @@ const mouse = { x: 0, y: 0, down: false, pressed: false };
 const wrapEl = document.getElementById('wrap');
 const mousePos = e => { const r = wrapEl.getBoundingClientRect(); mouse.x = (e.clientX - r.left) / r.width * 640; mouse.y = (e.clientY - r.top) / r.height * 360; };
 wrapEl.addEventListener('mousemove', mousePos);
-wrapEl.addEventListener('mousedown', e => { mousePos(e); if (e.button === 0) { mouse.down = true; mouse.pressed = true; } e.preventDefault(); });
+// 클릭하면 게임이 키보드 포커스를 받음 (아티팩트처럼 틀(iframe) 안에서 열릴 때 필요. 기본 동작을 막으면 포커스가 안 옴)
+wrapEl.addEventListener('mousedown', e => { mousePos(e); window.focus(); if (e.button === 0) { mouse.down = true; mouse.pressed = true; } });
+window.focus();
 addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 wrapEl.addEventListener('contextmenu', e => e.preventDefault());
 const held = (...ks) => ks.some(k => keys[k]);
