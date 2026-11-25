@@ -1045,7 +1045,7 @@ const VINE_SEG = 14;
 const vineMat = new THREE.MeshBasicMaterial({ map: vineTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
 const vineSegs = Array.from({ length: VINE_SEG }, () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 4), vineMat); scene.add(m); return m; });
 // 네 갈래 갈고리 (덩굴 끝): 위쪽이 박히는 방향. 가운데 고리(덩굴이 묶인 곳)에서 갈퀴 넷 — 양옆 둘은 크게 휘고, 앞뒤 둘은 짧게(원근)
-// fold: 날아가거나 감겨 돌아올 때 접힌 모양 · open: 박히는 순간 활짝 벌어진 모양 · grip: 표면을 파고들어 움켜쥔 모양
+// fold: 날아가거나 감겨 돌아올 때 접힌 모양 · open: 박히는 순간 벌어지는 모양 · grip: 붙어 있는 동안 — 넓게 벌린 채 갈퀴 끝만 면에 박힘
 function clawCanvas(mode) {
   return canvasTex(32, 32, g => {
     // 굵은 선(2칸)으로 점을 이어 그림 — 바깥은 어두운 테두리, 안은 밝은 쇠, 끝은 반짝임
@@ -1055,11 +1055,11 @@ function clawCanvas(mode) {
     let L, R, BL, BR;
     if (mode === 'fold') { L = [[14, 22], [12, 16], [12, 10], [14, 5]]; R = [[18, 22], [20, 16], [20, 10], [18, 5]]; BL = [[15, 22], [15, 12]]; BR = [[17, 22], [17, 12]]; }
     else if (mode === 'open') { L = [[13, 22], [8, 19], [4, 14], [3, 9]]; R = [[19, 22], [24, 19], [28, 14], [29, 9]]; BL = [[14, 21], [11, 14]]; BR = [[18, 21], [21, 14]]; }
-    else { L = [[13, 22], [8, 19], [5, 13], [6, 6], [9, 1]]; R = [[19, 22], [24, 19], [27, 13], [26, 6], [23, 1]]; BL = [[14, 21], [12, 12], [13, 4]]; BR = [[18, 21], [20, 12], [19, 4]]; }
+    else { L = [[13, 22], [7, 19], [3, 13], [1, 7], [2, 2]]; R = [[19, 22], [25, 19], [29, 13], [31, 7], [30, 2]]; BL = [[14, 21], [9, 13], [8, 3]]; BR = [[18, 21], [23, 13], [24, 3]]; }   // 넓게 벌린 채 끝만 면에 박음
     back(BL); back(BR); prong(L); prong(R);
     px(g, 12, 21, 8, 6, '#1c1e1c'); px(g, 13, 22, 6, 4, '#a8aca0'); px(g, 15, 23, 2, 2, '#1c1e1c');   // 가운데 고리
     px(g, 15, 26, 2, 6, '#3f6a30');                                                                 // 덩굴 매듭
-    if (mode === 'grip') { px(g, 2, 0, 28, 1, '#0c0e0c'); px(g, 6, 1, 4, 1, '#0c0e0c'); px(g, 22, 1, 4, 1, '#0c0e0c'); }   // 박힌 자리의 금
+    if (mode === 'grip') { px(g, 0, 0, 32, 1, '#0c0e0c'); px(g, 1, 1, 3, 1, '#0c0e0c'); px(g, 28, 1, 3, 1, '#0c0e0c'); px(g, 7, 1, 3, 1, '#0c0e0c'); px(g, 23, 1, 3, 1, '#0c0e0c'); }   // 박힌 자리의 금
   });
 }
 const CLAW = { fold: clawCanvas('fold'), open: clawCanvas('open'), grip: clawCanvas('grip') };
@@ -1345,8 +1345,8 @@ function render3D() {
     let mode = 'fold', ix = ex - lx, iy = ey - ly, sc = 1;                // ix,iy: 갈고리 위쪽(박히는 쪽)이 향할 방향 (게임 좌표)
     if (hook && k >= 1) {
       ix = -hook.nx; iy = -hook.ny;
-      const gt = hook.grip;                                               // 박히는 순간 활짝 벌어졌다가(0.08초) 파고들며 오므림
-      mode = gt < 0.08 ? 'open' : 'grip'; sc = gt < 0.08 ? 1.25 : 1 + Math.max(0, 0.15 - (gt - 0.08)) * 1.5;
+      const gt = hook.grip;                                               // 박히는 순간 벌어지며(0.06초) 넓게 펼친 채 고정 — 오므리지 않음
+      mode = gt < 0.06 ? 'open' : 'grip'; sc = gt < 0.06 ? 1.05 : 1.15 + Math.max(0, 0.12 - (gt - 0.06)) * 1.2;
     }
     if (clawMesh.material.map !== CLAW[mode]) { clawMesh.material.map = CLAW[mode]; clawMesh.material.needsUpdate = true; }
     clawMesh.rotation.z = Math.atan2(-ix, -iy);                          // 그림의 위쪽(0,1)을 (ix, -iy) 3D 방향으로
