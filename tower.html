@@ -312,14 +312,20 @@ function fireHook() {
     }
     if (enemies.some(e => e.hp > 0 && Math.abs(wd(x - (e.x + e.w / 2))) < e.w / 2 && y > e.y && y < e.y + e.h)) { vineFx = { x, y, t: 0.12 }; return; }
     if (solidP(x, y)) {
-      hook = { x, y, shot: 0 };                           // shot: 덩굴이 뻗어 나간 비율 (그림용, 0.1초에 1)
+      hook = { x, y, shot: 0, grip: 0 };                  // shot: 덩굴이 뻗어 나간 비율 (그림용, 0.1초에 1) · grip: 갈고리가 박힌 뒤 지난 시간
       const htx = Math.floor(x / T), hty = Math.floor(y / T);
+      // 갈고리가 박힌 면: 바로 앞 지점이 어느 칸이었는지로 (천장 밑면·바닥 윗면·벽 옆면). n = 면에서 바깥(덩굴 쪽)을 향하는 방향
+      { const px0 = ox + ax * (t - 2), py0 = oy + ay * (t - 2), ptx = Math.floor(px0 / T), pty = Math.floor(py0 / T);
+        if (pty !== hty && (ptx === htx || !solidT(htx, pty))) { hook.nx = 0; hook.ny = Math.sign(pty - hty); }
+        else { hook.nx = Math.sign(ptx - htx) || -Math.sign(ax); hook.ny = 0; }
+        hook.gx = x; hook.gy = y; }
       for (let up = 0; up < 2; up++) {                  // 벽 위 모서리가 가까우면(2칸 안) 모서리에 붙임
         const ty = hty - up;
         if (!solidT(htx, ty)) break;
         const side = wd(ox - (htx * T + T / 2)) < 0 ? -1 : 1;
         if (!solidT(htx, ty - 1) && !solidT(htx + side, ty) && P.y + P.h > ty * T) {
-          hook.x = side < 0 ? htx * T - 5 : (htx + 1) * T + 5; hook.y = ty * T + 1; hook.ledge = { tx: htx, ty, side }; break;   // 벽 바로 바깥에 걸어 몸이 발판 밑에 끼지 않고 벽 옆으로 올라가게
+          hook.x = side < 0 ? htx * T - 5 : (htx + 1) * T + 5; hook.y = ty * T + 1; hook.ledge = { tx: htx, ty, side };
+          hook.gx = side < 0 ? htx * T : (htx + 1) * T; hook.gy = ty * T; hook.nx = side * 0.85; hook.ny = -0.55; break;   // 모서리를 위·바깥에서 움켜쥠   // 벽 바로 바깥에 걸어 몸이 발판 밑에 끼지 않고 벽 옆으로 올라가게
         }
       }
       const hd = Math.hypot(wd(hook.x - ox), hook.y - oy) || 1;
@@ -475,7 +481,9 @@ function update(dt) {
   }
   if (vineFx && (vineFx.t -= dt) <= 0) vineFx = null;
   if (!FLAT && SMASH.t >= 0 && !FLAGS.smashed) { SMASH.t += dt; if (SMASH.t >= 1.1) { FLAGS.smashed = true; dialog = { text: '쇳덩이가 벽을 부쉈다. 벽 너머에 방이 있다.', t: 3 }; } }
-  if (hook && hook.shot < 1) hook.shot = Math.min(1, hook.shot + dt / 0.1);
+  if (hook && hook.shot < 1) { hook.shot = Math.min(1, hook.shot + dt / 0.1); if (hook.shot >= 1) clawBurst(hook); }
+  else if (hook) hook.grip += dt;
+  for (const c of chips) { if (c.life > 0) { c.life -= dt; c.vy += 600 * dt; c.x += c.vx * dt; c.y += c.vy * dt; } }
   if (!jumpHeld && P.vy < -100 && !hook) P.vy += 1400 * dt;
   P.vy = Math.min(P.vy + 900 * dt, 400);
 
@@ -1033,16 +1041,39 @@ const vineTex = canvasTex(16, 8, g => {
   px(g, 7, 3, 1, 1, '#9fd27a'); px(g, 14, 4, 1, 1, '#9fd27a');                                                       // 마디 반짝임
 });
 vineTex.wrapS = THREE.RepeatWrapping;
-const clawTex = canvasTex(10, 10, g => {                 // 끝: 걸린 곳을 움켜쥐는 잎 갈고리 (오른쪽이 앞)
-  px(g, 0, 4, 4, 2, '#3f6a30');
-  px(g, 4, 2, 2, 6, '#5d8f3e'); px(g, 6, 1, 2, 2, '#7fb84f'); px(g, 6, 7, 2, 2, '#7fb84f');
-  px(g, 8, 0, 2, 2, '#a8d870'); px(g, 8, 8, 2, 2, '#a8d870'); px(g, 7, 4, 3, 2, '#7fb84f'); px(g, 9, 4, 1, 2, '#c8e890');
-});
 const VINE_SEG = 14;
 const vineMat = new THREE.MeshBasicMaterial({ map: vineTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
 const vineSegs = Array.from({ length: VINE_SEG }, () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 4), vineMat); scene.add(m); return m; });
-const clawMesh = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshBasicMaterial({ map: clawTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+// 네 갈래 갈고리 (덩굴 끝): 위쪽이 박히는 방향. 가운데 고리(덩굴이 묶인 곳)에서 갈퀴 넷 — 양옆 둘은 크게 휘고, 앞뒤 둘은 짧게(원근)
+// fold: 날아가거나 감겨 돌아올 때 접힌 모양 · open: 박히는 순간 활짝 벌어진 모양 · grip: 표면을 파고들어 움켜쥔 모양
+function clawCanvas(mode) {
+  return canvasTex(32, 32, g => {
+    // 굵은 선(2칸)으로 점을 이어 그림 — 바깥은 어두운 테두리, 안은 밝은 쇠, 끝은 반짝임
+    const line = (pts, w, c) => { for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1; for (let k = 0; k <= n; k++) px(g, Math.round(x0 + (x1 - x0) * k / n - w / 2), Math.round(y0 + (y1 - y0) * k / n - w / 2), w, w, c); } };
+    const prong = pts => { line(pts, 4, '#1c1e1c'); line(pts, 2, '#d8dcd0'); const [tx, ty] = pts[pts.length - 1]; px(g, tx - 1, ty - 1, 2, 2, '#ffffff'); };
+    const back = pts => { line(pts, 3, '#1c1e1c'); line(pts, 1, '#8a8e84'); };          // 앞뒤 갈퀴(원근으로 짧고 어둡게)
+    let L, R, BL, BR;
+    if (mode === 'fold') { L = [[14, 22], [12, 16], [12, 10], [14, 5]]; R = [[18, 22], [20, 16], [20, 10], [18, 5]]; BL = [[15, 22], [15, 12]]; BR = [[17, 22], [17, 12]]; }
+    else if (mode === 'open') { L = [[13, 22], [8, 19], [4, 14], [3, 9]]; R = [[19, 22], [24, 19], [28, 14], [29, 9]]; BL = [[14, 21], [11, 14]]; BR = [[18, 21], [21, 14]]; }
+    else { L = [[13, 22], [8, 19], [5, 13], [6, 6], [9, 1]]; R = [[19, 22], [24, 19], [27, 13], [26, 6], [23, 1]]; BL = [[14, 21], [12, 12], [13, 4]]; BR = [[18, 21], [20, 12], [19, 4]]; }
+    back(BL); back(BR); prong(L); prong(R);
+    px(g, 12, 21, 8, 6, '#1c1e1c'); px(g, 13, 22, 6, 4, '#a8aca0'); px(g, 15, 23, 2, 2, '#1c1e1c');   // 가운데 고리
+    px(g, 15, 26, 2, 6, '#3f6a30');                                                                 // 덩굴 매듭
+    if (mode === 'grip') { px(g, 2, 0, 28, 1, '#0c0e0c'); px(g, 6, 1, 4, 1, '#0c0e0c'); px(g, 22, 1, 4, 1, '#0c0e0c'); }   // 박힌 자리의 금
+  });
+}
+const CLAW = { fold: clawCanvas('fold'), open: clawCanvas('open'), grip: clawCanvas('grip') };
+const clawMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 16).translate(0, -7, 0), new THREE.MeshBasicMaterial({ map: CLAW.fold, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
 scene.add(clawMesh);
+// 박힐 때 튀는 부스러기
+const chips = Array.from({ length: 8 }, () => ({ life: 0, x: 0, y: 0, vx: 0, vy: 0, m: new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), new THREE.MeshBasicMaterial({ color: '#8a8478' })) }));
+for (const c of chips) { c.m.layers.set(1); c.m.visible = false; scene.add(c.m); }
+function clawBurst(h) {
+  chips.forEach((c, i) => {
+    const a = Math.atan2(h.ny, h.nx) + (i / chips.length - 0.5) * 2.2, sp = 50 + hash(i, timeNow * 100 | 0) * 70;
+    Object.assign(c, { life: 0.3 + hash(i, 3) * 0.2, x: h.gx, y: h.gy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+  });
+}
 for (const m of [heroMesh, slashMesh, clawMesh, ...vineSegs]) m.layers.set(1);
 // 마디 하나를 게임 좌표 (x0,y0)→(x1,y1)에 놓음 (u0~u1: 줄기 그림의 가로 위치 → 마디가 바뀌어도 잎이 이어짐)
 function placeSeg(m, x0, y0, x1, y1, u0, u1) {
@@ -1099,7 +1130,7 @@ function renderPixel() {
 
 // =================== 구역 (탑 · 평평한 구역) ===================
 const AREAS = {};
-const SHARED = [heroMesh, slashMesh, clawMesh, ...vineSegs, lantern];   // 구역을 옮길 때 따라가는 것
+const SHARED = [heroMesh, slashMesh, clawMesh, ...vineSegs, ...chips.map(c => c.m), lantern];   // 구역을 옮길 때 따라가는 것
 function useArea(a) { ({ map, WC, H, C, enemies, props, INTERACTS, scene } = a); FLAT = a.flat; OPEN_TOP = !!a.openTop; AREA = a; AREA_ID = a.id; }
 function switchArea(id) { const a = AREAS[id]; useArea(a); for (const m of SHARED) a.scene.add(m); }
 // 다른 구역으로: 문·틈·사다리. tx 칸, ty = 발이 닿는 바닥 줄
@@ -1292,7 +1323,9 @@ function render3D() {
     const hx0 = P.x + P.w / 2 + P.face * 5, hy0 = P.y + P.h * 0.4;
     // k: 덩굴이 뻗은 비율 (쏠 때 0→1로 뻗어 나가고, 감겨 돌아올 때 1→0)
     const k = hook ? (hook.shot ?? 1) : vineFx.retract ? Math.max(0, vineFx.t / 0.15) : 1;
-    const ex = hx0 + wd(tip.x - hx0) * k, ey = hy0 + (tip.y - hy0) * k;
+    const gx = hook && hook.gx !== undefined ? hook.gx : tip.x, gy = hook && hook.gy !== undefined ? hook.gy : tip.y;   // 갈고리가 박힌 자리
+    const ring = hook && hook.nx !== undefined && k >= 1 ? 11 : 0;                       // 덩굴은 갈퀴 끝이 아니라 가운데 고리에 묶임
+    const ex = hx0 + wd(gx - hx0) * k + (ring ? hook.nx * ring : 0), ey = hy0 + (gy - hy0) * k + (ring ? hook.ny * ring : 0);
     const dx = ex - hx0, dy = ey - hy0, dist = Math.hypot(dx, dy) || 1, nx = -dy / dist, ny = dx / dist;
     const sag = hook ? Math.min(28, Math.max(0, hook.rest - dist) * 0.7) : 0;     // 줄이 느슨하면 처짐
     const wob = (k < 1 ? 5 * (1 - k) + 2 : 0) + (!hook ? 2 : 0.4);               // 뻗거나 감길 때 물결
@@ -1308,8 +1341,18 @@ function render3D() {
       placeSeg(vineSegs[i], x0, y0, x1, y1, u, u + l); u += l;
     }
     const [lx, ly] = pts[VINE_SEG - 1];
-    placeOnRing(clawMesh, ex, ey, RP - 3.2); clawMesh.rotation.z = -Math.atan2(ey - ly, ex - lx);
+    placeOnRing(clawMesh, ring ? gx : ex, ring ? gy : ey, RP - 3.2);
+    let mode = 'fold', ix = ex - lx, iy = ey - ly, sc = 1;                // ix,iy: 갈고리 위쪽(박히는 쪽)이 향할 방향 (게임 좌표)
+    if (hook && k >= 1) {
+      ix = -hook.nx; iy = -hook.ny;
+      const gt = hook.grip;                                               // 박히는 순간 활짝 벌어졌다가(0.08초) 파고들며 오므림
+      mode = gt < 0.08 ? 'open' : 'grip'; sc = gt < 0.08 ? 1.25 : 1 + Math.max(0, 0.15 - (gt - 0.08)) * 1.5;
+    }
+    if (clawMesh.material.map !== CLAW[mode]) { clawMesh.material.map = CLAW[mode]; clawMesh.material.needsUpdate = true; }
+    clawMesh.rotation.z = Math.atan2(-ix, -iy);                          // 그림의 위쪽(0,1)을 (ix, -iy) 3D 방향으로
+    clawMesh.scale.set(sc, sc, 1);
   }
+  for (const c of chips) { c.m.visible = c.life > 0; if (c.life > 0) placeOnRing(c.m, c.x, c.y, RP - 4); }
   for (const o of props) {                              // 상자·잔해 (+ 매달린 줄)
     placeOnRing(o.mesh, o.x + o.w / 2, o.y + o.h / 2, RP);
     if (o.tex && o.mesh.material.map !== o.tex[o.armed ? 0 : 1]) { o.mesh.material.map = o.tex[o.armed ? 0 : 1]; o.mesh.material.needsUpdate = true; }
