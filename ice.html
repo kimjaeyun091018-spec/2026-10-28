@@ -81,7 +81,7 @@ flat(560);                                     fires.push(7480); decor.push({ im
 const COURSE_END = bx;
 const GOAL_X = 7820;
 for (const c of chunks) { c.x0 = c.pts[0][0]; c.x1 = c.pts[c.pts.length - 1][0]; c.top = Math.min(...c.pts.map(p => p[1])); }
-decor.push({ img: 'ship', x: 1660, back: true, dy: 6 }, { img: 'berg', x: 3600, back: true, dy: 4 }, { img: 'berg', x: 7640, back: true, dy: 24 });
+decor.push({ img: 'ship', x: 640, back: true, dy: 10 }, { img: 'berg', x: 3600, back: true, dy: 4 }, { img: 'berg', x: 7640, back: true, dy: 24 });
 
 function lineAt(pts, x) {          // 꺾은선의 x에서 높이와 기울기
   if (x < pts[0][0] || x > pts[pts.length - 1][0]) return null;
@@ -310,7 +310,7 @@ function drawWorld() {
     lg.globalAlpha = 1;
   }
   // 뒤쪽 장식(배·빙산)
-  for (const d of decor) if (d.back) drawDecor(d);
+  lg.globalAlpha = 0.55; for (const d of decor) if (d.back) drawDecor(d); lg.globalAlpha = 1;   // 뒤쪽 장식은 안개에 흐리게
   // 얼음판
   for (const c of chunks) {
     if (c.x1 < cx - 10 || c.x0 > cx + VW + 10) continue;

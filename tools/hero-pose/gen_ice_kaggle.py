@@ -1,6 +1,8 @@
 # Kaggle GPU에서 실행: 얼음 바다 스케이트(ice.html) 주인공 — 털 파카 + 스케이트, 16프레임
-# (gen_diver_kaggle.py와 같은 방식. 포즈는 poses_ice.py. 참고 그림 없이 글로만 생김새를 정함 → IP-Adapter 강도 0)
-# python tools/hero-pose/push.py tools/hero-pose/ref_diver.png --script gen_ice_kaggle.py --poses poses_ice.py --slug yuzen3220/ice-skater-pose --seeds 11,22,33 --cn 1.0 --ip 0
+# (gen_diver_kaggle.py와 같은 방식. 포즈는 poses_ice.py)
+# 1차: 참고 그림 없이(--ip 0) → 시드 11·22는 숲·벽 배경이 그려지고, 33은 배경은 깨끗하나 포즈를 안 따름
+# 2차: 1차 시드 33의 깨끗한 그림(ref_ice.png)을 참고 그림으로, 배경 금지어 추가, 포즈 강도 1.25
+# python tools/hero-pose/push.py tools/hero-pose/ref_ice.png --script gen_ice_kaggle.py --poses poses_ice.py --slug yuzen3220/ice-skater-pose --seeds 33,44,55 --cn 1.25 --ip 0.45
 # SDXL + 픽셀아트 LoRA + ControlNet OpenPose(프레임별 관절 포즈) + IP-Adapter(주인공 참고 그림)
 # 이 파일은 그대로 올리지 않고, push.py가 poses.py 내용과 참고 그림을 끼워 넣어 올린다.
 import subprocess, sys, io, base64, time, json
@@ -37,7 +39,7 @@ CHARACTER = (
     'a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, '
     'round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, '
     'dark padded trousers and old leather boots with long steel ice skate blades, '
-    'muted cold palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow')
+    'muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow')
 NEG = ('front view, facing the viewer, three-quarter view, back view, multiple characters, two people, duplicate, sprite sheet, tall, adult proportions, raincoat, cape, '
        'extra legs, extra arms, missing legs, deformed hands, fused legs, blurry, smooth shading, 3d render, '
        'realistic photo, text, watermark, signature, frame, cropped feet, cut off hat, scenery, floor, grass')
