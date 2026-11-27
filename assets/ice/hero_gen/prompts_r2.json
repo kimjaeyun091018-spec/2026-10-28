@@ -1,0 +1,74 @@
+{
+ "negative": "front view, facing the viewer, three-quarter view, back view, multiple characters, two people, duplicate, sprite sheet, tall, adult proportions, raincoat, cape, extra legs, extra arms, missing legs, deformed hands, fused legs, blurry, smooth shading, 3d render, realistic photo, text, watermark, signature, frame, cropped feet, cut off hat, scenery, floor, grass",
+ "seeds": [
+  33,
+  44,
+  55
+ ],
+ "frames": [
+  {
+   "name": "skate_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating forward, gliding on both skates, knees bent, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_1",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating, pushing one skate backward to gain speed, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_2",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating, one leg fully stretched back after a powerful push stride, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_3",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating, bringing the back skate forward again, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_4",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating forward, gliding on both skates, knees bent, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_5",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating, pushing one skate backward to gain speed, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_6",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating, one leg fully stretched back after a powerful push stride, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "skate_7",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, ice skating, bringing the back skate forward again, leaning forward, dynamic speed skating pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "tuck_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, speed tuck on ice skates, crouching very low, leaning far forward"
+  },
+  {
+   "name": "jump_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, crouching low on ice skates before jumping off a ramp, dynamic action pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "jump_1",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, airborne jump on ice skates, knees pulled up to the chest, dynamic action pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "jump_2",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, landing on ice skates, knees bent absorbing the impact, dynamic action pose, the skate blades are clearly visible"
+  },
+  {
+   "name": "grind_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, grinding along a rail on ice skates, balancing with both arms stretched out to the sides, knees bent, the skate blades are clearly visible"
+  },
+  {
+   "name": "glide_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, flying with a traction kite, both arms raised straight up above the head gripping a handle bar, body hanging straight, legs together, the hands hold an invisible bar above the head"
+  },
+  {
+   "name": "glide_1",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, diving down with a traction kite, arms raised up above the head gripping a handle bar, body tilted forward, legs trailing back, the hands hold an invisible bar above the head"
+  },
+  {
+   "name": "boost_0",
+   "prompt": "pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, strict side view profile facing right, small character about three heads tall with a big round head, a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, dark padded trousers and old leather boots with long steel ice skate blades, muted cold palette, crisp chunky pixels with dark outline, isolated on a plain flat light gray background with nothing else, no ground, no ground shadow, speed skater pushing hard with two ice picks stabbed into the ice behind, body leaning far forward, both arms swept back, dynamic pose"
+  }
+ ]
+}
