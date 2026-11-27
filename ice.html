@@ -32,8 +32,9 @@ const lg = low.getContext('2d'); lg.imageSmoothingEnabled = false;
 const qs = new URLSearchParams(location.search);
 
 // ---------- 그림 (Kaggle에서 생성 → tools/ice-art/process.py로 도트화) ----------
+// 얼음 단면과 연은 생성 결과가 맞지 않아 아래 코드가 직접 그림 (iceDetail, drawKite)
 const A = 'assets/ice/';
-const IMG_LIST = { sky: 'ice_sky', mid: 'ice_mid', ground: 'ice_ground', hero: 'skater_sheet', kite: 'kite', ship: 'ship',
+const IMG_LIST = { sky: 'ice_sky', mid: 'ice_mid', hero: 'skater_sheet', ship: 'ship',
   barrel: 'barrel', hut: 'hut', buoy: 'buoy', berg: 'berg', flag: 'flag' };
 const IMG = {};
 const loadImg = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
@@ -245,7 +246,34 @@ function update(dt) {
 
 // ---------- 그리기 ----------
 const CY0 = -140;
-let groundPat = null, skyTop = '#071021';
+let skyTop = '#182f48';          // 하늘 그림 맨 윗줄 색 (그림 위로 더 올라가면 이 색)
+// 얼음 속 무늬(128×128, 가로로 반복): 가로 층 줄, 갇힌 기포, 가는 금
+const iceDetail = (() => {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 128; const x = c.getContext('2d');
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let y = 6; y < 128; y += 5 + Math.floor(rnd() * 7)) {          // 층
+    x.fillStyle = `rgba(200,235,255,${0.10 - y / 1800})`;
+    for (let i = 0; i < 128; i++) if (rnd() < 0.8) x.fillRect(i, y + Math.round(Math.sin(i * 0.05 + y) * 1.2), 1, 1);
+  }
+  for (let i = 0; i < 70; i++) {                                         // 기포
+    const bx = Math.floor(rnd() * 128), by = Math.floor(rnd() * 120) + 4, r = rnd() < 0.2 ? 2 : 1;
+    x.fillStyle = `rgba(225,245,255,${0.5 - by / 300})`; x.fillRect(bx, by, r, r);
+  }
+  x.fillStyle = 'rgba(210,240,255,0.18)';                                // 금
+  for (let k = 0; k < 6; k++) { let px = rnd() * 128, py = 4 + rnd() * 30; for (let i = 0; i < 18 + rnd() * 20; i++) { x.fillRect(Math.round(px), Math.round(py), 1, 1); px += rnd() * 2 - 0.6; py += 1; } }
+  return lg.createPattern(c, 'repeat');
+})();
+// 연: 기운 천과 털 띠를 휜 막대에 엮은 반원형 연 (주인공과 같은 2배 해상도 점으로)
+function drawKite(ctx, kx, ky, tilt) {
+  const W = 34, cols = ['#9c4a36', '#c9b48a', '#7d8790', '#b5603f', '#d8cba8', '#6d4a3a'];
+  for (let i = -W; i <= W; i++) {
+    const t = i / W, y = Math.round(ky - Math.sqrt(1 - t * t) * 12 + t * tilt * 8), th = Math.round(7 - Math.abs(t) * 4);
+    ctx.fillStyle = '#1b1a1e'; ctx.fillRect(kx + i, y - 1, 1, th + 2);
+    ctx.fillStyle = cols[Math.floor((t + 1) * 3) % cols.length]; ctx.fillRect(kx + i, y, 1, th);
+    if (Math.abs(i) % 11 === 0) { ctx.fillStyle = '#3a2a24'; ctx.fillRect(kx + i, y, 1, th); }          // 뼈대
+    if (i % 3 === 0) { ctx.fillStyle = '#efe6d6'; ctx.fillRect(kx + i, y, 1, 1); }                       // 털 띠
+  }
+}
 function tileH(img, par, top) {         // 가로로 이어지는 그림을 시차를 두고 반복
   const w = img.width, ox = -(((cam.x * par) % w) + w) % w;
   for (let x = Math.round(ox); x < VW; x += w) lg.drawImage(img, x, Math.round(top));
@@ -255,14 +283,14 @@ function drawWorld() {
   // 하늘
   const grd = lg.createLinearGradient(0, 0, 0, VH); grd.addColorStop(0, '#040812'); grd.addColorStop(1, '#122238');
   lg.fillStyle = skyTop; lg.fillRect(0, 0, VW, VH);
-  if (IMG.sky) { const top = VH - IMG.sky.height + 30 - (cam.y - CY0) * 0.08; tileH(IMG.sky, 0.06, top); }
+  if (IMG.sky) { const top = -78 - (cam.y - CY0) * 0.08; tileH(IMG.sky, 0.06, top); }        // 그림의 수평선(185줄)이 화면 107쯤
   else { lg.fillStyle = grd; lg.fillRect(0, 0, VW, VH); }
   // 오로라가 천천히 일렁임 (그림 위에 아주 옅게)
   lg.globalAlpha = 0.07 + 0.04 * Math.sin(time * 0.5);
   lg.fillStyle = '#7dffc8';
   for (let x = 0; x < VW; x += 2) { const y = 30 + 18 * Math.sin((x + cam.x * 0.05) * 0.02 + time * 0.3) - (cam.y - CY0) * 0.05; lg.fillRect(x, Math.round(y), 2, 22); }
   lg.globalAlpha = 1;
-  if (IMG.mid) { const top = VH - IMG.mid.height + 46 - (cam.y - CY0) * 0.3; tileH(IMG.mid, 0.3, top); }
+  if (IMG.mid) { const top = -18 - (cam.y - CY0) * 0.3; tileH(IMG.mid, 0.3, top); }         // 배들이 얼음판 바로 위에 보이게
   // 먼 안개
   const fog = lg.createLinearGradient(0, 0, 0, VH); fog.addColorStop(0, 'rgba(120,160,200,0)'); fog.addColorStop(1, 'rgba(120,160,210,0.18)');
   lg.fillStyle = fog; lg.fillRect(0, 0, VW, VH);
@@ -289,11 +317,13 @@ function drawWorld() {
     lg.beginPath(); lg.moveTo(c.pts[0][0], VH + cy + 40);
     for (const p of c.pts) lg.lineTo(p[0], p[1]);
     lg.lineTo(c.x1, VH + cy + 40); lg.closePath();
-    if (c.kind === 'deck') lg.fillStyle = '#2a2225';
-    else if (groundPat) { groundPat.setTransform(new DOMMatrix().translate(0, Math.round(c.top) - 2)); lg.fillStyle = groundPat; }
-    else lg.fillStyle = '#2b5a78';
-    lg.fill();
-    if (c.kind === 'berg') { lg.globalAlpha = 0.35; lg.fillStyle = '#bfe6ff'; lg.fill(); lg.globalAlpha = 1; }
+    if (c.kind === 'deck') { lg.fillStyle = '#2a2225'; lg.fill(); }
+    else {                                        // 얼음 단면: 위는 옅은 푸른색, 깊을수록 어두움 + 층·기포·금
+      const gr = lg.createLinearGradient(0, c.top, 0, c.top + 110);
+      gr.addColorStop(0, c.kind === 'berg' ? '#9fd3ee' : '#5d9cc0'); gr.addColorStop(0.35, '#2f6789'); gr.addColorStop(1, '#0b2236');
+      lg.fillStyle = gr; lg.fill();
+      lg.save(); lg.clip(); iceDetail.setTransform(new DOMMatrix().translate(0, Math.round(c.top))); lg.fillStyle = iceDetail; lg.fillRect(cx - 2, cy - 2, VW + 4, VH + 4); lg.restore();
+    }
     if (c.kind === 'deck') {                      // 녹슨 선체: 리벳 줄과 고드름
       lg.fillStyle = '#4a3434'; for (let x = Math.ceil(c.x0); x < c.x1; x += 9) lg.fillRect(x, by0(c, x) + 8, 1, 1);
       lg.fillStyle = '#d7f0ff'; for (let x = Math.ceil(c.x0) + 3; x < c.x1; x += 7) lg.fillRect(x, by0(c, x) + 3, 1, 3 + (x % 3));
@@ -376,8 +406,7 @@ function drawHero() {
     const ky = -84, kx = -6;
     g.strokeStyle = 'rgba(220,210,190,0.7)'; g.lineWidth = 1;
     g.beginPath(); g.moveTo(0, -46); g.lineTo(kx - 26, ky + 10); g.moveTo(0, -46); g.lineTo(kx + 26, ky + 10); g.stroke();
-    if (IMG.kite) g.drawImage(IMG.kite, Math.round(kx - IMG.kite.width / 2), Math.round(ky - IMG.kite.height / 2));
-    else { g.fillStyle = '#b5553d'; g.beginPath(); g.ellipse(kx, ky, 34, 10, 0, Math.PI, 0); g.fill(); }
+    drawKite(g, kx, ky, P.glideA);
   }
   if (IMG.hero) { const [r, c] = heroFrame(); g.drawImage(IMG.hero, c * HERO.fw, r * HERO.fh, HERO.fw, HERO.fh, -HERO.ax, -HERO.ay, HERO.fw, HERO.fh); }
   else {                                          // 그림이 없을 때의 임시 모습
@@ -427,7 +456,6 @@ function render() {
   const entries = Object.entries(IMG_LIST);
   const imgs = await Promise.all(entries.map(([, f]) => loadImg(A + f + '.png')));
   entries.forEach(([k], i) => IMG[k] = imgs[i]);
-  if (IMG.ground) groundPat = lg.createPattern(IMG.ground, 'repeat');
   if (IMG.sky) try { const c = document.createElement('canvas'); c.width = 1; c.height = 1; const x = c.getContext('2d'); x.drawImage(IMG.sky, 0, 0, 1, 1, 0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; skyTop = `rgb(${d[0]},${d[1]},${d[2]})`; } catch (e) {}
   const at = Number(qs.get('at')); spawn(at && groundAt(at) ? at : fires[0]);
   if (at) for (let i = 0; i < fires.length; i++) if (fires[i] <= at) P.cp = i;

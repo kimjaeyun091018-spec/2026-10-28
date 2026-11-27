@@ -1,0 +1,125 @@
+{
+ "ice_sky": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, calm polar night, cold deep blue and teal palette with soft pale highlights, faint green aurora light, muted colors, crisp chunky pixels, rich hand placed detail, atmospheric perspective, polar night sky over an endless frozen sea in a new ice age, wide soft green and violet aurora curtains, thin clouds, many stars, a small pale moon, a thin line of distant icebergs along the very bottom edge, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, plants, trees, grass",
+  "size": [
+   1536,
+   896
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "ice_mid": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, calm polar night, cold deep blue and teal palette with soft pale highlights, faint green aurora light, muted colors, crisp chunky pixels, rich hand placed detail, atmospheric perspective, silhouettes of huge icebergs, a giant cargo ship frozen and tilted in the sea ice, a frozen lighthouse and jagged ice pressure ridges in the middle distance, all standing on the bottom edge, against a plain flat empty pale lavender sky that fills the whole upper half, no clouds, no moon, no aurora, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, plants, trees, grass",
+  "size": [
+   1536,
+   768
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "ice_ground": {
+  "prompt": "pixel art, detailed 16-bit indie game background, flat side view, the whole image filled edge to edge, calm polar night, cold deep blue and teal palette with soft pale highlights, faint green aurora light, muted colors, crisp chunky pixels, rich hand placed detail, atmospheric perspective, cross section of very thick sea ice seen from the side, a thin layer of snow on top, below it translucent layered blue ice full of trapped air bubbles and cracks, getting darker toward the deep dark ocean water at the bottom, fills the whole image, no sky, no people, no readable text",
+  "negative": "blurry, 3d render, photo, smooth gradient, text, letters, watermark, signature, people, person, character, frame, border, plants, trees, grass",
+  "size": [
+   1536,
+   512
+  ],
+  "seeds": [
+   11,
+   22,
+   33
+  ]
+ },
+ "kite": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, a hand made traction kite wing made of patched canvas and fur strips stretched on bent bone and wood sticks, arched like a parafoil, with lines going down to a handle bar, seen from the side, wide",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ },
+ "ship": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, the bow of an old rusty fishing ship frozen in ice, tilted up, covered in icicles and snow, railings and a broken mast",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ },
+ "barrel": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, a rusty metal fire barrel with a warm orange fire burning inside, sparks, standing on snow",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ },
+ "hut": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, a small ice fishing hut made of scrap metal and planks, snow on the roof, a stovepipe, a warm glowing window",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ },
+ "buoy": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, an old navigation buoy frozen in ice, tilted, covered in frost, a dim red lamp on top",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ },
+ "berg": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, a small jagged chunk of blue glacier ice with sharp edges and snow on top",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ },
+ "flag": {
+  "prompt": "pixel art, 16-bit video game sprite, one single object, strict side view, centered, whole object visible, cold muted polar night palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow, a tall wooden pole with a tattered red cloth flag and a small lantern, frozen, marking a trail on the ice",
+  "negative": "multiple objects, scenery, landscape, floor, sky, blurry, smooth shading, 3d render, photo, text, letters, watermark, signature, frame, border, people, person, character, plants",
+  "size": [
+   1024,
+   1024
+  ],
+  "seeds": [
+   4,
+   5
+  ]
+ }
+}
