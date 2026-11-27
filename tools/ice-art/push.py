@@ -1,7 +1,7 @@
-"""스케이트 시제품 그림: gen_kaggle.py를 Kaggle에 올려 GPU로 실행한다.  사용: python tools/tower-art/push.py [사용자/노트북]"""
+"""얼음 바다 그림: gen_kaggle.py를 Kaggle에 올려 GPU로 실행한다.  사용: python tools/tower-art/push.py [사용자/노트북]"""
 import base64, json, os, sys, urllib.request
 from pathlib import Path
-slug = sys.argv[1] if len(sys.argv) > 1 else 'yuzen3220/skate-art-gen'
+slug = sys.argv[1] if len(sys.argv) > 1 else 'yuzen3220/ice-art-gen'
 src = (Path(__file__).resolve().parent / 'gen_kaggle.py').read_text()
 body = {'slug': slug, 'newTitle': slug.split('/')[1], 'text': src, 'language': 'python', 'kernelType': 'script',
         'isPrivate': True, 'enableGpu': True, 'enableInternet': True, 'datasetDataSources': [],

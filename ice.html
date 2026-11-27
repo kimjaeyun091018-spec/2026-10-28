@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>얼음 바다 횡단</title>
+<style>
+  :root { --bg: #04070d; --fg: #cfe3f0; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; font-family: system-ui, sans-serif; }
+  #wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, 177.78vh); height: min(56.25vw, 100vh); image-rendering: pixelated; display: block; }
+  #msg { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-size: 13px; opacity: .75; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="msg">불러오는 중…</div>
+<script>
+// =====================================================================
+// 얼음 바다 횡단 — 빙하기의 얼어붙은 바다를 스케이트로 건너는 이동 시험판
+//  · 스케이트: 미는 힘·경사·관성, 얼음/눈/얇은 얼음, 얼음 송곳 밀기(가속)
+//  · 레일 미끄러지기: 얼어붙은 배 난간·밧줄
+//  · 연 비행: 공중에서 연을 펴서 활공 (머리를 들면 오르며 느려지고, 숙이면 내려가며 빨라짐), 바람·김 기둥
+//  · 체온: 시간이 지나면 식고, 모닥불(기록 지점)에서 다시 따뜻해짐
+// 월드 좌표: 1 = 게임 1px, 아래가 +y. 화면은 400×225 게임 px, 주인공·연은 2배 해상도로 그림
+// =====================================================================
+const VW = 400, VH = 225, S = 2;
+const cv = document.getElementById('c'); cv.width = VW * S; cv.height = VH * S;
+const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+const low = document.createElement('canvas'); low.width = VW; low.height = VH;
+const lg = low.getContext('2d'); lg.imageSmoothingEnabled = false;
+const qs = new URLSearchParams(location.search);
+
+// ---------- 그림 (Kaggle에서 생성 → tools/ice-art/process.py로 도트화) ----------
+const A = 'assets/ice/';
+const IMG_LIST = { sky: 'ice_sky', mid: 'ice_mid', ground: 'ice_ground', hero: 'skater_sheet', kite: 'kite', ship: 'ship',
+  barrel: 'barrel', hut: 'hut', buoy: 'buoy', berg: 'berg', flag: 'flag' };
+const IMG = {};
+const loadImg = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+
+// ---------- 코스 ----------
+// 땅(얼음)은 x가 늘어나는 꺾은선 덩어리. 덩어리 사이 틈 = 얼음이 갈라져 드러난 바다(빠지면 끝)
+const chunks = []; let cur = null, bx = 0, by = 0;
+function start(x, y, kind = 'ice') { cur = { pts: [[x, y]], kind }; chunks.push(cur); bx = x; by = y; }
+function seg(L, f, n) { const y0 = by; n = n || Math.max(2, Math.ceil(L / 6)); for (let i = 1; i <= n; i++) { const t = i / n; cur.pts.push([bx + L * t, y0 + f(t)]); } bx += L; by = cur.pts[cur.pts.length - 1][1]; }
+const flat = L => seg(L, () => 0, 1);
+const ease = (L, dy) => seg(L, t => dy * (1 - Math.cos(Math.PI * t)) / 2);      // 부드러운 오르내림
+const kick = (L, dy) => seg(L, t => dy * t * t);                                    // 끝이 가파른 도약대
+const wave = (L, amp, n) => seg(L, t => -amp * Math.sin(Math.PI * n * t) ** 2);    // 얼음 능선이 이어진 물결
+const gap = (L, y, kind) => start(bx + L, y, kind);
+const WATER_Y = 34;                    // 갈라진 틈의 바닷물 높이
+const DEATH_Y = 46;
+const zones = [];                      // [x0, x1, 'snow' | 'thin']
+const rails = [];                      // { pts, kind: 'rail' | 'rope' }
+const smoke = [];                      // 김 기둥(올라가는 바람): { x, w, top }
+const fires = [];                      // 모닥불 = 기록 지점
+const decor = [];                      // { img, x, dy, back }
+
+start(0, 0);
+flat(520);                                     fires.push(110); decor.push({ img: 'hut', x: 260 }, { img: 'flag', x: 470 });
+ease(150, -26); ease(150, 26);                 // 작은 얼음 능선
+flat(320);                                     zones.push([880, 990, 'snow']);
+kick(110, -36);                                // 능선 도약대
+gap(180, 0);                                   smoke.push({ x: 1340, w: 90, top: -170 });
+flat(300);                                     zones.push([1510, 1700, 'thin']); decor.push({ img: 'flag', x: 1470 });
+ease(220, -70);                                // 눈더미를 타고 배 위로
+start(bx, by, 'deck'); flat(320);              rails.push({ pts: [[2030, -92], [2322, -92]], kind: 'rail' });
+kick(90, -32);                                 // 뱃머리에서 날아오름
+gap(520, 0);                                   smoke.push({ x: 2580, w: 80, top: -260 }, { x: 2790, w: 80, top: -240 });
+flat(420);                                     fires.push(3000); zones.push([3110, 3260, 'thin']);
+wave(720, 26, 3);
+ease(140, -60);                                // 빙산 오르막
+start(bx, by, 'berg'); flat(130); ease(130, 60);
+gap(260, 0);                                   rails.push({ pts: [[4290, -78], [4560, -52], [4770, -24]], kind: 'rope' }); decor.push({ img: 'buoy', x: 4780 });
+flat(320);                                     fires.push(4840);
+seg(840, t => -185 * t);                       // 빙하 비탈을 길게 올라 (완만해서 밀며 오를 수 있음)
+flat(110); kick(70, -22);
+gap(1320, 20);                                 smoke.push({ x: 6300, w: 90, top: -330 }, { x: 6690, w: 90, top: -300 }, { x: 7060, w: 90, top: -260 });
+flat(560);                                     fires.push(7480); decor.push({ img: 'flag', x: 7790 }, { img: 'hut', x: 7890 });
+const COURSE_END = bx;
+const GOAL_X = 7820;
+for (const c of chunks) { c.x0 = c.pts[0][0]; c.x1 = c.pts[c.pts.length - 1][0]; c.top = Math.min(...c.pts.map(p => p[1])); }
+decor.push({ img: 'ship', x: 1660, back: true, dy: 6 }, { img: 'berg', x: 3600, back: true, dy: 4 }, { img: 'berg', x: 7640, back: true, dy: 24 });
+
+function lineAt(pts, x) {          // 꺾은선의 x에서 높이와 기울기
+  if (x < pts[0][0] || x > pts[pts.length - 1][0]) return null;
+  let lo = 0, hi = pts.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m][0] <= x) lo = m; else hi = m; }
+  const [x0, y0] = pts[lo], [x1, y1] = pts[hi], k = (y1 - y0) / ((x1 - x0) || 1);
+  return { y: y0 + (x - x0) * k, k };
+}
+function groundAt(x) { for (const c of chunks) if (x >= c.x0 && x <= c.x1) { const s = lineAt(c.pts, x); if (s) { s.chunk = c; return s; } } return null; }
+const zoneAt = x => { for (const z of zones) if (x >= z[0] && x <= z[1]) return z[2]; return null; };
+
+// ---------- 입력 ----------
+const keys = {}, pressed = {};
+addEventListener('keydown', e => { if (!keys[e.code]) pressed[e.code] = true; keys[e.code] = true; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); });
+addEventListener('keyup', e => { keys[e.code] = false; });
+const K = { L: () => keys.KeyA || keys.ArrowLeft, R: () => keys.KeyD || keys.ArrowRight, U: () => keys.KeyW || keys.ArrowUp,
+  D: () => keys.KeyS || keys.ArrowDown, J: () => keys.Space };
+const hit = c => { const v = pressed[c]; pressed[c] = false; return v; };
+
+// ---------- 주인공 ----------
+const G = 760;                 // 중력
+const PUSH_ACC = 240, PUSH_MAX = 175, BRAKE = 420, MAXV = 560;
+const JUMP = 275, PICK = 150;  // 점프, 얼음 송곳 밀기
+const FRICTION = { ice: 5, deck: 14, berg: 5, snow: 150, thin: 5, rail: 3, rope: 2, tuck: 1.5 };
+const P = { x: 0, y: 0, vx: 0, vy: 0, v: 0, mode: 'ground', face: 1, rail: null, warm: 100, cp: 0, pickT: 0, jumpT: 0, landT: 0,
+  glideA: 0, cut: false, dead: 0, cause: '', thinT: 0, anim: 0, won: false, crack: [] };
+function spawn(x) {
+  const s = groundAt(x); Object.assign(P, { x, y: s.y, vx: 0, vy: 0, v: 0, mode: 'ground', face: 1, rail: null, warm: 100, dead: 0, thinT: 0, landT: 0, crack: [] });
+}
+function die(cause) { if (P.dead) return; P.dead = 0.0001; P.cause = cause; burst(P.x, P.y - 8, 16, '#dff3ff', 140); }
+
+// ---------- 효과 ----------
+const parts = [];
+function burst(x, y, n, col, sp, up = 0) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = sp * (0.3 + Math.random() * 0.7); parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - up, life: 0.4 + Math.random() * 0.4, col }); } }
+const flakes = Array.from({ length: 90 }, () => ({ x: Math.random() * VW, y: Math.random() * VH, s: 0.4 + Math.random() * 0.8 }));
+let wind = 0, time = 0, banner = { text: '', t: 0 };
+
+// ---------- 한 걸음 ----------
+function surfAt(x) {
+  if (P.mode === 'rail') { const s = lineAt(P.rail.pts, x); return s && { y: s.y, k: s.k }; }
+  return groundAt(x);
+}
+function toAir(vx, vy) { P.mode = 'air'; P.vx = vx; P.vy = vy; P.rail = null; }
+function land(s, isRail, rail) {
+  const inv = 1 / Math.hypot(1, s.k), tx = inv, ty = s.k * inv;
+  const along = P.vx * tx + P.vy * ty, into = -P.vx * ty + P.vy * tx;
+  P.v = along * (into > 480 ? 0.7 : 1);               // 세게 떨어지면 속도를 잃음
+  P.mode = isRail ? 'rail' : 'ground'; P.rail = rail || null; P.y = s.y; P.landT = 0.14;
+  if (Math.abs(P.v) > 20) P.face = Math.sign(P.v);
+  burst(P.x, P.y, isRail ? 6 : 5, isRail ? '#ffd08a' : '#e8f4ff', 60, 30);
+}
+function step(dt) {
+  P.pickT -= dt; P.jumpT -= dt; P.landT -= dt; P.boostT = (P.boostT || 0) - dt;
+  const z = zoneAt(P.x);
+  if (P.mode === 'ground' || P.mode === 'rail') {
+    const s = surfAt(P.x);
+    if (!s) { toAir(P.v, 0); return; }
+    const inv = 1 / Math.hypot(1, s.k), tx = inv, ty = s.k * inv;
+    const tuck = K.D() && P.mode === 'ground';
+    P.v += G * ty * dt;                                              // 비탈
+    const dir = (K.R() ? 1 : 0) - (K.L() ? 1 : 0);
+    if (dir) {
+      if (Math.sign(P.v) === dir || Math.abs(P.v) < 8) { if (!tuck && Math.abs(P.v) < PUSH_MAX && z !== 'snow') P.v += dir * PUSH_ACC * dt; else if (z === 'snow' && Math.abs(P.v) < 60) P.v += dir * 90 * dt; P.face = dir; }
+      else P.v -= Math.sign(P.v) * BRAKE * dt;
+    }
+    const kind = P.mode === 'rail' ? P.rail.kind : tuck ? 'tuck' : (z === 'snow' ? 'snow' : s.chunk ? s.chunk.kind : 'ice');
+    P.v -= Math.sign(P.v) * Math.min(Math.abs(P.v), FRICTION[kind] * dt);
+    P.v = Math.max(-MAXV, Math.min(MAXV, P.v));
+    if (hit('ShiftLeft') || hit('ShiftRight') || hit('KeyK')) {        // 얼음 송곳으로 찍어 밀기
+      if (P.pickT <= 0) { P.v += P.face * PICK; P.pickT = 0.9; P.warm -= 3; P.boostT = 0.25; burst(P.x - P.face * 6, P.y, 8, '#cfefff', 80, 20); }
+    }
+    if (hit('Space')) {                                               // 점프
+      const nx = ty, ny = -tx;
+      toAir(P.v * tx + nx * JUMP, P.v * ty + ny * JUMP); P.jumpT = 0.2; P.cut = false; return;
+    }
+    // 얇은 얼음: 느리면 금이 가다가 깨짐
+    if (P.mode === 'ground' && z === 'thin') {
+      if (Math.abs(P.v) < 110) { P.thinT += dt; if (Math.random() < 0.5) P.crack.push({ x: P.x, t: 1.2 }); if (P.thinT > 0.45) { die('얇은 얼음이 깨져 바다에 빠짐'); return; } }
+      else P.thinT = Math.max(0, P.thinT - dt);
+    } else P.thinT = 0;
+    const vx = P.v * tx, vy = P.v * ty, nx = P.x + vx * dt, ns = surfAt(nx);
+    if (!ns) { P.x = nx; P.y += vy * dt; toAir(vx, vy); return; }
+    const yb = P.y + vy * dt + 0.5 * G * dt * dt;
+    if (ns.y > yb + 0.6 && Math.abs(P.v) > 60) { P.x = nx; P.y = yb; toAir(vx, vy + G * dt); return; }   // 볼록한 곳에서 떠오름
+    // 앞이 벽처럼 솟았으면(다음 덩어리가 훨씬 높음) 막힘
+    if (P.mode === 'ground' && ns.chunk !== s.chunk && ns.y < P.y - 6) { P.v = -P.v * 0.2; return; }
+    P.x = nx; P.y = ns.y; P.vx = vx; P.vy = vy;
+    if (P.mode === 'rail' && Math.random() < Math.min(1, Math.abs(P.v) / 300)) parts.push({ x: P.x, y: P.y, vx: -P.v * 0.2 + (Math.random() - 0.5) * 60, vy: -40 - Math.random() * 60, life: 0.3, col: '#ffcf7a' });
+    return;
+  }
+  // ---- 공중 / 연 ----
+  const px = P.x, py = P.y;
+  if (P.mode === 'air' && hit('Space') && P.jumpT < 0.05) { P.mode = 'kite'; P.face = P.vx >= 0 ? 1 : -1; if (Math.abs(P.vx) < 20) P.face = P.face || 1; burst(P.x, P.y - 30, 6, '#f0e2c8', 50); }
+  else if (P.mode === 'kite' && hit('Space')) P.mode = 'air';
+  if (P.mode === 'air') {
+    if (!K.J() && P.vy < 0 && P.jumpT > -0.4 && !P.cut) { P.vy *= 0.55; P.cut = true; }   // 짧게 누르면 낮게 뜀
+    P.vy += G * dt; P.vx *= 1 - 0.05 * dt;
+    const dir = (K.R() ? 1 : 0) - (K.L() ? 1 : 0); P.vx += dir * 60 * dt;               // 공중에서 아주 조금 조절
+  } else {
+    // 연: 비행 각도 a(아래가 +)와 속력 s. 머리를 들면(↑) 오르며 느려지고, 숙이면(↓) 내려가며 빨라짐
+    const f = P.face; let s = Math.hypot(P.vx, P.vy), a = Math.atan2(P.vy, P.vx * f);
+    let target = K.U() ? -0.6 : K.D() ? 1.1 : 0.16;
+    if (s < 70) target = 1.25;                                         // 너무 느리면 실속해서 떨어짐
+    a += Math.max(-2.2 * dt, Math.min(2.2 * dt, target - a));
+    s += (G * 0.8 * Math.sin(a) - 0.0026 * s * s + f * wind * 0.5) * dt;
+    s = Math.max(25, s);
+    P.vx = f * s * Math.cos(a); P.vy = s * Math.sin(a); P.glideA = a;
+    P.warm -= 0.4 * dt;                                                // 높은 곳은 더 춥다
+  }
+  for (const c of smoke) if (Math.abs(P.x - c.x) < c.w / 2 && P.y > c.top) P.vy -= (P.mode === 'kite' ? 900 : 260) * dt;   // 김 기둥
+  P.x += P.vx * dt; P.y += P.vy * dt;
+  // 레일·밧줄에 내려앉기
+  if (P.vy > 0) for (const r of rails) {
+    const a = lineAt(r.pts, px), b = lineAt(r.pts, P.x);
+    if (a && b && py <= a.y + 1 && P.y >= b.y) { P.x = P.x; land({ y: b.y, k: b.k }, true, r); return; }
+  }
+  const s = groundAt(P.x);
+  if (s) {
+    if (P.y >= s.y) {
+      const was = groundAt(px);
+      if ((!was || was.chunk !== s.chunk) && py > s.y + 4) { P.x = px; P.vx = -P.vx * 0.25; }   // 옆에서 부딪힘
+      else { land(s, false); if (s.chunk.kind === 'thin') {} }
+    }
+  }
+  if (P.y > WATER_Y && !groundAt(P.x)) die('갈라진 틈으로 바다에 빠짐');
+}
+
+// ---------- 갱신 ----------
+let cam = { x: 0, y: -140 };
+function update(dt) {
+  time += dt;
+  wind = 70 + 50 * Math.sin(time * 0.23) + 25 * Math.sin(time * 0.71 + 1);       // 대체로 오른쪽으로 부는 바람
+  if (P.dead) {
+    P.dead += dt;
+    if (P.dead > 1.4) { spawn(fires[P.cp]); banner = { text: '모닥불에서 다시', t: 1.4 }; }
+  } else if (!P.won) {
+    const n = Math.ceil(dt / (1 / 240)), h = dt / n;
+    for (let i = 0; i < n && !P.dead; i++) step(h);
+    P.warm -= 0.8 * dt;
+    if (P.warm <= 0) die('체온이 떨어져 얼어붙음');
+    // 기록 지점(모닥불): 지나가면 체온 회복
+    for (let i = 0; i < fires.length; i++) if (Math.abs(P.x - fires[i]) < 26 && (P.mode === 'ground')) {
+      if (i > P.cp || P.warm < 99) { if (i > P.cp) banner = { text: '모닥불 — 기록', t: 1.6 }; P.cp = Math.max(P.cp, i); }
+      P.warm = 100;
+    }
+    if (P.x > GOAL_X && P.mode === 'ground') { P.won = true; banner = { text: '얼음 바다를 건넜다', t: 99 }; }
+    if (hit('KeyR')) die('다시 시작');
+  }
+  for (const k in pressed) pressed[k] = false;
+  for (const p of parts) { p.life -= dt; p.vy += 300 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+  for (let i = parts.length - 1; i >= 0; i--) if (parts[i].life <= 0) parts.splice(i, 1);
+  for (const c of P.crack) c.t -= dt;
+  P.crack = P.crack.filter(c => c.t > 0);
+  banner.t -= dt;
+  // 카메라: 달리는 방향을 미리 보여 줌
+  const lead = Math.max(-120, Math.min(120, (P.mode === 'ground' || P.mode === 'rail' ? P.v : P.vx) * 0.45));
+  const tx = P.x + lead - VW / 2, ty = Math.min(DEATH_Y + 30 - VH, P.y - VH * 0.6 + Math.max(-40, Math.min(70, P.vy * 0.18)));
+  const k = 1 - Math.exp(-5 * dt);
+  cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+  P.anim += dt * (P.mode === 'ground' ? Math.min(14, 4 + Math.abs(P.v) / 20) : 8);
+}
+
+// ---------- 그리기 ----------
+const CY0 = -140;
+let groundPat = null, skyTop = '#071021';
+function tileH(img, par, top) {         // 가로로 이어지는 그림을 시차를 두고 반복
+  const w = img.width, ox = -(((cam.x * par) % w) + w) % w;
+  for (let x = Math.round(ox); x < VW; x += w) lg.drawImage(img, x, Math.round(top));
+}
+function drawWorld() {
+  const cx = Math.round(cam.x), cy = Math.round(cam.y);
+  // 하늘
+  const grd = lg.createLinearGradient(0, 0, 0, VH); grd.addColorStop(0, '#040812'); grd.addColorStop(1, '#122238');
+  lg.fillStyle = skyTop; lg.fillRect(0, 0, VW, VH);
+  if (IMG.sky) { const top = VH - IMG.sky.height + 30 - (cam.y - CY0) * 0.08; tileH(IMG.sky, 0.06, top); }
+  else { lg.fillStyle = grd; lg.fillRect(0, 0, VW, VH); }
+  // 오로라가 천천히 일렁임 (그림 위에 아주 옅게)
+  lg.globalAlpha = 0.07 + 0.04 * Math.sin(time * 0.5);
+  lg.fillStyle = '#7dffc8';
+  for (let x = 0; x < VW; x += 2) { const y = 30 + 18 * Math.sin((x + cam.x * 0.05) * 0.02 + time * 0.3) - (cam.y - CY0) * 0.05; lg.fillRect(x, Math.round(y), 2, 22); }
+  lg.globalAlpha = 1;
+  if (IMG.mid) { const top = VH - IMG.mid.height + 46 - (cam.y - CY0) * 0.3; tileH(IMG.mid, 0.3, top); }
+  // 먼 안개
+  const fog = lg.createLinearGradient(0, 0, 0, VH); fog.addColorStop(0, 'rgba(120,160,200,0)'); fog.addColorStop(1, 'rgba(120,160,210,0.18)');
+  lg.fillStyle = fog; lg.fillRect(0, 0, VW, VH);
+
+  lg.save(); lg.translate(-cx, -cy);
+  // 바다 (갈라진 틈 아래)
+  lg.fillStyle = '#06131f'; lg.fillRect(cx, WATER_Y, VW, VH);
+  lg.fillStyle = '#1d4b63';
+  for (let x = cx - (cx % 2); x < cx + VW; x += 2) lg.fillRect(x, WATER_Y + Math.round(Math.sin(x * 0.15 + time * 2) * 1.2), 2, 1);
+  // 김 기둥
+  for (const c of smoke) {
+    if (c.x + c.w < cx || c.x - c.w > cx + VW) continue;
+    for (let i = 0; i < 26; i++) {
+      const h = ((time * 40 + i * 37) % (WATER_Y - c.top)), y = WATER_Y - h, x = c.x + Math.sin(i * 1.7 + time + h * 0.03) * c.w * 0.4;
+      lg.globalAlpha = 0.25 * (1 - h / (WATER_Y - c.top)); lg.fillStyle = '#dbe9f5'; lg.fillRect(Math.round(x), Math.round(y), 3, 2);
+    }
+    lg.globalAlpha = 1;
+  }
+  // 뒤쪽 장식(배·빙산)
+  for (const d of decor) if (d.back) drawDecor(d);
+  // 얼음판
+  for (const c of chunks) {
+    if (c.x1 < cx - 10 || c.x0 > cx + VW + 10) continue;
+    lg.beginPath(); lg.moveTo(c.pts[0][0], VH + cy + 40);
+    for (const p of c.pts) lg.lineTo(p[0], p[1]);
+    lg.lineTo(c.x1, VH + cy + 40); lg.closePath();
+    if (c.kind === 'deck') lg.fillStyle = '#2a2225';
+    else if (groundPat) { groundPat.setTransform(new DOMMatrix().translate(0, Math.round(c.top) - 2)); lg.fillStyle = groundPat; }
+    else lg.fillStyle = '#2b5a78';
+    lg.fill();
+    if (c.kind === 'berg') { lg.globalAlpha = 0.35; lg.fillStyle = '#bfe6ff'; lg.fill(); lg.globalAlpha = 1; }
+    if (c.kind === 'deck') {                      // 녹슨 선체: 리벳 줄과 고드름
+      lg.fillStyle = '#4a3434'; for (let x = Math.ceil(c.x0); x < c.x1; x += 9) lg.fillRect(x, by0(c, x) + 8, 1, 1);
+      lg.fillStyle = '#d7f0ff'; for (let x = Math.ceil(c.x0) + 3; x < c.x1; x += 7) lg.fillRect(x, by0(c, x) + 3, 1, 3 + (x % 3));
+    }
+    // 윗면: 눈 한 줄 + 그림자
+    for (let x = Math.ceil(Math.max(c.x0, cx - 2)); x <= Math.min(c.x1, cx + VW + 2); x++) {
+      const y = Math.round(lineAt(c.pts, x).y), z = zoneAt(x);
+      lg.fillStyle = z === 'thin' ? '#6fa9c9' : c.kind === 'deck' ? '#9fb3bf' : '#eef7ff'; lg.fillRect(x, y, 1, 1);
+      lg.fillStyle = z === 'thin' ? '#2e6b8e' : '#9cc5dd'; lg.fillRect(x, y + 1, 1, 1);
+      if (z === 'snow' && (x * 7) % 5 < 3) { lg.fillStyle = '#ffffff'; lg.fillRect(x, y - 1 - ((x * 13) % 3 === 0 ? 1 : 0), 1, 1); }
+      if (z === 'thin' && (x % 11 === 0)) { lg.fillStyle = '#a7d8f0'; lg.fillRect(x, y + 2, 1, 4); }
+    }
+  }
+  // 얼음 아래를 지나가는 거대한 그림자
+  { const wx = ((time * 22) % 2400) - 600 + Math.floor(cam.x / 2400) * 2400, wy = 70;
+    lg.globalAlpha = 0.28; lg.fillStyle = '#020609';
+    lg.beginPath(); lg.ellipse(wx, wy, 120, 18, 0, 0, Math.PI * 2); lg.fill();
+    lg.beginPath(); lg.moveTo(wx - 110, wy); lg.lineTo(wx - 160, wy - 16 + Math.sin(time) * 6); lg.lineTo(wx - 160, wy + 14 + Math.sin(time) * 6); lg.fill();
+    lg.globalAlpha = 1; }
+  // 금 가는 얼음
+  lg.fillStyle = '#e8f7ff';
+  for (const c of P.crack) { const y = Math.round(groundAt(c.x)?.y ?? 0); lg.globalAlpha = Math.min(1, c.t); lg.fillRect(Math.round(c.x) - 3, y + 1, 7, 1); lg.fillRect(Math.round(c.x), y + 1, 1, 4); }
+  lg.globalAlpha = 1;
+  // 레일·밧줄
+  for (const r of rails) {
+    const x0 = r.pts[0][0], x1 = r.pts[r.pts.length - 1][0];
+    for (let x = Math.ceil(Math.max(x0, cx)); x <= Math.min(x1, cx + VW); x++) {
+      const y = Math.round(lineAt(r.pts, x).y);
+      lg.fillStyle = r.kind === 'rope' ? '#8a7558' : '#5f6d78'; lg.fillRect(x, y, 1, 2);
+      lg.fillStyle = r.kind === 'rope' ? '#c8b08a' : '#c4dbea'; lg.fillRect(x, y, 1, 1);
+      if (r.kind === 'rail' && Math.round(x - x0) % 24 === 0) { lg.fillStyle = '#3d4750'; const gy = groundAt(x); lg.fillRect(x, y + 2, 1, Math.max(0, (gy ? gy.y : y + 20) - y - 2)); }
+      if (r.kind === 'rope' && (x % 17) === 0) { lg.fillStyle = '#dff3ff'; lg.fillRect(x, y + 2, 1, 2); }
+    }
+  }
+  // 모닥불·장식
+  for (let i = 0; i < fires.length; i++) {
+    const x = fires[i], y = Math.round(groundAt(x).y);
+    const r = 26 + Math.sin(time * 9 + i) * 2, gl = lg.createRadialGradient(x, y - 8, 1, x, y - 8, r);
+    gl.addColorStop(0, i <= P.cp ? 'rgba(255,170,80,0.45)' : 'rgba(255,170,80,0.18)'); gl.addColorStop(1, 'rgba(255,140,60,0)');
+    lg.fillStyle = gl; lg.fillRect(x - r, y - 8 - r, r * 2, r * 2);
+    if (IMG.barrel) lg.drawImage(IMG.barrel, Math.round(x - IMG.barrel.width / 2), y - IMG.barrel.height + 1);
+    else { lg.fillStyle = '#5b4a40'; lg.fillRect(x - 4, y - 9, 8, 9); lg.fillStyle = '#ffb050'; lg.fillRect(x - 3, y - 12 + Math.round(Math.sin(time * 12)), 6, 3); }
+  }
+  for (const d of decor) if (!d.back) drawDecor(d);
+  // 결승 표시
+  { const y = Math.round(groundAt(GOAL_X).y); lg.fillStyle = '#ffd27a'; lg.fillRect(GOAL_X, y - 30, 1, 30); lg.fillRect(GOAL_X + 1, y - 30, 9, 5); }
+  // 조각
+  for (const p of parts) { lg.globalAlpha = Math.min(1, p.life * 3); lg.fillStyle = p.col; lg.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+  lg.globalAlpha = 1;
+  lg.restore();
+}
+function by0(c, x) { return Math.round(lineAt(c.pts, x).y); }
+function drawDecor(d) {
+  const im = IMG[d.img]; if (!im) return;
+  const s = groundAt(d.x); const y = s ? s.y : WATER_Y;
+  lg.drawImage(im, Math.round(d.x - cam.x * 0 - im.width / 2), Math.round(y - im.height + (d.dy || 0)));
+}
+
+// 주인공 시트: 0줄 skate 0~7 · 1줄 tuck, jump 0~2, grind, glide 0~1, boost (80×60, 발 기준점 32,57)
+const HERO = { fw: 80, fh: 60, ax: 32, ay: 57 };
+function heroFrame() {
+  if (P.mode === 'rail') return [1, 4];
+  if (P.mode === 'kite') return [1, P.glideA > 0.55 ? 6 : 5];
+  if (P.mode === 'air') return [1, P.landT > 0 ? 3 : P.vy < 0 ? 2 : 3];
+  if (P.boostT > 0) return [1, 7];
+  if (P.landT > 0) return [1, 3];
+  if (K.D()) return [1, 0];
+  const pushing = (K.R() && P.face > 0) || (K.L() && P.face < 0);
+  if (pushing && Math.abs(P.v) < PUSH_MAX + 5) return [0, Math.floor(P.anim) % 8];
+  return [0, 0];
+}
+function drawHero() {
+  const sx = (P.x - cam.x) * S, sy = (P.y - cam.y) * S;
+  let ang = 0;
+  if (P.mode === 'ground' || P.mode === 'rail') { const s = surfAt(P.x); if (s) ang = Math.atan(s.k); }
+  else if (P.mode === 'kite') ang = P.face * P.glideA * 0.25;
+  ang = Math.round(ang / (Math.PI / 24)) * (Math.PI / 24);
+  g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(ang); g.scale(P.face, 1);
+  if (P.mode === 'kite') {                       // 연: 머리 위로 줄을 매달고 바람을 받음
+    const ky = -84, kx = -6;
+    g.strokeStyle = 'rgba(220,210,190,0.7)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, -46); g.lineTo(kx - 26, ky + 10); g.moveTo(0, -46); g.lineTo(kx + 26, ky + 10); g.stroke();
+    if (IMG.kite) g.drawImage(IMG.kite, Math.round(kx - IMG.kite.width / 2), Math.round(ky - IMG.kite.height / 2));
+    else { g.fillStyle = '#b5553d'; g.beginPath(); g.ellipse(kx, ky, 34, 10, 0, Math.PI, 0); g.fill(); }
+  }
+  if (IMG.hero) { const [r, c] = heroFrame(); g.drawImage(IMG.hero, c * HERO.fw, r * HERO.fh, HERO.fw, HERO.fh, -HERO.ax, -HERO.ay, HERO.fw, HERO.fh); }
+  else {                                          // 그림이 없을 때의 임시 모습
+    g.fillStyle = '#9b4b37'; g.fillRect(-8, -44, 16, 26); g.fillStyle = '#e9dcc4'; g.fillRect(-10, -52, 20, 10);
+    g.fillStyle = '#ffb347'; g.fillRect(2, -48, 6, 3); g.fillStyle = '#2a2a33'; g.fillRect(-7, -18, 14, 14); g.fillStyle = '#d8e6ef'; g.fillRect(-10, -2, 22, 2);
+  }
+  g.restore();
+}
+function drawHUD() {
+  g.save();
+  g.font = '600 14px system-ui, sans-serif'; g.textBaseline = 'top';
+  // 체온
+  const w = 140, x = 16, y = 14, f = Math.max(0, P.warm) / 100;
+  g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(x - 4, y - 4, w + 8, 34);
+  g.fillStyle = '#20303c'; g.fillRect(x, y + 16, w, 8);
+  g.fillStyle = f > 0.5 ? '#ffb36b' : f > 0.25 ? '#e9d27a' : (Math.sin(time * 10) > 0 ? '#8fd0ff' : '#4a7da0'); g.fillRect(x, y + 16, Math.round(w * f), 8);
+  g.fillStyle = '#e8f2f8'; g.fillText('체온', x, y - 1);
+  g.fillText(`${Math.round(Math.abs(P.mode === 'ground' || P.mode === 'rail' ? P.v : Math.hypot(P.vx, P.vy)))} 속력`, x + 60, y - 1);
+  // 바람
+  g.textAlign = 'right'; g.fillText(`바람 → ${Math.round(wind)}`, VW * S - 16, 12);
+  g.fillText(`${Math.round(Math.max(0, P.x) / 10)} / ${Math.round(GOAL_X / 10)} m`, VW * S - 16, 30);
+  g.textAlign = 'center';
+  if (banner.t > 0) { g.globalAlpha = Math.min(1, banner.t * 2); g.font = '700 22px system-ui, sans-serif'; g.fillStyle = '#ffe7c2'; g.fillText(banner.text, VW * S / 2, 70); g.globalAlpha = 1; }
+  if (P.dead) {
+    g.fillStyle = `rgba(2,6,12,${Math.min(0.85, P.dead)})`; g.fillRect(0, 0, VW * S, VH * S);
+    g.font = '700 20px system-ui, sans-serif'; g.fillStyle = '#d9ecf7'; g.fillText(P.cause, VW * S / 2, VH * S / 2 - 12);
+  }
+  g.restore();
+}
+function render() {
+  drawWorld();
+  g.drawImage(low, 0, 0, VW * S, VH * S);
+  drawHero();
+  // 눈발 (바람 방향으로 흩날림, 화면 해상도 2배로)
+  g.fillStyle = 'rgba(235,245,255,0.75)';
+  for (const f of flakes) {
+    f.x += (wind * 0.02 + 0.3) * f.s; f.y += 0.45 * f.s;
+    if (f.x > VW) f.x -= VW; if (f.y > VH) f.y -= VH;
+    const x = ((f.x - cam.x * 0.2 * f.s) % VW + VW) % VW, y = ((f.y - cam.y * 0.2 * f.s) % VH + VH) % VH;
+    g.fillRect(Math.round(x * S), Math.round(y * S), f.s > 0.9 ? 2 : 1, f.s > 0.9 ? 2 : 1);
+  }
+  drawHUD();
+}
+
+// ---------- 시작 ----------
+(async () => {
+  const entries = Object.entries(IMG_LIST);
+  const imgs = await Promise.all(entries.map(([, f]) => loadImg(A + f + '.png')));
+  entries.forEach(([k], i) => IMG[k] = imgs[i]);
+  if (IMG.ground) groundPat = lg.createPattern(IMG.ground, 'repeat');
+  if (IMG.sky) try { const c = document.createElement('canvas'); c.width = 1; c.height = 1; const x = c.getContext('2d'); x.drawImage(IMG.sky, 0, 0, 1, 1, 0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; skyTop = `rgb(${d[0]},${d[1]},${d[2]})`; } catch (e) {}
+  const at = Number(qs.get('at')); spawn(at && groundAt(at) ? at : fires[0]);
+  if (at) for (let i = 0; i < fires.length; i++) if (fires[i] <= at) P.cp = i;
+  cam.x = P.x - VW / 2; cam.y = P.y - VH * 0.6;
+  document.getElementById('msg').textContent = '←→ 밀기·멈추기 · ↓ 웅크려 속도 · Space 점프 → 공중에서 Space 연 펴기/접기 · 연: ↑ 들기 ↓ 숙이기 · Shift 얼음 송곳 밀기 · R 다시';
+  banner = { text: '얼어붙은 바다를 건너라', t: 2.2 };
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    update(dt); render();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.__ice = { P, cam, groundAt, fires, chunks, rails, smoke, get time() { return time; }, spawn, keys };
+})();
+</script>
+</body>
+</html>

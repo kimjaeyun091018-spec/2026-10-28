@@ -1,8 +1,8 @@
-"""인라인 스케이트 주인공(잠수부 헬멧, 2.5등신)용 프레임별 관절 포즈 → OpenPose 스켈레톤 그림.
+"""얼음 바다 스케이트 주인공(털 파카, 2.5등신)용 프레임별 관절 포즈 → OpenPose 스켈레톤 그림.
 
 poses_small.py의 체형·그리기를 그대로 쓰고 동작만 스케이트용으로 바꿈.
 동작: skate 8(한쪽씩 뒤로 밀어 차기) · tuck 1(낮게 웅크려 속도 내기) · jump 3(준비·공중·착지)
-      grind 1(레일 위 균형) · glide 2(머리 위 날개 손잡이를 잡고 활공 · 머리를 숙여 다이브) · boost 1(공기 분사)
+      grind 1(레일 위 균형) · glide 2(머리 위 연 손잡이를 잡고 활공 · 몸을 숙여 다이브) · boost 1(두 손 얼음 송곳으로 얼음을 찍어 밀기)
 Kaggle 생성 스크립트가 이 파일을 그대로 품어 씀.
 """
 import math, sys
@@ -35,27 +35,27 @@ GLIDE = [
     ((-6, 20), (-14, 26), 0.0, 8, (172, 0), (165, 0)),       # 날개 손잡이를 머리 위로 잡고 활공
     ((-20, 10), (-26, 14), 0.0, 34, (150, 0), (145, 0)),     # 머리를 숙여 다이브
 ]
-BOOST = ((-30, 10), (-40, 20), 0.03, 40, (-60, 20), (-70, 20))
+BOOST = ((30, 50), (-30, 10), 0.08, 40, (-40, 10), (-55, 10))
 
 TEXT = {
     'skate': [
-        'inline skating forward, gliding on both skates, knees bent, leaning forward',
-        'inline skating, pushing one skate backward to gain speed, leaning forward',
-        'inline skating, one leg fully stretched back after a powerful push stride, leaning forward',
-        'inline skating, bringing the back skate forward again, leaning forward',
+        'ice skating forward, gliding on both skates, knees bent, leaning forward',
+        'ice skating, pushing one skate backward to gain speed, leaning forward',
+        'ice skating, one leg fully stretched back after a powerful push stride, leaning forward',
+        'ice skating, bringing the back skate forward again, leaning forward',
     ],
-    'tuck': 'speed tuck on inline skates, crouching very low, leaning far forward',
+    'tuck': 'speed tuck on ice skates, crouching very low, leaning far forward',
     'jump': [
-        'crouching low on inline skates before jumping off a ramp',
-        'airborne jump on inline skates, knees pulled up to the chest',
-        'landing on inline skates, knees bent absorbing the impact',
+        'crouching low on ice skates before jumping off a ramp',
+        'airborne jump on ice skates, knees pulled up to the chest',
+        'landing on ice skates, knees bent absorbing the impact',
     ],
-    'grind': 'grinding along a rail on inline skates, balancing with both arms stretched out to the sides, knees bent',
+    'grind': 'grinding along a rail on ice skates, balancing with both arms stretched out to the sides, knees bent',
     'glide': [
-        'hang gliding, both arms raised straight up above the head gripping a handle bar, body hanging straight, legs together',
-        'hang gliding dive, arms raised up above the head gripping a handle bar, body tilted forward, legs trailing back',
+        'flying with a traction kite, both arms raised straight up above the head gripping a handle bar, body hanging straight, legs together',
+        'diving down with a traction kite, arms raised up above the head gripping a handle bar, body tilted forward, legs trailing back',
     ],
-    'boost': 'dashing forward with a burst, body leaning far forward, legs trailing back, arms swept back',
+    'boost': 'speed skater pushing hard with two ice picks stabbed into the ice behind, body leaning far forward, both arms swept back',
 }
 
 
@@ -98,7 +98,7 @@ COLORS = [(255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0)
           (170, 0, 255), (255, 0, 255), (255, 0, 170), (255, 0, 85)]
 
 
-def draw(points, size=1024, height=0.72, top=0.16, cx=0.5):
+def draw(points, size=1024, height=0.78, top=0.12, cx=0.5):
     im = Image.new('RGB', (size, size), (0, 0, 0))
     d = ImageDraw.Draw(im)
     P = [None if p is None else (size * cx + p[0] * size * height, size * top + p[1] * size * height) for p in points]

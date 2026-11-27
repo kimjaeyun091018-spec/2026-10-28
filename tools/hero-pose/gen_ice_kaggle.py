@@ -1,6 +1,6 @@
-# Kaggle GPU에서 실행: 스케이트 시제품(skate.html) 주인공 — 잠수부 헬멧 + 인라인 스케이트, 16프레임
-# (gen_diver_kaggle.py와 같고 인물 묘사·동작만 다름. 포즈는 poses_skate.py)
-# python tools/hero-pose/push.py tools/hero-pose/ref_diver.png --script gen_skate_kaggle.py --poses poses_skate.py --slug yuzen3220/skate-diver-pose --seeds 11,22 --cn 1.0 --ip 0.55
+# Kaggle GPU에서 실행: 얼음 바다 스케이트(ice.html) 주인공 — 털 파카 + 스케이트, 16프레임
+# (gen_diver_kaggle.py와 같은 방식. 포즈는 poses_ice.py. 참고 그림 없이 글로만 생김새를 정함 → IP-Adapter 강도 0)
+# python tools/hero-pose/push.py tools/hero-pose/ref_diver.png --script gen_ice_kaggle.py --poses poses_ice.py --slug yuzen3220/ice-skater-pose --seeds 11,22,33 --cn 1.0 --ip 0
 # SDXL + 픽셀아트 LoRA + ControlNet OpenPose(프레임별 관절 포즈) + IP-Adapter(주인공 참고 그림)
 # 이 파일은 그대로 올리지 않고, push.py가 poses.py 내용과 참고 그림을 끼워 넣어 올린다.
 import subprocess, sys, io, base64, time, json
@@ -32,12 +32,12 @@ log('loaded on', torch.cuda.get_device_name(0))
 
 # 주인공 묘사 (모든 프레임 공통). 참고 그림과 같은 인물이 되도록 생김새를 하나하나 적음
 CHARACTER = (
-    'pixel art, 16-bit video game sprite, one single small character, full body from helmet to skates, '
-    'strict side view profile facing right, small slim character about three heads tall with a big round head, '
-    'the same character as the reference: a lone survivor in a big round old brass deep sea diving helmet '
-    'with one round glass porthole glowing faint orange, a slim dark teal-gray diving suit with brown leather straps, '
-    'a small air tank on the back, wearing black inline roller skates with a row of small wheels under each boot, empty hands, '
-    'muted moody palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow')
+    'pixel art, 16-bit video game sprite, one single small character, full body from hood to skate blades, '
+    'strict side view profile facing right, small character about three heads tall with a big round head, '
+    'a lone traveler of a frozen world in a thick fur-trimmed hooded parka in faded red-brown, the big fur ruff around the hood hides the face, '
+    'round snow goggles glowing faint amber, a scarf, thick mittens, a small backpack with a coiled rope, '
+    'dark padded trousers and old leather boots with long steel ice skate blades, '
+    'muted cold palette, crisp chunky pixels with dark outline, plain flat light gray background, no ground shadow')
 NEG = ('front view, facing the viewer, three-quarter view, back view, multiple characters, two people, duplicate, sprite sheet, tall, adult proportions, raincoat, cape, '
        'extra legs, extra arms, missing legs, deformed hands, fused legs, blurry, smooth shading, 3d render, '
        'realistic photo, text, watermark, signature, frame, cropped feet, cut off hat, scenery, floor, grass')
@@ -47,7 +47,7 @@ ONLY = '__ONLY__'            # 'walk' / 'jump' / '' (전부)
 SEEDS = __SEEDS__
 CN_SCALE = __CN__
 pipe.set_ip_adapter_scale(__IP__)
-EXTRA = {'jump': ', dynamic action pose, the inline skates are clearly visible', 'skate': ', dynamic sporty pose, the inline skates are clearly visible', 'boost': ', dynamic pose', 'glide': ', the hands hold an invisible bar above the head'}
+EXTRA = {'jump': ', dynamic action pose, the skate blades are clearly visible', 'skate': ', dynamic speed skating pose, the skate blades are clearly visible', 'boost': ', dynamic pose', 'glide': ', the hands hold an invisible bar above the head', 'grind': ', the skate blades are clearly visible'}
 meta = []
 for name, pts, action in ns['all_poses']():
     if ONLY and not name.startswith(ONLY):
